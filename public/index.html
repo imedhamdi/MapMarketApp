@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -41,16 +40,17 @@
 
         .user-marker {
             background: #00B894;
-            width: 24px;
-            height: 24px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 12px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            font-size: 14px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
             border: 2px solid white;
+            position: relative;
         }
 
         .notification-badge {
@@ -77,17 +77,9 @@
         }
 
         @keyframes pulse {
-            0% {
-                transform: scale(1);
-            }
-
-            50% {
-                transform: scale(1.1);
-            }
-
-            100% {
-                transform: scale(1);
-            }
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
         }
 
         /* Animation des cercles concentriques */
@@ -102,132 +94,242 @@
         }
 
         @keyframes ring {
-            0% {
-                transform: scale(0.5);
-                opacity: 1;
-            }
-
-            100% {
-                transform: scale(1.5);
-                opacity: 0;
-            }
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
         }
 
-        /* Marqueur utilisateur amélioré */
-        .user-marker {
-            background: #00B894;
-            width: 32px;
-            height: 32px;
+        /* Animation pour la barre de recherche */
+        .search-bar {
+            transition: all 0.3s ease-out;
+            transform: translateY(-20px);
+            opacity: 0;
+        }
+        
+        .search-bar.active {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        /* Animation pour le panneau de filtres */
+        .filter-panel {
+            transition: all 0.3s ease-out;
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        
+        .filter-panel.active {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        
+        /* Style pour le range slider */
+        input[type="range"] {
+            --webkit-appearance: none;
+            height: 6px;
+            background: #D1D5DB;
+            border-radius: 3px;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #6C5CE7;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 14px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-            border: 2px solid white;
+            cursor: pointer;
+        }
+        
+        /* Checkbox personnalisé */
+        .checkbox-container input[type="checkbox"] {
+            display: none;
+        }
+        
+        .checkbox-container .checkmark {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #D1D5DB;
+            border-radius: 4px;
             position: relative;
+            margin-right: 8px;
+        }
+        
+        .checkbox-container input:checked ~ .checkmark {
+            background-color: #6C5CE7;
+            border-color: #6C5CE7;
+        }
+        
+        .checkbox-container input:checked ~ .checkmark:after {
+            content: "✓";
+            color: white;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
         }
     </style>
 </head>
-
 <body class="bg-[#F5F6FA] text-[#2D3436] font-sans h-screen overflow-hidden">
-    <!-- Header épuré -->
-    <header
-        class="fixed top-0 left-0 right-0 z-[1000] px-4 py-3 flex justify-between items-center bg-white h-[60px] border-b border-[#DCDDE1]">
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-[1000] px-4 py-3 flex justify-between items-center bg-white h-[60px] border-b border-[#DCDDE1]">
         <div class="logo font-semibold text-lg text-[#6C5CE7] flex items-center gap-2">
             <span>📍</span>
             <span>MapMarket</span>
         </div>
         <div class="header-actions flex gap-3 items-center">
-            <button
-                class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
+            <button id="searchToggleBtn" class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
                 <i class="fas fa-search"></i>
             </button>
-            <button
-                class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
+            <button class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
                 <i class="fas fa-bell"></i>
             </button>
         </div>
     </header>
 
-    <!-- Carte avec le style demandé -->
-    <main id="map" role="main" aria-label="Carte des annonces"
-        class="fixed top-[60px] bottom-[80px] left-0 right-0 z-10 leaflet-container leaflet-touch leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom">
-    </main>
+    <!-- Barre de recherche -->
+    <div id="searchBar" class="search-bar fixed top-[60px] left-0 right-0 z-[999] bg-white px-4 py-3 shadow-md">
+        <div class="flex items-center gap-2">
+            <div class="flex-1 relative">
+                <input type="text" id="searchInput" placeholder="Rechercher des annonces..." class="w-full pl-10 pr-4 py-2 border border-[#DCDDE1] rounded-full focus:outline-none focus:ring-2 focus:ring-[#6C5CE7] focus:border-transparent">
+                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-[#636E72]"></i>
+            </div>
+            <button id="filterToggleBtn" class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg">
+                <i class="fas fa-sliders-h"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Carte -->
+    <main id="map" role="main" aria-label="Carte des annonces" class="fixed top-[60px] bottom-[80px] left-0 right-0 z-10"></main>
+
+    <!-- Panneau de filtres -->
+    <div id="filterPanel" class="filter-panel fixed top-[120px] right-4 z-[998] w-72 bg-white rounded-lg shadow-xl p-4">
+        <h3 class="font-semibold text-lg mb-4 text-[#2D3436]">Filtres</h3>
+        
+        <!-- Rayon de recherche -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-[#636E72] mb-2">Rayon de recherche: <span id="radiusValue">5</span> km</label>
+            <input id="radiusRange" type="range" min="1" max="50" value="5" class="w-full">
+        </div>
+        
+        <!-- Catégories -->
+        <div class="mb-6">
+            <h4 class="font-medium text-[#636E72] mb-3">Catégories</h4>
+            <div class="space-y-2">
+                <label class="checkbox-container flex items-center cursor-pointer">
+                    <input type="checkbox" checked class="category-filter" value="immobilier">
+                    <span class="checkmark"></span>
+                    <span>Immobilier</span>
+                </label>
+                <label class="checkbox-container flex items-center cursor-pointer">
+                    <input type="checkbox" checked class="category-filter" value="vehicules">
+                    <span class="checkmark"></span>
+                    <span>Véhicules</span>
+                </label>
+                <label class="checkbox-container flex items-center cursor-pointer">
+                    <input type="checkbox" checked class="category-filter" value="emploi">
+                    <span class="checkmark"></span>
+                    <span>Emploi</span>
+                </label>
+                <label class="checkbox-container flex items-center cursor-pointer">
+                    <input type="checkbox" checked class="category-filter" value="services">
+                    <span class="checkmark"></span>
+                    <span>Services</span>
+                </label>
+            </div>
+        </div>
+        
+        <!-- Prix -->
+        <div class="mb-6">
+            <h4 class="font-medium text-[#636E72] mb-3">Prix</h4>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm text-[#636E72] mb-1">Min</label>
+                    <input type="number" id="priceMin" placeholder="Min" class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm text-[#636E72] mb-1">Max</label>
+                    <input type="number" id="priceMax" placeholder="Max" class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="flex gap-2">
+            <button id="resetFiltersBtn" class="flex-1 py-2 px-4 border border-[#6C5CE7] text-[#6C5CE7] rounded-md hover:bg-[#F5F6FA] transition">
+                Réinitialiser
+            </button>
+            <button id="applyFiltersBtn" class="flex-1 py-2 px-4 bg-[#6C5CE7] text-white rounded-md hover:bg-[#5a4dc7] transition">
+                Appliquer
+            </button>
+        </div>
+    </div>
 
     <!-- Barre d'actions en bas -->
-    <div
-        class="fixed bottom-0 left-0 right-0 z-[1000] bg-white border-t border-[#DCDDE1] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+    <div class="fixed bottom-0 left-0 right-0 z-[1000] bg-white border-t border-[#DCDDE1] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
         <div class="flex justify-around items-stretch h-20 px-2">
             <!-- Bouton Explorer -->
-            <button id="exploreBtn"
-                class="action-btn flex-1 flex flex-col items-center justify-center relative px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#6C5CE7]">
+            <button id="exploreBtn" class="action-btn flex-1 flex flex-col items-center justify-center relative px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#6C5CE7]">
                 <div class="relative">
                     <i class="fas fa-map-marker-alt text-2xl"></i>
-                    <div
-                        class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full">
-                    </div>
+                    <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full"></div>
                 </div>
                 <span class="text-xs font-medium mt-1">Explorer</span>
             </button>
-
+            
             <!-- Bouton Rechercher -->
-            <button
-                class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
+            <button class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
                 <i class="fas fa-search text-2xl"></i>
                 <span class="text-xs font-medium mt-1">Rechercher</span>
             </button>
-
+            
             <!-- Bouton central avec contour vide -->
             <div class="relative flex items-center justify-center px-1" style="flex: 0 0 auto;">
-                <button id="addBtn"
-                    class="absolute -top-6 w-14 h-14 rounded-full border-2 border-[#6C5CE7] bg-white flex items-center justify-center text-[#6C5CE7] shadow-lg transform transition-all duration-300 hover:bg-[#6C5CE7] hover:text-white active:scale-95 active:shadow-md">
+                <button id="addBtn" class="absolute -top-6 w-14 h-14 rounded-full border-2 border-[#6C5CE7] bg-white flex items-center justify-center text-[#6C5CE7] shadow-lg transform transition-all duration-300 hover:bg-[#6C5CE7] hover:text-white active:scale-95 active:shadow-md">
                     <i class="fas fa-plus text-xl"></i>
                 </button>
             </div>
-
+            
             <!-- Bouton Messages -->
-            <button
-                class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
+            <button class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
                 <div class="relative">
                     <i class="fas fa-comment-alt text-2xl"></i>
-                    <span
-                        class="notification-badge absolute -top-1 -right-2 text-xs rounded-full w-4 h-4 flex items-center justify-center">3</span>
+                    <span class="notification-badge absolute -top-1 -right-2 text-xs rounded-full w-4 h-4 flex items-center justify-center">3</span>
                 </div>
                 <span class="text-xs font-medium mt-1">Messages</span>
             </button>
-
+            
             <!-- Bouton Profil -->
-            <button
-                class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
+            <button class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
                 <i class="fas fa-user text-2xl"></i>
                 <span class="text-xs font-medium mt-1">Profil</span>
             </button>
         </div>
     </div>
 
-    <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Initialisation de la carte avec style demandé
-        const map = L.map('map', {
-            zoomControl: true,
-            attributionControl: false
-        }).setView([48.8566, 2.3522], 13);
+        // Variables globales
+        let userMarker = null;
+        let userPosition = null;
+        let accuracyCircle = null;
+        let mapMarkers = [];
+        let allMarkers = [];
 
-        // Fond de carte "voyager" comme dans l'exemple
+        // Initialisation de la carte
+        const map = L.map('map').setView([48.8566, 2.3522], 13);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        // Style pour les marqueurs
-        function createCustomMarker(lat, lng, price, icon) {
+        // Fonction pour créer des marqueurs
+        function createCustomMarker(lat, lng, price, icon, category) {
             const marker = L.marker([lat, lng], {
                 icon: L.divIcon({
                     html: `
-                        <div class="custom-marker">
+                        <div class="custom-marker" data-category="${category}" data-price="${price}">
                             ${icon}
                             <div class="marker-price">${price}€</div>
                         </div>
@@ -235,25 +337,115 @@
                     className: 'custom-marker-container',
                     iconSize: [32, 32],
                     iconAnchor: [16, 32]
-                })
+                }),
+                category: category,
+                price: parseFloat(price)
             }).addTo(map);
-
+            
+            // Ajout d'un popup avec les infos du marqueur
+            marker.bindPopup(`
+                <div class="marker-popup">
+                    <strong>${getCategoryName(category)}</strong><br>
+                    Prix: ${price}€<br>
+                    <small>${lat.toFixed(4)}, ${lng.toFixed(4)}</small>
+                </div>
+            `);
+            
+            allMarkers.push(marker);
+            mapMarkers.push(marker);
             return marker;
         }
 
-        // Exemples de marqueurs
-        createCustomMarker(48.8566, 2.3522, "120", "🚗");
-        createCustomMarker(48.8584, 2.2945, "350", "🏠");
-        createCustomMarker(48.8606, 2.3376, "50", "👕");
-        createCustomMarker(48.8625, 2.2875, "80", "📱");
-        createCustomMarker(48.8530, 2.3200, "25", "📚");
+        // Fonction pour obtenir le nom de la catégorie
+        function getCategoryName(category) {
+            const categories = {
+                'immobilier': 'Immobilier',
+                'vehicules': 'Véhicule',
+                'emploi': 'Offre d\'emploi',
+                'services': 'Service'
+            };
+            return categories[category] || category;
+        }
 
-        // Variables pour gérer le marqueur utilisateur
-        let userMarker = null;
-        let userPosition = null;
+        // Création des marqueurs initiaux
+        function initMarkers() {
+            createCustomMarker(48.8566, 2.3522, "120", "🚗", "vehicules");
+            createCustomMarker(48.8584, 2.2945, "350", "🏠", "immobilier");
+            createCustomMarker(48.8606, 2.3376, "50", "👕", "services");
+            createCustomMarker(48.8625, 2.2875, "80", "📱", "services");
+            createCustomMarker(48.8530, 2.3200, "25", "📚", "services");
+            createCustomMarker(48.8550, 2.3000, "180", "🚲", "vehicules");
+            createCustomMarker(48.8500, 2.3300, "90", "💻", "emploi");
+        }
 
+        // Fonction de filtrage
+        function filterMarkers() {
+            const radius = parseInt(document.getElementById('radiusRange').value);
+            const selectedCategories = Array.from(
+                document.querySelectorAll('.category-filter:checked')
+            ).map(el => el.value);
+            
+            const priceMin = parseFloat(document.getElementById('priceMin').value) || 0;
+            const priceMax = parseFloat(document.getElementById('priceMax').value) || Infinity;
+            
+            const searchText = document.getElementById('searchInput').value.toLowerCase();
+            
+            mapMarkers.forEach(marker => {
+                let isVisible = true;
+                
+                // Filtre par catégorie
+                if (selectedCategories.length > 0 && !selectedCategories.includes(marker.options.category)) {
+                    isVisible = false;
+                }
+                
+                // Filtre par prix
+                if (marker.options.price < priceMin || marker.options.price > priceMax) {
+                    isVisible = false;
+                }
+                
+                // Filtre par texte (si implémenté)
+                if (searchText && !getCategoryName(marker.options.category).toLowerCase().includes(searchText)) {
+                    isVisible = false;
+                }
+                
+                // Filtre par distance si position utilisateur disponible
+                if (isVisible && userPosition) {
+                    const distance = map.distance(userPosition, marker.getLatLng()) / 1000;
+                    if (distance > radius) {
+                        isVisible = false;
+                    }
+                }
+                
+                // Appliquer la visibilité
+                if (isVisible) {
+                    map.addLayer(marker);
+                    marker.setOpacity(1);
+                } else {
+                    marker.setOpacity(0);
+                }
+            });
+            
+            filterPanel.classList.remove('active');
+        }
 
-        // Bouton Explorer - Version améliorée
+        // Réinitialisation des filtres
+        function resetFilters() {
+            document.getElementById('radiusRange').value = 5;
+            document.getElementById('radiusValue').textContent = '5';
+            document.querySelectorAll('.category-filter').forEach(checkbox => {
+                checkbox.checked = true;
+            });
+            document.getElementById('priceMin').value = '';
+            document.getElementById('priceMax').value = '';
+            document.getElementById('searchInput').value = '';
+            
+            mapMarkers.forEach(marker => {
+                map.addLayer(marker);
+                marker.setOpacity(1);
+            });
+        }
+
+        // Géolocalisation
         document.getElementById('exploreBtn').addEventListener('click', () => {
             if (!navigator.geolocation) {
                 alert("La géolocalisation n'est pas supportée par votre navigateur");
@@ -263,42 +455,43 @@
             // Feedback visuel pendant la recherche
             const btn = document.getElementById('exploreBtn');
             btn.innerHTML = `
-        <div class="relative">
-            <i class="fas fa-circle-notch fa-spin text-2xl"></i>
-            <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full"></div>
-        </div>
-        <span class="text-xs font-medium mt-1">Localisation...</span>
-    `;
+                <div class="relative">
+                    <i class="fas fa-circle-notch fa-spin text-2xl"></i>
+                    <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full"></div>
+                </div>
+                <span class="text-xs font-medium mt-1">Localisation...</span>
+            `;
 
             // Options améliorées pour la géolocalisation
             const options = {
-                enableHighAccuracy: true,  // Utilise le GPS si disponible
-                timeout: 15000,           // Temps d'attente augmenté à 15s
-                maximumAge: 30000         // Accepte une position mise en cache de moins de 30s
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 30000
             };
 
             navigator.geolocation.getCurrentPosition(
                 position => {
                     // Réussite - Remet le texte original du bouton
                     btn.innerHTML = `
-                <div class="relative">
-                    <i class="fas fa-map-marker-alt text-2xl"></i>
-                    <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full"></div>
-                </div>
-                <span class="text-xs font-medium mt-1">Explorer</span>
-            `;
+                        <div class="relative">
+                            <i class="fas fa-map-marker-alt text-2xl"></i>
+                            <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full"></div>
+                        </div>
+                        <span class="text-xs font-medium mt-1">Explorer</span>
+                    `;
 
                     placeUserMarker(position);
+                    filterMarkers(); // Re-filtre après nouvelle position
                 },
                 error => {
                     // Échec - Remet le texte original et affiche un message détaillé
                     btn.innerHTML = `
-                <div class="relative">
-                    <i class="fas fa-map-marker-alt text-2xl"></i>
-                    <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full"></div>
-                </div>
-                <span class="text-xs font-medium mt-1">Explorer</span>
-            `;
+                        <div class="relative">
+                            <i class="fas fa-map-marker-alt text-2xl"></i>
+                            <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full"></div>
+                        </div>
+                        <span class="text-xs font-medium mt-1">Explorer</span>
+                    `;
 
                     let errorMessage;
                     switch (error.code) {
@@ -322,43 +515,38 @@
             );
         });
 
-        // Fonction améliorée pour placer le marqueur utilisateur
+        // Fonction pour placer le marqueur utilisateur
         function placeUserMarker(position) {
             const userLatLng = [position.coords.latitude, position.coords.longitude];
+            userPosition = userLatLng;
 
             // Supprime l'ancien marqueur s'il existe
             if (userMarker) {
                 map.removeLayer(userMarker);
+            }
+            if (accuracyCircle) {
+                map.removeLayer(accuracyCircle);
             }
 
             // Crée un nouveau marqueur stylé avec animation
             userMarker = L.marker(userLatLng, {
                 icon: L.divIcon({
                     html: `
-                <div class="user-marker animate-pulse">
-                    <i class="fas fa-user"></i>
-                    <div class="ring-animation"></div>
-                </div>
-            `,
+                        <div class="user-marker animate-pulse">
+                            <i class="fas fa-user"></i>
+                            <div class="ring-animation"></div>
+                        </div>
+                    `,
                     className: 'user-marker-container',
                     iconSize: [32, 32],
                     iconAnchor: [16, 32]
                 }),
-                zIndexOffset: 1000  // Place le marqueur au-dessus des autres
+                zIndexOffset: 1000
             }).addTo(map)
-                .bindPopup("<b>Vous êtes ici</b><br>Précision: " + Math.round(position.coords.accuracy) + " mètres")
-                .openPopup();
+              .bindPopup("<b>Vous êtes ici</b><br>Précision: " + Math.round(position.coords.accuracy) + " mètres")
+              .openPopup();
 
-            // Centre la carte sur la position avec un zoom adapté
-            map.setView(userLatLng, 15, {
-                animate: true,
-                duration: 1
-            });
-
-            // Ajoute un cercle de précision
-            if (accuracyCircle) {
-                map.removeLayer(accuracyCircle);
-            }
+            // Cercle de précision
             accuracyCircle = L.circle(userLatLng, {
                 radius: position.coords.accuracy,
                 color: '#00B894',
@@ -366,7 +554,63 @@
                 fillOpacity: 0.2,
                 weight: 1
             }).addTo(map);
+
+            // Centre la carte
+            map.setView(userLatLng, 15, {
+                animate: true,
+                duration: 1
+            });
         }
+
+        // Gestion de la barre de recherche
+        const searchToggleBtn = document.getElementById('searchToggleBtn');
+        const searchBar = document.getElementById('searchBar');
+        const filterToggleBtn = document.getElementById('filterToggleBtn');
+        const filterPanel = document.getElementById('filterPanel');
+        const radiusRange = document.getElementById('radiusRange');
+        const radiusValue = document.getElementById('radiusValue');
+        const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+        const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+        const searchInput = document.getElementById('searchInput');
+
+        // Toggle barre de recherche
+        searchToggleBtn.addEventListener('click', () => {
+            searchBar.classList.toggle('active');
+            if (filterPanel.classList.contains('active')) {
+                filterPanel.classList.remove('active');
+            }
+        });
+
+        // Toggle panneau de filtres
+        filterToggleBtn.addEventListener('click', () => {
+            filterPanel.classList.toggle('active');
+        });
+
+        // Mise à jour de la valeur du rayon
+        radiusRange.addEventListener('input', () => {
+            radiusValue.textContent = radiusRange.value;
+        });
+
+        // Appliquer les filtres
+        applyFiltersBtn.addEventListener('click', filterMarkers);
+
+        // Réinitialiser les filtres
+        resetFiltersBtn.addEventListener('click', resetFilters);
+
+        // Recherche par texte
+        searchInput.addEventListener('input', () => {
+            if (searchInput.value.length > 2 || searchInput.value.length === 0) {
+                filterMarkers();
+            }
+        });
+
+        // Fermer le panneau si on clique en dehors
+        document.addEventListener('click', (e) => {
+            if (!filterPanel.contains(e.target) && e.target !== filterToggleBtn) {
+                filterPanel.classList.remove('active');
+            }
+        });
+
         // Bouton d'ajout
         document.getElementById('addBtn').addEventListener('click', () => {
             alert("Fonctionnalité d'ajout d'annonce");
@@ -374,7 +618,7 @@
 
         // Animation des boutons
         document.querySelectorAll('.action-btn').forEach(btn => {
-            btn.addEventListener('click', function () {
+            btn.addEventListener('click', function() {
                 document.querySelectorAll('.action-btn').forEach(b => {
                     b.classList.remove('text-[#6C5CE7]');
                     const icon = b.querySelector('i');
@@ -385,7 +629,9 @@
                 if (icon) icon.classList.add('text-[#6C5CE7]');
             });
         });
+
+        // Initialisation
+        initMarkers();
     </script>
 </body>
-
 </html>
