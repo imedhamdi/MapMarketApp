@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -77,9 +78,17 @@
         }
 
         @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.1);
+            }
+
+            100% {
+                transform: scale(1);
+            }
         }
 
         /* Animation des cercles concentriques */
@@ -94,8 +103,15 @@
         }
 
         @keyframes ring {
-            0% { transform: scale(0.5); opacity: 1; }
-            100% { transform: scale(1.5); opacity: 0; }
+            0% {
+                transform: scale(0.5);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(1.5);
+                opacity: 0;
+            }
         }
 
         /* Animation pour la barre de recherche */
@@ -104,24 +120,24 @@
             transform: translateY(-20px);
             opacity: 0;
         }
-        
+
         .search-bar.active {
             transform: translateY(0);
             opacity: 1;
         }
-        
+
         /* Animation pour le panneau de filtres */
         .filter-panel {
             transition: all 0.3s ease-out;
             transform: translateX(100%);
             opacity: 0;
         }
-        
+
         .filter-panel.active {
             transform: translateX(0);
             opacity: 1;
         }
-        
+
         /* Style pour le range slider */
         input[type="range"] {
             --webkit-appearance: none;
@@ -129,7 +145,7 @@
             background: #D1D5DB;
             border-radius: 3px;
         }
-        
+
         input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
             width: 18px;
@@ -138,12 +154,12 @@
             border-radius: 50%;
             cursor: pointer;
         }
-        
+
         /* Checkbox personnalisé */
         .checkbox-container input[type="checkbox"] {
             display: none;
         }
-        
+
         .checkbox-container .checkmark {
             display: inline-block;
             width: 18px;
@@ -153,13 +169,13 @@
             position: relative;
             margin-right: 8px;
         }
-        
-        .checkbox-container input:checked ~ .checkmark {
+
+        .checkbox-container input:checked~.checkmark {
             background-color: #6C5CE7;
             border-color: #6C5CE7;
         }
-        
-        .checkbox-container input:checked ~ .checkmark:after {
+
+        .checkbox-container input:checked~.checkmark:after {
             content: "✓";
             color: white;
             position: absolute;
@@ -168,20 +184,102 @@
             transform: translate(-50%, -50%);
             font-size: 12px;
         }
+
+        /* Styles pour le modal des favoris */
+        .favorites-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .favorites-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .favorites-content {
+            background-color: white;
+            width: 90%;
+            max-width: 400px;
+            max-height: 80vh;
+            border-radius: 12px;
+            padding: 20px;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+        }
+
+        .favorites-modal.active .favorites-content {
+            transform: translateY(0);
+        }
+
+        .favorite-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .favorite-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .favorite-item-icon {
+            margin-right: 12px;
+            color: #6C5CE7;
+            font-size: 20px;
+        }
+
+        .favorite-item-details {
+            flex: 1;
+        }
+
+        .favorite-item-title {
+            font-weight: 600;
+            color: #2D3436;
+        }
+
+        .favorite-item-price {
+            color: #6C5CE7;
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .no-favorites {
+            text-align: center;
+            padding: 20px;
+            color: #636E72;
+        }
     </style>
 </head>
+
 <body class="bg-[#F5F6FA] text-[#2D3436] font-sans h-screen overflow-hidden">
     <!-- Header -->
-    <header class="fixed top-0 left-0 right-0 z-[1000] px-4 py-3 flex justify-between items-center bg-white h-[60px] border-b border-[#DCDDE1]">
+    <header
+        class="fixed top-0 left-0 right-0 z-[1000] px-4 py-3 flex justify-between items-center bg-white h-[60px] border-b border-[#DCDDE1]">
         <div class="logo font-semibold text-lg text-[#6C5CE7] flex items-center gap-2">
             <span>📍</span>
             <span>MapMarket</span>
         </div>
         <div class="header-actions flex gap-3 items-center">
-            <button id="searchToggleBtn" class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
+            <button id="searchToggleBtn"
+                class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
                 <i class="fas fa-search"></i>
             </button>
-            <button class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
+            <button
+                class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
                 <i class="fas fa-bell"></i>
             </button>
         </div>
@@ -191,28 +289,32 @@
     <div id="searchBar" class="search-bar fixed top-[60px] left-0 right-0 z-[999] bg-white px-4 py-3 shadow-md">
         <div class="flex items-center gap-2">
             <div class="flex-1 relative">
-                <input type="text" id="searchInput" placeholder="Rechercher des annonces..." class="w-full pl-10 pr-4 py-2 border border-[#DCDDE1] rounded-full focus:outline-none focus:ring-2 focus:ring-[#6C5CE7] focus:border-transparent">
+                <input type="text" id="searchInput" placeholder="Rechercher des annonces..."
+                    class="w-full pl-10 pr-4 py-2 border border-[#DCDDE1] rounded-full focus:outline-none focus:ring-2 focus:ring-[#6C5CE7] focus:border-transparent">
                 <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-[#636E72]"></i>
             </div>
-            <button id="filterToggleBtn" class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg">
+            <button id="filterToggleBtn"
+                class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg">
                 <i class="fas fa-sliders-h"></i>
             </button>
         </div>
     </div>
 
     <!-- Carte -->
-    <main id="map" role="main" aria-label="Carte des annonces" class="fixed top-[60px] bottom-[80px] left-0 right-0 z-10"></main>
+    <main id="map" role="main" aria-label="Carte des annonces"
+        class="fixed top-[60px] bottom-[80px] left-0 right-0 z-10"></main>
 
     <!-- Panneau de filtres -->
     <div id="filterPanel" class="filter-panel fixed top-[120px] right-4 z-[998] w-72 bg-white rounded-lg shadow-xl p-4">
         <h3 class="font-semibold text-lg mb-4 text-[#2D3436]">Filtres</h3>
-        
+
         <!-- Rayon de recherche -->
         <div class="mb-6">
-            <label class="block text-sm font-medium text-[#636E72] mb-2">Rayon de recherche: <span id="radiusValue">5</span> km</label>
+            <label class="block text-sm font-medium text-[#636E72] mb-2">Rayon de recherche: <span
+                    id="radiusValue">5</span> km</label>
             <input id="radiusRange" type="range" min="1" max="50" value="5" class="w-full">
         </div>
-        
+
         <!-- Catégories -->
         <div class="mb-6">
             <h4 class="font-medium text-[#636E72] mb-3">Catégories</h4>
@@ -239,69 +341,100 @@
                 </label>
             </div>
         </div>
-        
+
         <!-- Prix -->
         <div class="mb-6">
             <h4 class="font-medium text-[#636E72] mb-3">Prix</h4>
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm text-[#636E72] mb-1">Min</label>
-                    <input type="number" id="priceMin" placeholder="Min" class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md">
+                    <input type="number" id="priceMin" placeholder="Min"
+                        class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md">
                 </div>
                 <div>
                     <label class="block text-sm text-[#636E72] mb-1">Max</label>
-                    <input type="number" id="priceMax" placeholder="Max" class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md">
+                    <input type="number" id="priceMax" placeholder="Max"
+                        class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md">
                 </div>
             </div>
         </div>
-        
+
         <!-- Boutons d'action -->
         <div class="flex gap-2">
-            <button id="resetFiltersBtn" class="flex-1 py-2 px-4 border border-[#6C5CE7] text-[#6C5CE7] rounded-md hover:bg-[#F5F6FA] transition">
+            <button id="resetFiltersBtn"
+                class="flex-1 py-2 px-4 border border-[#6C5CE7] text-[#6C5CE7] rounded-md hover:bg-[#F5F6FA] transition">
                 Réinitialiser
             </button>
-            <button id="applyFiltersBtn" class="flex-1 py-2 px-4 bg-[#6C5CE7] text-white rounded-md hover:bg-[#5a4dc7] transition">
+            <button id="applyFiltersBtn"
+                class="flex-1 py-2 px-4 bg-[#6C5CE7] text-white rounded-md hover:bg-[#5a4dc7] transition">
                 Appliquer
             </button>
         </div>
     </div>
+    <!-- Modal des favoris -->
+    <div id="favoritesModal" class="favorites-modal">
+        <div class="favorites-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-[#2D3436]">Mes favoris</h3>
+                <button id="closeFavoritesModal" class="text-[#636E72] hover:text-[#6C5CE7]">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
 
+            <div id="favoritesList">
+                <!-- Les favoris seront chargés ici dynamiquement -->
+                <div class="no-favorites">
+                    <i class="fas fa-heart text-2xl text-[#6C5CE7] mb-2"></i>
+                    <p>Aucun favori pour le moment</p>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Barre d'actions en bas -->
-    <div class="fixed bottom-0 left-0 right-0 z-[1000] bg-white border-t border-[#DCDDE1] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+    <div
+        class="fixed bottom-0 left-0 right-0 z-[1000] bg-white border-t border-[#DCDDE1] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
         <div class="flex justify-around items-stretch h-20 px-2">
             <!-- Bouton Explorer -->
-            <button id="exploreBtn" class="action-btn flex-1 flex flex-col items-center justify-center relative px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#6C5CE7]">
+            <button id="exploreBtn"
+                class="action-btn flex-1 flex flex-col items-center justify-center relative px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#6C5CE7]">
                 <div class="relative">
                     <i class="fas fa-map-marker-alt text-2xl"></i>
-                    <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full"></div>
+                    <div
+                        class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full">
+                    </div>
                 </div>
                 <span class="text-xs font-medium mt-1">Explorer</span>
             </button>
-            
-            <!-- Bouton Rechercher -->
-            <button class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
-                <i class="fas fa-search text-2xl"></i>
-                <span class="text-xs font-medium mt-1">Rechercher</span>
+
+            <!-- Bouton Favoris -->
+            <button id="favoritesBtn"
+                class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
+                <i class="fas fa-heart text-2xl"></i>
+                <span class="text-xs font-medium mt-1">Favoris</span>
             </button>
-            
+
             <!-- Bouton central avec contour vide -->
             <div class="relative flex items-center justify-center px-1" style="flex: 0 0 auto;">
-                <button id="addBtn" class="absolute -top-6 w-14 h-14 rounded-full border-2 border-[#6C5CE7] bg-white flex items-center justify-center text-[#6C5CE7] shadow-lg transform transition-all duration-300 hover:bg-[#6C5CE7] hover:text-white active:scale-95 active:shadow-md">
+                <button id="addBtn"
+                    class="absolute -top-6 w-14 h-14 rounded-full border-2 border-[#6C5CE7] bg-white flex items-center justify-center text-[#6C5CE7] shadow-lg transform transition-all duration-300 hover:bg-[#6C5CE7] hover:text-white active:scale-95 active:shadow-md">
                     <i class="fas fa-plus text-xl"></i>
                 </button>
             </div>
-            
+
             <!-- Bouton Messages -->
-            <button class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
+            <button
+                class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
                 <div class="relative">
                     <i class="fas fa-comment-alt text-2xl"></i>
-                    <span class="notification-badge absolute -top-1 -right-2 text-xs rounded-full w-4 h-4 flex items-center justify-center">3</span>
+                    <span
+                        class="notification-badge absolute -top-1 -right-2 text-xs rounded-full w-4 h-4 flex items-center justify-center">3</span>
                 </div>
                 <span class="text-xs font-medium mt-1">Messages</span>
             </button>
-            
+
             <!-- Bouton Profil -->
-            <button class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
+            <button
+                class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
                 <i class="fas fa-user text-2xl"></i>
                 <span class="text-xs font-medium mt-1">Profil</span>
             </button>
@@ -316,6 +449,9 @@
         let accuracyCircle = null;
         let mapMarkers = [];
         let allMarkers = [];
+        let favorites = [];
+        let authToken = null; // À remplacer par votre token d'authentification
+
 
         // Initialisation de la carte
         const map = L.map('map').setView([48.8566, 2.3522], 13);
@@ -325,7 +461,7 @@
         }).addTo(map);
 
         // Fonction pour créer des marqueurs
-        function createCustomMarker(lat, lng, price, icon, category) {
+        function createCustomMarker(lat, lng, price, icon, category, itemId) {
             const marker = L.marker([lat, lng], {
                 icon: L.divIcon({
                     html: `
@@ -339,9 +475,11 @@
                     iconAnchor: [16, 32]
                 }),
                 category: category,
-                price: parseFloat(price)
+                price: parseFloat(price),
+                itemId: itemId || Math.random().toString(36).substr(2, 9) // ID unique si non fourni
             }).addTo(map);
-            
+
+
             // Ajout d'un popup avec les infos du marqueur
             marker.bindPopup(`
                 <div class="marker-popup">
@@ -350,7 +488,7 @@
                     <small>${lat.toFixed(4)}, ${lng.toFixed(4)}</small>
                 </div>
             `);
-            
+
             allMarkers.push(marker);
             mapMarkers.push(marker);
             return marker;
@@ -384,30 +522,30 @@
             const selectedCategories = Array.from(
                 document.querySelectorAll('.category-filter:checked')
             ).map(el => el.value);
-            
+
             const priceMin = parseFloat(document.getElementById('priceMin').value) || 0;
             const priceMax = parseFloat(document.getElementById('priceMax').value) || Infinity;
-            
+
             const searchText = document.getElementById('searchInput').value.toLowerCase();
-            
+
             mapMarkers.forEach(marker => {
                 let isVisible = true;
-                
+
                 // Filtre par catégorie
                 if (selectedCategories.length > 0 && !selectedCategories.includes(marker.options.category)) {
                     isVisible = false;
                 }
-                
+
                 // Filtre par prix
                 if (marker.options.price < priceMin || marker.options.price > priceMax) {
                     isVisible = false;
                 }
-                
+
                 // Filtre par texte (si implémenté)
                 if (searchText && !getCategoryName(marker.options.category).toLowerCase().includes(searchText)) {
                     isVisible = false;
                 }
-                
+
                 // Filtre par distance si position utilisateur disponible
                 if (isVisible && userPosition) {
                     const distance = map.distance(userPosition, marker.getLatLng()) / 1000;
@@ -415,7 +553,7 @@
                         isVisible = false;
                     }
                 }
-                
+
                 // Appliquer la visibilité
                 if (isVisible) {
                     map.addLayer(marker);
@@ -424,7 +562,7 @@
                     marker.setOpacity(0);
                 }
             });
-            
+
             filterPanel.classList.remove('active');
         }
 
@@ -438,7 +576,7 @@
             document.getElementById('priceMin').value = '';
             document.getElementById('priceMax').value = '';
             document.getElementById('searchInput').value = '';
-            
+
             mapMarkers.forEach(marker => {
                 map.addLayer(marker);
                 marker.setOpacity(1);
@@ -543,8 +681,8 @@
                 }),
                 zIndexOffset: 1000
             }).addTo(map)
-              .bindPopup("<b>Vous êtes ici</b><br>Précision: " + Math.round(position.coords.accuracy) + " mètres")
-              .openPopup();
+                .bindPopup("<b>Vous êtes ici</b><br>Précision: " + Math.round(position.coords.accuracy) + " mètres")
+                .openPopup();
 
             // Cercle de précision
             accuracyCircle = L.circle(userLatLng, {
@@ -618,7 +756,7 @@
 
         // Animation des boutons
         document.querySelectorAll('.action-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', function () {
                 document.querySelectorAll('.action-btn').forEach(b => {
                     b.classList.remove('text-[#6C5CE7]');
                     const icon = b.querySelector('i');
@@ -629,9 +767,115 @@
                 if (icon) icon.classList.add('text-[#6C5CE7]');
             });
         });
+        // Fonction pour charger les favoris depuis l'API
+        async function loadFavorites() {
+            try {
+                const response = await fetch('/api/favorites', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
 
+                if (response.ok) {
+                    favorites = await response.json();
+                    renderFavorites();
+                } else {
+                    console.error('Erreur lors du chargement des favoris');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+
+        // Fonction pour afficher les favoris dans le modal
+        function renderFavorites() {
+            const favoritesList = document.getElementById('favoritesList');
+
+            if (favorites.length === 0) {
+                favoritesList.innerHTML = `
+                    <div class="no-favorites">
+                        <i class="fas fa-heart text-2xl text-[#6C5CE7] mb-2"></i>
+                        <p>Aucun favori pour le moment</p>
+                    </div>
+                `;
+                return;
+            }
+
+            favoritesList.innerHTML = '';
+
+            favorites.forEach(fav => {
+                const favoriteItem = document.createElement('div');
+                favoriteItem.className = 'favorite-item';
+                favoriteItem.innerHTML = `
+                    <div class="favorite-item-icon">
+                        <i class="fas fa-${getCategoryIcon(fav.category)}"></i>
+                    </div>
+                    <div class="favorite-item-details">
+                        <div class="favorite-item-title">${fav.title}</div>
+                        <div class="favorite-item-price">${fav.price}€</div>
+                    </div>
+                `;
+
+                favoriteItem.addEventListener('click', () => {
+                    zoomToFavorite(fav.itemId);
+                    document.getElementById('favoritesModal').classList.remove('active');
+                });
+
+                favoritesList.appendChild(favoriteItem);
+            });
+        }
+
+        // Fonction pour zoomer sur un favori
+        function zoomToFavorite(itemId) {
+            const marker = allMarkers.find(m => m.options.itemId === itemId);
+            if (marker) {
+                map.setView(marker.getLatLng(), 16, {
+                    animate: true,
+                    duration: 0.5
+                });
+                marker.openPopup();
+
+                // Animation du marqueur
+                const icon = marker.getElement();
+                if (icon) {
+                    icon.classList.add('animate-bounce');
+                    setTimeout(() => {
+                        icon.classList.remove('animate-bounce');
+                    }, 2000);
+                }
+            }
+        }
+
+        // Fonction utilitaire pour obtenir l'icône de catégorie
+        function getCategoryIcon(category) {
+            const icons = {
+                'immobilier': 'home',
+                'vehicules': 'car',
+                'emploi': 'briefcase',
+                'services': 'concierge-bell'
+            };
+            return icons[category] || 'map-marker-alt';
+        }
+
+        // Gestion du modal des favoris
+        document.getElementById('favoritesBtn').addEventListener('click', () => {
+            document.getElementById('favoritesModal').classList.add('active');
+            loadFavorites();
+        });
+
+        document.getElementById('closeFavoritesModal').addEventListener('click', () => {
+            document.getElementById('favoritesModal').classList.remove('active');
+        });
+
+        // Fermer le modal en cliquant à l'extérieur
+        document.getElementById('favoritesModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('favoritesModal')) {
+                document.getElementById('favoritesModal').classList.remove('active');
+            }
+        });
         // Initialisation
         initMarkers();
     </script>
 </body>
+
 </html>
