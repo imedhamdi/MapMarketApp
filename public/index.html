@@ -262,6 +262,428 @@
             padding: 20px;
             color: #636E72;
         }
+
+        /* Modal Annonce */
+        .annonce-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 20px;
+        }
+
+        .annonce-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .annonce-content {
+            background-color: white;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            border-radius: 16px;
+            overflow: hidden;
+            transform: translateY(30px);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .annonce-modal.active .annonce-content {
+            transform: translateY(0);
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 36px;
+            height: 36px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            cursor: pointer;
+            z-index: 10;
+            color: #2D3436;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .close-btn:hover {
+            background-color: #F5F6FA;
+        }
+
+        .image-carousel {
+            position: relative;
+            height: 250px;
+            background-color: #F5F6FA;
+        }
+
+        .main-image {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .main-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .thumbnails {
+            display: flex;
+            gap: 8px;
+            padding: 10px;
+            overflow-x: auto;
+        }
+
+        .thumbnail {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .thumbnail.active {
+            border-color: #6C5CE7;
+        }
+
+        .annonce-details {
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .annonce-header {
+            margin-bottom: 20px;
+        }
+
+        .annonce-header h2 {
+            font-size: 1.5rem;
+            color: #2D3436;
+            margin-bottom: 10px;
+        }
+
+        .seller-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .seller-avatar {
+            width: 40px;
+            height: 40px;
+            background-color: #6C5CE7;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .seller-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .seller-rating {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #636E72;
+            font-size: 0.8rem;
+        }
+
+        .seller-rating i {
+            color: #FFD700;
+        }
+
+        .price-condition,
+        .location-category {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .price-section,
+        .condition-section,
+        .location-section,
+        .category-section {
+            flex: 1;
+        }
+
+        .label {
+            display: block;
+            color: #636E72;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+
+        .price {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #6C5CE7;
+        }
+
+        .condition,
+        .category {
+            font-weight: 500;
+        }
+
+        .distance {
+            color: #636E72;
+            font-size: 0.9rem;
+        }
+
+        .description-section {
+            margin-bottom: 25px;
+        }
+
+        .description-section h3 {
+            margin-bottom: 10px;
+            color: #2D3436;
+        }
+
+        .description-section p {
+            color: #636E72;
+            line-height: 1.5;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .favorite-btn,
+        .contact-btn {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .favorite-btn {
+            background-color: #F5F6FA;
+            color: #2D3436;
+            border: 1px solid #DCDDE1;
+        }
+
+        .favorite-btn:hover {
+            background-color: #EDEDED;
+        }
+
+        .favorite-btn.active {
+            background-color: rgba(108, 92, 231, 0.1);
+            color: #6C5CE7;
+            border-color: #6C5CE7;
+        }
+
+        .favorite-btn .favorite-badge {
+            display: none;
+            color: #6C5CE7;
+        }
+
+        .favorite-btn.active .favorite-badge {
+            display: inline;
+        }
+
+        .contact-btn {
+            background-color: #6C5CE7;
+            color: white;
+            border: none;
+        }
+
+        .contact-btn:hover {
+            background-color: #5a4dc7;
+        }
+
+        /* Animation pour le badge favori */
+        @keyframes bounce {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.2);
+            }
+        }
+
+        .favorite-badge {
+            animation: bounce 0.3s;
+        }
+
+        /* Modal d'authentification */
+        .auth-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .auth-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .auth-content {
+            background-color: white;
+            width: 90%;
+            max-width: 400px;
+            border-radius: 16px;
+            padding: 30px;
+            transform: translateY(30px);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .auth-modal.active .auth-content {
+            transform: translateY(0);
+        }
+
+        .auth-forms-container {
+            position: relative;
+            overflow: hidden;
+            min-height: 300px;
+            height: auto;
+            /* Ajoutez cette ligne */
+        }
+
+        .auth-form {
+            position: absolute;
+            width: 100%;
+            padding: 0 10px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
+            transform: translateX(100%);
+            visibility: hidden;
+            /* Ajoutez cette ligne */
+        }
+
+        .auth-form.active {
+            opacity: 1;
+            transform: translateX(0);
+            visibility: visible;
+            /* Ajoutez cette ligne */
+            position: relative;
+            /* Changez en relative pour le formulaire actif */
+        }
+
+        .auth-form.left {
+            transform: translateX(-100%);
+        }
+
+        .auth-title {
+            text-align: center;
+            color: #6C5CE7;
+            margin-bottom: 25px;
+            font-size: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #636E72;
+            font-size: 0.9rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #DCDDE1;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #6C5CE7;
+        }
+
+        .auth-submit-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #6C5CE7;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 10px;
+        }
+
+        .auth-submit-btn:hover {
+            background-color: #5a4dc7;
+        }
+
+        .auth-footer {
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            /* Augmentez cet espacement */
+        }
+
+        .auth-switch-btn {
+            color: #6C5CE7;
+            text-decoration: none;
+            font-size: 0.9rem;
+            display: block;
+            text-align: center;
+            padding: 5px 0;
+            transition: color 0.2s;
+        }
+
+
+        .auth-switch-btn:hover {
+            color: #5a4dc7;
+            text-decoration: underline;
+        }
     </style>
 </head>
 
@@ -274,17 +696,94 @@
             <span>MapMarket</span>
         </div>
         <div class="header-actions flex gap-3 items-center">
-            <button id="searchToggleBtn"
+            <!-- Icône d'authentification -->
+            <button id="authIcon"
                 class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
-                <i class="fas fa-search"></i>
+                <i class="fas fa-user"></i>
             </button>
-            <button
-                class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
-                <i class="fas fa-bell"></i>
-            </button>
-        </div>
+            <div class="header-actions flex gap-3 items-center">
+                <button id="searchToggleBtn"
+                    class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
+                    <i class="fas fa-search"></i>
+                </button>
+                <button
+                    class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
+                    <i class="fas fa-bell"></i>
+                </button>
+            </div>
     </header>
+    <!-- Modal d'authentification -->
+    <div id="authModal" class="auth-modal">
+        <div class="auth-content">
+            <button id="closeAuthModal" class="close-btn">
+                <i class="fas fa-times"></i>
+            </button>
 
+            <div class="auth-forms-container">
+                <!-- Formulaire de connexion -->
+                <div id="loginForm" class="auth-form active">
+                    <h2 class="auth-title">Connexion</h2>
+                    <form id="loginFormContent">
+                        <div class="form-group">
+                            <label for="loginEmail">Email</label>
+                            <input type="email" id="loginEmail" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">Mot de passe</label>
+                            <input type="password" id="loginPassword" required>
+                        </div>
+                        <button type="submit" class="auth-submit-btn">Se connecter</button>
+                    </form>
+                    <div class="auth-footer">
+                        <a href="#" class="auth-switch-btn" data-target="registerForm">Créer un compte</a>
+                        <a href="#" class="auth-switch-btn" data-target="forgotForm">Mot de passe oublié ?</a>
+                    </div>
+                </div>
+
+                <!-- Formulaire d'inscription -->
+                <div id="registerForm" class="auth-form">
+                    <h2 class="auth-title">Inscription</h2>
+                    <form id="registerFormContent">
+                        <div class="form-group">
+                            <label for="registerName">Nom complet</label>
+                            <input type="text" id="registerName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerEmail">Email</label>
+                            <input type="email" id="registerEmail" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPassword">Mot de passe</label>
+                            <input type="password" id="registerPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerConfirmPassword">Confirmer le mot de passe</label>
+                            <input type="password" id="registerConfirmPassword" required>
+                        </div>
+                        <button type="submit" class="auth-submit-btn">S'inscrire</button>
+                    </form>
+                    <div class="auth-footer">
+                        <a href="#" class="auth-switch-btn" data-target="loginForm">Déjà un compte ? Se connecter</a>
+                    </div>
+                </div>
+
+                <!-- Formulaire de réinitialisation -->
+                <div id="forgotForm" class="auth-form">
+                    <h2 class="auth-title">Réinitialiser le mot de passe</h2>
+                    <form id="forgotFormContent">
+                        <div class="form-group">
+                            <label for="forgotEmail">Email</label>
+                            <input type="email" id="forgotEmail" required>
+                        </div>
+                        <button type="submit" class="auth-submit-btn">Envoyer le lien</button>
+                    </form>
+                    <div class="auth-footer">
+                        <a href="#" class="auth-switch-btn" data-target="loginForm">Retour à la connexion</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Barre de recherche -->
     <div id="searchBar" class="search-bar fixed top-[60px] left-0 right-0 z-[999] bg-white px-4 py-3 shadow-md">
         <div class="flex items-center gap-2">
@@ -390,6 +889,93 @@
             </div>
         </div>
     </div>
+
+
+
+    <!-- Modal d'annonce -->
+    <div id="annonceModal" class="annonce-modal">
+        <div class="annonce-content">
+            <button id="closeAnnonceModal" class="close-btn">
+                <i class="fas fa-times"></i>
+            </button>
+
+            <!-- Carrousel d'images -->
+            <div class="image-carousel">
+                <div class="main-image">
+                    <img id="annonceMainImage" src="" alt="Image principale">
+                </div>
+                <div class="thumbnails">
+                    <!-- Les miniatures seront ajoutées dynamiquement -->
+                </div>
+            </div>
+
+            <div class="annonce-details">
+                <!-- En-tête -->
+                <div class="annonce-header">
+                    <h2 id="annonceTitle">Table à manger + 4 chaises</h2>
+                    <div class="seller-info">
+                        <div class="seller-avatar">PL</div>
+                        <div class="seller-details">
+                            <span id="annonceSeller">Pierre Lefevre</span>
+                            <div class="seller-rating">
+                                <i class="fas fa-star"></i>
+                                <span id="annonceRating">(9 avis)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prix et état -->
+                <div class="price-condition">
+                    <div class="price-section">
+                        <span class="label">Prix</span>
+                        <span id="annoncePrice" class="price">350€</span>
+                    </div>
+                    <div class="condition-section">
+                        <span class="label">État</span>
+                        <span id="annonceCondition" class="condition">Très bon état</span>
+                    </div>
+                </div>
+
+                <!-- Localisation et catégorie -->
+                <div class="location-category">
+                    <div class="location-section">
+                        <span class="label">Localisation</span>
+                        <div class="location-details">
+                            <span id="annonceLocation">Paris 3ème</span>
+                            <span id="annonceDistance" class="distance">À 6.3km</span>
+                        </div>
+                    </div>
+                    <div class="category-section">
+                        <span class="label">Catégorie</span>
+                        <span id="annonceCategory" class="category">Maison</span>
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div class="description-section">
+                    <h3>Description</h3>
+                    <p id="annonceDescription">Table en chêne massif, 140×80cm, avec 4 chaises assorties. Excellent
+                        état.</p>
+                </div>
+
+                <!-- Boutons d'action -->
+                <div class="action-buttons">
+                    <button id="favoriteBtn" class="favorite-btn">
+                        <i class="far fa-heart"></i>
+                        <span>Favori</span>
+                        <span class="favorite-badge">✓</span>
+                    </button>
+                    <button id="contactBtn" class="contact-btn">
+                        <i class="fas fa-comment-dots"></i>
+                        <span>Contacter</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Barre d'actions en bas -->
     <div
         class="fixed bottom-0 left-0 right-0 z-[1000] bg-white border-t border-[#DCDDE1] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
@@ -461,36 +1047,47 @@
         }).addTo(map);
 
         // Fonction pour créer des marqueurs
-        function createCustomMarker(lat, lng, price, icon, category, itemId) {
+        function createCustomMarker(lat, lng, price, icon, category, itemId, annonceData) {
             const marker = L.marker([lat, lng], {
                 icon: L.divIcon({
                     html: `
-                        <div class="custom-marker" data-category="${category}" data-price="${price}">
-                            ${icon}
-                            <div class="marker-price">${price}€</div>
-                        </div>
-                    `,
+                <div class="custom-marker" data-category="${category}" data-price="${price}">
+                    ${icon}
+                    <div class="marker-price">${price}€</div>
+                </div>
+            `,
                     className: 'custom-marker-container',
                     iconSize: [32, 32],
                     iconAnchor: [16, 32]
                 }),
                 category: category,
                 price: parseFloat(price),
-                itemId: itemId || Math.random().toString(36).substr(2, 9) // ID unique si non fourni
+                itemId: itemId || Math.random().toString(36).substr(2, 9)
             }).addTo(map);
 
-
-            // Ajout d'un popup avec les infos du marqueur
-            marker.bindPopup(`
-                <div class="marker-popup">
-                    <strong>${getCategoryName(category)}</strong><br>
-                    Prix: ${price}€<br>
-                    <small>${lat.toFixed(4)}, ${lng.toFixed(4)}</small>
-                </div>
-            `);
+            // Ajout de l'événement click pour ouvrir le modal
+            marker.on('click', function () {
+                // Utilisez annonceData si disponible, sinon créez un objet minimal
+                const annonce = annonceData || {
+                    id: itemId,
+                    title: `${category} - ${price}€`,
+                    seller: {
+                        name: "Vendeur",
+                        initials: "V",
+                        ratingCount: 0
+                    },
+                    price: price,
+                    condition: "Bon état",
+                    location: "Localisation",
+                    coordinates: [lat, lng],
+                    category: category,
+                    description: "Description non disponible",
+                    images: ["https://via.placeholder.com/400"]
+                };
+                showAnnonceModal(annonce);
+            });
 
             allMarkers.push(marker);
-            mapMarkers.push(marker);
             return marker;
         }
 
@@ -825,6 +1422,28 @@
             });
         }
 
+
+
+
+        async function addToFavorites(itemId) {
+            try {
+                const response = await fetch('/api/favorites', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ itemId })
+                });
+
+                if (response.ok) {
+                    loadFavorites(); // Recharge la liste
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+
         // Fonction pour zoomer sur un favori
         function zoomToFavorite(itemId) {
             const marker = allMarkers.find(m => m.options.itemId === itemId);
@@ -871,6 +1490,310 @@
         document.getElementById('favoritesModal').addEventListener('click', (e) => {
             if (e.target === document.getElementById('favoritesModal')) {
                 document.getElementById('favoritesModal').classList.remove('active');
+            }
+        });
+        // Variables pour le modal d'annonce
+        let currentAnnonce = null;
+
+        // Fonction pour afficher une annonce dans le modal
+        function showAnnonceModal(annonce) {
+            currentAnnonce = annonce;
+
+            // Remplir les données
+            document.getElementById('annonceTitle').textContent = annonce.title;
+            document.getElementById('annonceSeller').textContent = annonce.seller.name;
+            document.getElementById('annonceRating').textContent = `(${annonce.seller.ratingCount} avis)`;
+            document.getElementById('annoncePrice').textContent = `${annonce.price}€`;
+            document.getElementById('annonceCondition').textContent = annonce.condition;
+            document.getElementById('annonceLocation').textContent = annonce.location;
+            document.getElementById('annonceCategory').textContent = annonce.category;
+            document.getElementById('annonceDescription').textContent = annonce.description;
+
+            // Calculer et afficher la distance
+            if (userPosition) {
+                const distance = calculateDistance(
+                    userPosition[0], userPosition[1],
+                    annonce.coordinates[0], annonce.coordinates[1]
+                );
+                document.getElementById('annonceDistance').textContent = `À ${distance.toFixed(1)}km`;
+            } else {
+                document.getElementById('annonceDistance').textContent = '';
+            }
+
+            // Gestion des images
+            const mainImage = document.getElementById('annonceMainImage');
+            const thumbnailsContainer = document.querySelector('.thumbnails');
+
+            thumbnailsContainer.innerHTML = '';
+            annonce.images.forEach((img, index) => {
+                if (index === 0) mainImage.src = img;
+
+                const thumbnail = document.createElement('div');
+                thumbnail.className = `thumbnail ${index === 0 ? 'active' : ''}`;
+                thumbnail.innerHTML = `<img src="${img}" alt="Miniature ${index + 1}">`;
+
+                thumbnail.addEventListener('click', () => {
+                    mainImage.src = img;
+                    document.querySelectorAll('.thumbnail').forEach(t => t.classList.remove('active'));
+                    thumbnail.classList.add('active');
+                });
+
+                thumbnailsContainer.appendChild(thumbnail);
+            });
+
+            // Vérifier si l'annonce est en favori
+            checkIfFavorite(annonce.id).then(isFavorite => {
+                const favoriteBtn = document.getElementById('favoriteBtn');
+                favoriteBtn.classList.toggle('active', isFavorite);
+                favoriteBtn.querySelector('.favorite-badge').style.display = isFavorite ? 'inline' : 'none';
+            });
+
+            // Afficher le modal avec animation
+            document.getElementById('annonceModal').classList.add('active');
+        }
+
+        // Fonction pour calculer la distance en km
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Rayon de la Terre en km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // Vérifier si une annonce est en favori
+        async function checkIfFavorite(annonceId) {
+            try {
+                const response = await fetch(`/api/favorites/check?itemId=${annonceId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                return response.ok && (await response.json()).isFavorite;
+            } catch (error) {
+                console.error('Erreur:', error);
+                return false;
+            }
+        }
+
+        // Gestion des événements
+        document.getElementById('closeAnnonceModal').addEventListener('click', () => {
+            document.getElementById('annonceModal').classList.remove('active');
+        });
+
+        document.getElementById('annonceModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('annonceModal')) {
+                document.getElementById('annonceModal').classList.remove('active');
+            }
+        });
+
+        // Bouton favori
+        document.getElementById('favoriteBtn').addEventListener('click', async () => {
+            if (!currentAnnonce) return;
+
+            const favoriteBtn = document.getElementById('favoriteBtn');
+            const isFavorite = favoriteBtn.classList.contains('active');
+
+            try {
+                const response = await fetch('/api/favorites', {
+                    method: isFavorite ? 'DELETE' : 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ itemId: currentAnnonce.id })
+                });
+
+                if (response.ok) {
+                    favoriteBtn.classList.toggle('active');
+                    const badge = favoriteBtn.querySelector('.favorite-badge');
+                    badge.style.display = !isFavorite ? 'inline' : 'none';
+                    badge.style.animation = 'none';
+                    void badge.offsetWidth; // Trigger reflow
+                    badge.style.animation = 'bounce 0.3s';
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        });
+
+        // Bouton contacter
+        document.getElementById('contactBtn').addEventListener('click', () => {
+            if (currentAnnonce) {
+                // Implémentez votre logique de contact ici
+                alert(`Ouverture de la conversation avec ${currentAnnonce.seller.name}`);
+            }
+        });
+
+        // Exemple d'ouverture de modal (à appeler quand on clique sur un marqueur)
+        function openSampleAnnonce() {
+            const sampleAnnonce = {
+                id: '123abc',
+                title: 'Table à manger + 4 chaises',
+                seller: {
+                    name: 'Pierre Lefevre',
+                    initials: 'PL',
+                    ratingCount: 9
+                },
+                price: 350,
+                condition: 'Très bon état',
+                location: 'Paris 3ème',
+                coordinates: [48.8625, 2.3625],
+                category: 'Maison',
+                description: 'Table en chêne massif, 140×80cm, avec 4 chaises assorties. Excellent état.',
+                images: [
+                    'https://example.com/table1.jpg',
+                    'https://example.com/table2.jpg',
+                    'https://example.com/table3.jpg'
+                ]
+            };
+
+            showAnnonceModal(sampleAnnonce);
+        }
+
+
+        // Exemple de création de marqueur avec données complètes
+        createCustomMarker(
+            48.8566,
+            2.3522,
+            "120",
+            "🚗",
+            "vehicules",
+            "car123",
+            {
+                id: "car123",
+                title: "Voiture occasion",
+                seller: { name: "Jean Dupont", initials: "JD", ratingCount: 5 },
+                price: 120,
+                condition: "Très bon état",
+                location: "Paris 15ème",
+                coordinates: [48.8566, 2.3522],
+                category: "vehicules",
+                description: "Voiture en excellent état, faible kilométrage.",
+                images: ["https://example.com/car1.jpg", "https://example.com/car2.jpg"]
+            }
+        );
+
+        // Gestion de l'état d'authentification
+        let isAuthenticated = false; // À remplacer par votre logique réelle
+
+        // Gestion du modal d'authentification
+        const authIcon = document.getElementById('authIcon');
+        const authModal = document.getElementById('authModal');
+        const closeAuthModal = document.getElementById('closeAuthModal');
+        const authForms = document.querySelectorAll('.auth-form');
+        const authSwitchBtns = document.querySelectorAll('.auth-switch-btn');
+
+        // Afficher/cacher l'icône en fonction de l'authentification
+        function updateAuthIcon() {
+            authIcon.style.display = isAuthenticated ? 'none' : 'flex';
+        }
+
+        // Ouvrir le modal d'authentification
+        authIcon.addEventListener('click', () => {
+            authModal.classList.add('active');
+            showAuthForm('loginForm');
+        });
+
+        // Fermer le modal
+        closeAuthModal.addEventListener('click', () => {
+            authModal.classList.remove('active');
+        });
+
+        // Fermer en cliquant à l'extérieur
+        authModal.addEventListener('click', (e) => {
+            if (e.target === authModal) {
+                authModal.classList.remove('active');
+            }
+        });
+
+        // Basculer entre les formulaires
+        authSwitchBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetForm = btn.getAttribute('data-target');
+                showAuthForm(targetForm);
+            });
+        });
+        // Afficher un formulaire spécifique avec animation
+        function showAuthForm(formId) {
+            authForms.forEach(form => {
+                form.classList.remove('active', 'left');
+
+                if (form.id === formId) {
+                    setTimeout(() => {
+                        form.classList.add('active');
+                    }, 10);
+                } else {
+                    if (Array.from(authForms).findIndex(f => f.id === formId) >
+                        Array.from(authForms).findIndex(f => f.id === form.id)) {
+                        form.classList.add('left');
+                    }
+                }
+            });
+        }
+
+        // Gestion de la soumission des formulaires
+        document.getElementById('loginFormContent').addEventListener('submit', (e) => {
+            e.preventDefault();
+            // Implémentez votre logique de connexion ici
+            console.log('Connexion avec:', {
+                email: document.getElementById('loginEmail').value,
+                password: document.getElementById('loginPassword').value
+            });
+        });
+
+        document.getElementById('registerFormContent').addEventListener('submit', (e) => {
+            e.preventDefault();
+            // Implémentez votre logique d'inscription ici
+            console.log('Inscription avec:', {
+                name: document.getElementById('registerName').value,
+                email: document.getElementById('registerEmail').value,
+                password: document.getElementById('registerPassword').value
+            });
+        });
+
+        document.getElementById('forgotFormContent').addEventListener('submit', (e) => {
+            e.preventDefault();
+            // Implémentez votre logique de réinitialisation ici
+            console.log('Réinitialisation pour:', {
+                email: document.getElementById('forgotEmail').value
+            });
+        });
+
+        // Initialisation
+        updateAuthIcon();
+
+
+        document.getElementById('loginFormContent').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: document.getElementById('loginEmail').value,
+                        password: document.getElementById('loginPassword').value
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.token;
+                    isAuthenticated = true;
+                    updateAuthIcon();
+                    authModal.classList.remove('active');
+                } else {
+                    alert('Identifiants incorrects');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
             }
         });
         // Initialisation
