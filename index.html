@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketplace Cartographique</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .custom-marker {
+            background: #6C5CE7;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            border: 2px solid white;
+            position: relative;
+        }
+
+        .marker-price {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            color: #6C5CE7;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-marker {
+            background: #00B894;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            border: 2px solid white;
+        }
+
+        .notification-badge {
+            background: #FF7675;
+            color: white;
+        }
+
+        .success-badge {
+            background: #55EFC4;
+            color: #2D3436;
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .leaflet-container {
+            background: #F5F6FA;
+        }
+
+        /* Animation pour le marqueur utilisateur */
+        .animate-pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.1);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        /* Animation des cercles concentriques */
+        .ring-animation {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 2px solid #00B894;
+            border-radius: 50%;
+            animation: ring 2s infinite;
+            opacity: 0;
+        }
+
+        @keyframes ring {
+            0% {
+                transform: scale(0.5);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(1.5);
+                opacity: 0;
+            }
+        }
+
+        /* Marqueur utilisateur amélioré */
+        .user-marker {
+            background: #00B894;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            border: 2px solid white;
+            position: relative;
+        }
+    </style>
+</head>
+
+<body class="bg-[#F5F6FA] text-[#2D3436] font-sans h-screen overflow-hidden">
+    <!-- Header épuré -->
+    <header
+        class="fixed top-0 left-0 right-0 z-[1000] px-4 py-3 flex justify-between items-center bg-white h-[60px] border-b border-[#DCDDE1]">
+        <div class="logo font-semibold text-lg text-[#6C5CE7] flex items-center gap-2">
+            <span>📍</span>
+            <span>MapMarket</span>
+        </div>
+        <div class="header-actions flex gap-3 items-center">
+            <button
+                class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
+                <i class="fas fa-search"></i>
+            </button>
+            <button
+                class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
+                <i class="fas fa-bell"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Carte avec le style demandé -->
+    <main id="map" role="main" aria-label="Carte des annonces"
+        class="fixed top-[60px] bottom-[80px] left-0 right-0 z-10 leaflet-container leaflet-touch leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom">
+    </main>
+
+    <!-- Barre d'actions en bas -->
+    <div
+        class="fixed bottom-0 left-0 right-0 z-[1000] bg-white border-t border-[#DCDDE1] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+        <div class="flex justify-around items-stretch h-20 px-2">
+            <!-- Bouton Explorer -->
+            <button id="exploreBtn"
+                class="action-btn flex-1 flex flex-col items-center justify-center relative px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#6C5CE7]">
+                <div class="relative">
+                    <i class="fas fa-map-marker-alt text-2xl"></i>
+                    <div
+                        class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full">
+                    </div>
+                </div>
+                <span class="text-xs font-medium mt-1">Explorer</span>
+            </button>
+
+            <!-- Bouton Rechercher -->
+            <button
+                class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
+                <i class="fas fa-search text-2xl"></i>
+                <span class="text-xs font-medium mt-1">Rechercher</span>
+            </button>
+
+            <!-- Bouton central avec contour vide -->
+            <div class="relative flex items-center justify-center px-1" style="flex: 0 0 auto;">
+                <button id="addBtn"
+                    class="absolute -top-6 w-14 h-14 rounded-full border-2 border-[#6C5CE7] bg-white flex items-center justify-center text-[#6C5CE7] shadow-lg transform transition-all duration-300 hover:bg-[#6C5CE7] hover:text-white active:scale-95 active:shadow-md">
+                    <i class="fas fa-plus text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Bouton Messages -->
+            <button
+                class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
+                <div class="relative">
+                    <i class="fas fa-comment-alt text-2xl"></i>
+                    <span
+                        class="notification-badge absolute -top-1 -right-2 text-xs rounded-full w-4 h-4 flex items-center justify-center">3</span>
+                </div>
+                <span class="text-xs font-medium mt-1">Messages</span>
+            </button>
+
+            <!-- Bouton Profil -->
+            <button
+                class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
+                <i class="fas fa-user text-2xl"></i>
+                <span class="text-xs font-medium mt-1">Profil</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialisation de la carte avec style demandé
+        const map = L.map('map', {
+            zoomControl: true,
+            attributionControl: false
+        }).setView([48.8566, 2.3522], 13);
+
+        // Fond de carte "voyager" comme dans l'exemple
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Style pour les marqueurs
+        function createCustomMarker(lat, lng, price, icon) {
+            const marker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    html: `
+                        <div class="custom-marker">
+                            ${icon}
+                            <div class="marker-price">${price}€</div>
+                        </div>
+                    `,
+                    className: 'custom-marker-container',
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32]
+                })
+            }).addTo(map);
+
+            return marker;
+        }
+
+        // Exemples de marqueurs
+        createCustomMarker(48.8566, 2.3522, "120", "🚗");
+        createCustomMarker(48.8584, 2.2945, "350", "🏠");
+        createCustomMarker(48.8606, 2.3376, "50", "👕");
+        createCustomMarker(48.8625, 2.2875, "80", "📱");
+        createCustomMarker(48.8530, 2.3200, "25", "📚");
+
+        // Variables pour gérer le marqueur utilisateur
+        let userMarker = null;
+        let userPosition = null;
+
+
+        // Bouton Explorer - Version améliorée
+        document.getElementById('exploreBtn').addEventListener('click', () => {
+            if (!navigator.geolocation) {
+                alert("La géolocalisation n'est pas supportée par votre navigateur");
+                return;
+            }
+
+            // Feedback visuel pendant la recherche
+            const btn = document.getElementById('exploreBtn');
+            btn.innerHTML = `
+        <div class="relative">
+            <i class="fas fa-circle-notch fa-spin text-2xl"></i>
+            <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full"></div>
+        </div>
+        <span class="text-xs font-medium mt-1">Localisation...</span>
+    `;
+
+            // Options améliorées pour la géolocalisation
+            const options = {
+                enableHighAccuracy: true,  // Utilise le GPS si disponible
+                timeout: 15000,           // Temps d'attente augmenté à 15s
+                maximumAge: 30000         // Accepte une position mise en cache de moins de 30s
+            };
+
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    // Réussite - Remet le texte original du bouton
+                    btn.innerHTML = `
+                <div class="relative">
+                    <i class="fas fa-map-marker-alt text-2xl"></i>
+                    <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full"></div>
+                </div>
+                <span class="text-xs font-medium mt-1">Explorer</span>
+            `;
+
+                    placeUserMarker(position);
+                },
+                error => {
+                    // Échec - Remet le texte original et affiche un message détaillé
+                    btn.innerHTML = `
+                <div class="relative">
+                    <i class="fas fa-map-marker-alt text-2xl"></i>
+                    <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full"></div>
+                </div>
+                <span class="text-xs font-medium mt-1">Explorer</span>
+            `;
+
+                    let errorMessage;
+                    switch (error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage = "Vous avez refusé la géolocalisation. Activez-la dans les paramètres de votre navigateur.";
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage = "Position indisponible. Vérifiez votre connexion réseau ou votre signal GPS.";
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage = "Délai de localisation dépassé. Essayez dans une zone avec meilleur signal.";
+                            break;
+                        default:
+                            errorMessage = "Erreur inconnue lors de la localisation.";
+                    }
+
+                    alert(errorMessage);
+                    console.error("Erreur de géolocalisation:", error);
+                },
+                options
+            );
+        });
+
+        // Fonction améliorée pour placer le marqueur utilisateur
+        function placeUserMarker(position) {
+            const userLatLng = [position.coords.latitude, position.coords.longitude];
+
+            // Supprime l'ancien marqueur s'il existe
+            if (userMarker) {
+                map.removeLayer(userMarker);
+            }
+
+            // Crée un nouveau marqueur stylé avec animation
+            userMarker = L.marker(userLatLng, {
+                icon: L.divIcon({
+                    html: `
+                <div class="user-marker animate-pulse">
+                    <i class="fas fa-user"></i>
+                    <div class="ring-animation"></div>
+                </div>
+            `,
+                    className: 'user-marker-container',
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32]
+                }),
+                zIndexOffset: 1000  // Place le marqueur au-dessus des autres
+            }).addTo(map)
+                .bindPopup("<b>Vous êtes ici</b><br>Précision: " + Math.round(position.coords.accuracy) + " mètres")
+                .openPopup();
+
+            // Centre la carte sur la position avec un zoom adapté
+            map.setView(userLatLng, 15, {
+                animate: true,
+                duration: 1
+            });
+
+            // Ajoute un cercle de précision
+            if (accuracyCircle) {
+                map.removeLayer(accuracyCircle);
+            }
+            accuracyCircle = L.circle(userLatLng, {
+                radius: position.coords.accuracy,
+                color: '#00B894',
+                fillColor: '#00B894',
+                fillOpacity: 0.2,
+                weight: 1
+            }).addTo(map);
+        }
+        // Bouton d'ajout
+        document.getElementById('addBtn').addEventListener('click', () => {
+            alert("Fonctionnalité d'ajout d'annonce");
+        });
+
+        // Animation des boutons
+        document.querySelectorAll('.action-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.action-btn').forEach(b => {
+                    b.classList.remove('text-[#6C5CE7]');
+                    const icon = b.querySelector('i');
+                    if (icon) icon.classList.remove('text-[#6C5CE7]');
+                });
+                this.classList.add('text-[#6C5CE7]');
+                const icon = this.querySelector('i');
+                if (icon) icon.classList.add('text-[#6C5CE7]');
+            });
+        });
+    </script>
+</body>
+
+</html>
