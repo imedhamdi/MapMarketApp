@@ -320,11 +320,13 @@
             z-index: 10;
             color: #2D3436;
             font-size: 16px;
-            transition: all 0.2s;
+            transition: all 0.3s ease;
+            transform: rotate(0deg);
         }
 
         .close-btn:hover {
             background-color: #F5F6FA;
+            transform: rotate(90deg);
         }
 
         .image-carousel {
@@ -570,8 +572,13 @@
             border-radius: 16px;
             padding: 30px;
             transform: translateY(30px);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition:
+                transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            /* Ajout de la transition de hauteur */
             position: relative;
+            overflow: hidden;
+            /* Cache le débordement pendant les animations */
         }
 
         .auth-modal.active .auth-content {
@@ -580,34 +587,33 @@
 
         .auth-forms-container {
             position: relative;
-            overflow: hidden;
-            min-height: 300px;
-            height: auto;
-            /* Ajoutez cette ligne */
+            transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            /* Animation fluide */
         }
 
         .auth-form {
             position: absolute;
             width: 100%;
             padding: 0 10px;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition:
+                opacity 0.3s ease,
+                transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             opacity: 0;
-            transform: translateX(100%);
+            transform: translateX(120%) scale(0.95);
             visibility: hidden;
-            /* Ajoutez cette ligne */
+
+
         }
 
         .auth-form.active {
             opacity: 1;
-            transform: translateX(0);
+            transform: translateX(0) scale(1);
             visibility: visible;
-            /* Ajoutez cette ligne */
             position: relative;
-            /* Changez en relative pour le formulaire actif */
         }
 
         .auth-form.left {
-            transform: translateX(-100%);
+            transform: translateX(-120%) scale(0.95);
         }
 
         .auth-title {
@@ -683,6 +689,52 @@
         .auth-switch-btn:hover {
             color: #5a4dc7;
             text-decoration: underline;
+        }
+
+        /* Animation d'entrée/sortie améliorée */
+        @keyframes formSlideIn {
+            from {
+                transform: translateX(120%) scale(0.95);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes formSlideOut {
+            to {
+                transform: translateX(-120%) scale(0.95);
+                opacity: 0;
+            }
+        }
+
+        /* Effet de chargement pendant la soumission */
+        .auth-submit-btn.loading {
+            position: relative;
+            color: transparent;
+        }
+
+        .auth-submit-btn.loading::after {
+            content: "";
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin: -10px 0 0 -10px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
         }
     </style>
 </head>
@@ -1721,20 +1773,43 @@
         });
         // Afficher un formulaire spécifique avec animation
         function showAuthForm(formId) {
+            // Calculer la hauteur nécessaire pour le nouveau formulaire
+            const newForm = document.getElementById(formId);
+            const newHeight = newForm.scrollHeight + 50; // 50px de marge
+
+            // Mettre à jour la hauteur du conteneur
+            const formsContainer = document.querySelector('.auth-forms-container');
+            formsContainer.style.height = `${formsContainer.scrollHeight}px`;
+
+            // Forcer le recalcul du layout
+            void formsContainer.offsetHeight;
+
+            // Appliquer la nouvelle hauteur avec transition
+            formsContainer.style.height = `${newHeight}px`;
+
+            // Gérer les transitions des formulaires
             authForms.forEach(form => {
                 form.classList.remove('active', 'left');
 
                 if (form.id === formId) {
+                    form.style.animation = 'formSlideIn 0.4s forwards';
                     setTimeout(() => {
                         form.classList.add('active');
-                    }, 10);
+                        form.style.animation = '';
+                    }, 400);
                 } else {
                     if (Array.from(authForms).findIndex(f => f.id === formId) >
                         Array.from(authForms).findIndex(f => f.id === form.id)) {
                         form.classList.add('left');
                     }
+                    form.style.animation = 'formSlideOut 0.3s forwards';
                 }
             });
+
+            // Ajuster la hauteur finale après la transition
+            setTimeout(() => {
+                formsContainer.style.height = 'auto';
+            }, 400);
         }
 
         // Gestion de la soumission des formulaires
@@ -1793,6 +1868,29 @@
                     alert('Identifiants incorrects');
                 }
             } catch (error) {
+                console.error('Erreur:', error);
+            }
+        });
+        document.getElementById('loginFormContent').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+            try {
+                // Activer l'état de chargement
+                submitBtn.classList.add('loading');
+                submitBtn.disabled = true;
+
+                // Simuler une requête API
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                // Désactiver l'état de chargement
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+
+                // Votre logique de connexion ici...
+            } catch (error) {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
                 console.error('Erreur:', error);
             }
         });
