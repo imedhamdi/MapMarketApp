@@ -2298,8 +2298,11 @@
                     authModal.classList.remove('active');
                     localStorage.setItem('authToken', data.token);
 
+
                     // Remplacement de l'alert par une notification stylée
                     showToast('Connexion réussie !', 'success');
+                    setTimeout(() => window.location.reload(), 800); // Laisse le temps d'afficher le toast
+
                 } else {
                     // Message d'erreur plus élaboré
                     const errorData = await response.json().catch(() => null);
