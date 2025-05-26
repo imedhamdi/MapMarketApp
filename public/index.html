@@ -1027,8 +1027,8 @@
     <!-- Header -->
     <header
         class="fixed top-0 left-0 right-0 z-[1000] px-4 py-3 flex justify-between items-center bg-white h-[60px] border-b border-[#DCDDE1]">
-        <div class="logo font-semibold text-lg text-[#6C5CE7] flex items-center gap-2">
-            <span>📍</span>
+        <div class="logo font-semibold text-lg text-[#6C5CE7] flex items-center gap-2 group">
+            <span class="inline-block transition-transform duration-300 ease-in-out group-hover:-rotate-12">📍</span>
             <span>MapMarket</span>
         </div>
         <div class="header-actions flex gap-3 items-center">
@@ -1087,18 +1087,28 @@
                 <!-- Formulaire d'inscription -->
                 <div id="registerForm" class="auth-form">
                     <h2 class="auth-title">Inscription</h2>
-                    <form id="registerFormContent">
+                    <form id="registerFormContent" novalidate>
                         <div class="form-group">
                             <label for="registerName">Nom complet</label>
-                            <input type="text" id="registerName" required>
+                            <!-- Nom complet -->
+                            <input type="text" id="registerName" required pattern="^[A-Za-zÀ-ÿ'\- ]{2,40}$"
+                                title="Le nom doit contenir uniquement des lettres (min. 2 caractères)">
+
                         </div>
                         <div class="form-group">
                             <label for="registerEmail">Email</label>
-                            <input type="email" id="registerEmail" required>
+                            <!-- Email -->
+                            <input type="email" id="registerEmail" required
+                                pattern="^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+                                title="Entrez une adresse email valide">
                         </div>
                         <div class="form-group">
                             <label for="registerPassword">Mot de passe</label>
-                            <input type="password" id="registerPassword" required>
+                            <!-- Mot de passe -->
+                            <input type="password" id="registerPassword" required
+                                pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$"
+                                title="Minimum 8 caractères avec majuscule, minuscule, chiffre et caractère spécial">
+
                         </div>
                         <div class="form-group">
                             <label for="registerConfirmPassword">Confirmer le mot de passe</label>
@@ -2218,12 +2228,33 @@
         document.getElementById('registerFormContent').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const name = document.getElementById('registerName').value;
-            const email = document.getElementById('registerEmail').value;
-            const password = document.getElementById('registerPassword').value;
-            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+            const nameInput = document.getElementById('registerName');
+            const emailInput = document.getElementById('registerEmail');
+            const passwordInput = document.getElementById('registerPassword');
+            const confirmPasswordInput = document.getElementById('registerConfirmPassword');
             const submitBtn = e.target.querySelector('button[type="submit"]');
 
+            const name = nameInput.value;
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+
+            const nameRegex = /^[A-Za-zÀ-ÿ'\- ]{2,40}$/;
+            const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+
+            if (!nameRegex.test(name)) {
+                showToast("Nom invalide. Lettres uniquement (2 à 40 caractères).", "error");
+                return;
+            }
+            if (!emailRegex.test(email)) {
+                showToast("Adresse email invalide.", "error");
+                return;
+            }
+            if (!passwordRegex.test(password)) {
+                showToast("Mot de passe faible. Min. 8 caractères, avec majuscule, minuscule, chiffre, spécial.", "error");
+                return;
+            }
             if (password !== confirmPassword) {
                 showToast("Les mots de passe ne correspondent pas.", "error");
                 return;
@@ -2238,11 +2269,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        name,
-                        email,
-                        password
-                    })
+                    body: JSON.stringify({ name, email, password })
                 });
 
                 if (response.ok) {
@@ -2261,6 +2288,7 @@
                 submitBtn.disabled = false;
             }
         });
+
 
         document.getElementById('loginFormContent').addEventListener('submit', async (e) => {
             e.preventDefault();
