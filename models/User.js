@@ -26,7 +26,15 @@ const userSchema = new mongoose.Schema({
     ref: 'Item'
   }],
   resetToken: String,
-  resetTokenExpiration: Date
+  resetTokenExpiration: {
+    type: Date,
+    validate: {
+      validator: function(v) {
+        return v > Date.now();
+      },
+      message: 'La date d\'expiration doit être dans le futur'
+    }
+  }
 }, { timestamps: true });
 
 // Hash du mot de passe avant sauvegarde
@@ -48,9 +56,17 @@ userSchema.methods.generateResetToken = function () {
   const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
 
   this.resetToken = hashedToken;
-  this.resetTokenExpires = Date.now() + 1000 * 60 * 10; // 10 minutes
+  this.resetTokenExpiration = Date.now() + 1000 * 60 * 10; // 10 minutes
 
-  return resetToken; // 🟢 retourne le token BRUT pour l'URL
+  return resetToken; // retourne le token BRUT pour l'URL
+};
+
+// Middleware pour nettoyer les tokens expirés périodiquement
+userSchema.statics.clearExpiredTokens = async function() {
+  await this.updateMany(
+    { resetTokenExpiration: { $lt: Date.now() } },
+    { $set: { resetToken: null, resetTokenExpiration: null } }
+  );
 };
 
 module.exports = mongoose.model('User', userSchema);

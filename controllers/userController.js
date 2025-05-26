@@ -52,7 +52,7 @@ exports.register = async (req, res) => {
     const user = await User.create({
       name,
       email,
-      password
+      password: hashedPassword
     });
 
     // Génère le token
@@ -136,7 +136,7 @@ exports.login = async (req, res) => {
 exports.getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id)
-      .select('-password -resetToken -resetTokenExpires')
+      .select('-password -resetToken -resetTokenExpiration')
       .populate('favorites', 'title price category location coordinates');
 
     if (!user) {
@@ -388,8 +388,6 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-
-
 exports.validateResetToken = async (req, res) => {
   try {
     const token = req.params.token;
@@ -400,27 +398,16 @@ exports.validateResetToken = async (req, res) => {
       .update(token)
       .digest('hex');
 
-    console.log('Token reçu:', token);
-    console.log('Token hashé:', hashedToken);
-
     // Trouve l'utilisateur avec un token valide
     const user = await User.findOne({
       resetToken: hashedToken,
-      resetTokenExpires: { $gt: Date.now() }
+      resetTokenExpiration: { $gt: Date.now() }
     });
-
-    console.log('User trouvé:', user);
 
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: 'Token invalide ou expiré',
-        details: {
-          tokenReceived: token,
-          hashedToken,
-          currentTime: new Date(),
-          expiryTime: user?.resetTokenExpires
-        }
+        message: 'Token invalide ou expiré'
       });
     }
 
@@ -439,44 +426,34 @@ exports.validateResetToken = async (req, res) => {
     });
   }
 };
+
 // Réinitialisation du mot de passe
 exports.resetPassword = async (req, res) => {
   try {
     const { token } = req.params;
     const { newPassword } = req.body;
-
-    console.log('Token reçu:', token);
     
     const hashedToken = crypto
       .createHash('sha256')
       .update(token)
       .digest('hex');
-
-    console.log('Token hashé:', hashedToken);
-    console.log('Date actuelle:', new Date());
     
     const user = await User.findOne({
       resetToken: hashedToken,
-      resetTokenExpires: { $gt: Date.now() }
+      resetTokenExpiration: { $gt: Date.now() }
     });
-
-    console.log('Utilisateur trouvé:', user);
 
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: 'Token invalide ou expiré',
-        details: {
-          currentTime: new Date(),
-          storedToken: hashedToken
-        }
+        message: 'Token invalide ou expiré'
       });
     }
 
     // Met à jour le mot de passe
     user.password = await bcrypt.hash(newPassword, SALT_ROUNDS);
     user.resetToken = undefined;
-    user.resetTokenExpires = undefined;
+    user.resetTokenExpiration = undefined;
     await user.save();
 
     res.status(200).json({
@@ -489,6 +466,23 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur serveur lors de la réinitialisation du mot de passe'
+    });
+  }
+};
+
+// Nettoyage des tokens expirés (à appeler périodiquement)
+exports.cleanExpiredTokens = async (req, res) => {
+  try {
+    await User.clearExpiredTokens();
+    res.status(200).json({
+      success: true,
+      message: 'Tokens expirés nettoyés avec succès'
+    });
+  } catch (error) {
+    console.error('Erreur nettoyage tokens:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur lors du nettoyage des tokens expirés'
     });
   }
 };
