@@ -391,34 +391,11 @@
             gap: 10px;
         }
 
-        .seller-avatar {
-            width: 40px;
-            height: 40px;
-            background-color: #6c5ce7;
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-        }
-
         .seller-details {
             display: flex;
             flex-direction: column;
         }
 
-        .seller-rating {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            color: #636e72;
-            font-size: 0.8rem;
-        }
-
-        .seller-rating i {
-            color: #ffd700;
-        }
 
         .price-condition,
         .location-category {
@@ -573,17 +550,16 @@
             max-width: 400px;
             border-radius: 16px;
             padding: 30px;
-            transform: translateY(30px);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            /* Ajout de la transition de hauteur */
+            transform: scale(0.8) translateY(50px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
-            /* Cache le débordement pendant les animations */
         }
 
         .auth-modal.active .auth-content {
-            transform: translateY(0);
+            transform: scale(1) translateY(0);
+            opacity: 1;
         }
 
         .auth-forms-container {
@@ -686,6 +662,20 @@
             color: #5a4dc7;
             text-decoration: underline;
         }
+
+        .auth-form input,
+        .auth-submit-btn {
+            transition: all 0.3s ease;
+            transform: translateY(20px);
+            opacity: 0;
+        }
+
+        .auth-form.active input,
+        .auth-form.active .auth-submit-btn {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
 
         /* Animation d'entrée/sortie améliorée */
         @keyframes formSlideIn {
@@ -1020,6 +1010,30 @@
                 transform: translateX(10px);
             }
         }
+
+        .badge-distance {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-top: 4px;
+            margin-left: 6px;
+            white-space: nowrap;
+            color: white;
+        }
+
+        .badge-green {
+            background-color: #00B894;
+        }
+
+        .badge-orange {
+            background-color: #FFA500;
+        }
+
+        .badge-red {
+            background-color: #D63031;
+        }
     </style>
 </head>
 
@@ -1205,24 +1219,45 @@
                 <label class="checkbox-container flex items-center cursor-pointer">
                     <input type="checkbox" checked class="category-filter" value="immobilier">
                     <span class="checkmark"></span>
-                    <span>Immobilier</span>
+                    <span>🏠 Immobilier</span>
                 </label>
                 <label class="checkbox-container flex items-center cursor-pointer">
                     <input type="checkbox" checked class="category-filter" value="vehicules">
                     <span class="checkmark"></span>
-                    <span>Véhicules</span>
+                    <span>🚗 Véhicules</span>
                 </label>
                 <label class="checkbox-container flex items-center cursor-pointer">
-                    <input type="checkbox" checked class="category-filter" value="emploi">
+                    <input type="checkbox" checked class="category-filter" value="emploi_services">
                     <span class="checkmark"></span>
-                    <span>Emploi</span>
+                    <span>👔 Emploi / Services</span>
                 </label>
                 <label class="checkbox-container flex items-center cursor-pointer">
-                    <input type="checkbox" checked class="category-filter" value="services">
+                    <input type="checkbox" checked class="category-filter" value="mode">
                     <span class="checkmark"></span>
-                    <span>Services</span>
+                    <span>👕 Mode / Accessoires</span>
+                </label>
+                <label class="checkbox-container flex items-center cursor-pointer">
+                    <input type="checkbox" checked class="category-filter" value="enfants">
+                    <span class="checkmark"></span>
+                    <span>🧸 Enfants / Jouets</span>
+                </label>
+                <label class="checkbox-container flex items-center cursor-pointer">
+                    <input type="checkbox" checked class="category-filter" value="electronique">
+                    <span class="checkmark"></span>
+                    <span>📱 Électronique / Multimédia</span>
+                </label>
+                <label class="checkbox-container flex items-center cursor-pointer">
+                    <input type="checkbox" checked class="category-filter" value="maison">
+                    <span class="checkmark"></span>
+                    <span>🛋️ Maison / Meubles</span>
+                </label>
+                <label class="checkbox-container flex items-center cursor-pointer">
+                    <input type="checkbox" checked class="category-filter" value="loisirs">
+                    <span class="checkmark"></span>
+                    <span>🛵 Loisirs / Sports</span>
                 </label>
             </div>
+
         </div>
 
         <!-- Prix -->
@@ -1301,10 +1336,6 @@
                         <div class="seller-avatar">PL</div>
                         <div class="seller-details">
                             <span id="annonceSeller">Pierre Lefevre</span>
-                            <div class="seller-rating">
-                                <i class="fas fa-star"></i>
-                                <span id="annonceRating">(9 avis)</span>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -1327,7 +1358,7 @@
                         <span class="label">Localisation</span>
                         <div class="location-details">
                             <span id="annonceLocation">Paris 3ème</span>
-                            <span id="annonceDistance" class="distance">À 6.3km</span>
+                            <span id="annonceDistance" class="distance badge-distance">À 6.3km</span>
                         </div>
                     </div>
                     <div class="category-section">
@@ -1453,15 +1484,17 @@
             }
         });
         // Fonction pour créer des marqueurs
-        function createCustomMarker(lat, lng, price, icon, category, itemId, annonceData) {
+        function createCustomMarker(lat, lng, price, category, itemId, annonceData) {
+            const { icon, color } = getCategoryStyle(category);
+
             const marker = L.marker([lat, lng], {
                 icon: L.divIcon({
                     html: `
-                <div class="custom-marker" data-category="${category}" data-price="${price}">
-                    ${icon}
-                    <div class="marker-price">${price}€</div>
-                </div>
-            `,
+        <div class="custom-marker" style="background:${color}" data-category="${category}" data-price="${price}">
+          ${icon}
+          <div class="marker-price">${price}€</div>
+        </div>
+      `,
                     className: 'custom-marker-container',
                     iconSize: [32, 32],
                     iconAnchor: [16, 32]
@@ -1471,23 +1504,19 @@
                 itemId: itemId || Math.random().toString(36).substr(2, 9)
             }).addTo(map);
 
-            // Ajout de l'événement click pour ouvrir le modal
             marker.on('click', function () {
-                // Utilisez annonceData si disponible, sinon créez un objet minimal
                 const annonce = annonceData || {
                     id: itemId,
                     title: `${category} - ${price}€`,
                     seller: {
                         name: "Vendeur",
-                        initials: "V",
-                        ratingCount: 0
                     },
                     price: price,
                     condition: "Bon état",
-                    location: "Localisation",
+                    location: "Localisation inconnue",
                     coordinates: [lat, lng],
                     category: category,
-                    description: "Description non disponible",
+                    description: "Aucune description",
                     images: ["https://via.placeholder.com/400"]
                 };
                 showAnnonceModal(annonce);
@@ -1496,6 +1525,7 @@
             allMarkers.push(marker);
             return marker;
         }
+
 
         // Fonction pour obtenir le nom de la catégorie
         function getCategoryName(category) {
@@ -1510,7 +1540,35 @@
 
         // Création des marqueurs initiaux
         function initMarkers() {
-            createCustomMarker(48.8566, 2.3522, "120", "🚗", "vehicules");
+            userPosition = [48.8566, 2.3522]; // position fictive à Paris pour tests
+
+            createCustomMarker(
+                48.8584,
+                2.2945,
+                320,
+                'immobilier',
+                'item001',
+                {
+                    id: 'item001',
+                    title: 'Studio à Paris 16ème',
+                    seller: {
+                        name: 'Alice Martin',
+                        ratingCount: 12
+                    },
+                    price: 320,
+                    condition: 'Très bon état',
+                    location: 'Paris 16ème',
+                    coordinates: [48.8584, 2.2945],
+                    category: 'immobilier',
+                    description: 'Charmant studio de 18m² proche Trocadéro. Loué meublé.',
+                    images: [
+                        'https://via.placeholder.com/400x300.png?text=Studio+Paris',
+                        'https://via.placeholder.com/400x300.png?text=Salon',
+                        'https://via.placeholder.com/400x300.png?text=Vue'
+                    ]
+                }
+            );
+
         }
 
         // Fonction de filtrage
@@ -1870,13 +1928,69 @@
         // Fonction utilitaire pour obtenir l'icône de catégorie
         function getCategoryIcon(category) {
             const icons = {
-                'immobilier': 'home',
-                'vehicules': 'car',
-                'emploi': 'briefcase',
-                'services': 'concierge-bell'
+                immobilier: 'home',
+                vehicules: 'car',
+                emploi_services: 'briefcase',
+                mode: 'tshirt',
+                enfants: 'puzzle-piece',
+                electronique: 'mobile-alt',
+                maison: 'couch',
+                loisirs: 'futbol' // ou 'running', 'gamepad'
             };
             return icons[category] || 'map-marker-alt';
         }
+        function getCategoryStyle(category) {
+            const styles = {
+                immobilier: {
+                    icon: '🏠',
+                    color: '#6C5CE7', // violet
+                    faIcon: 'home'
+                },
+                vehicules: {
+                    icon: '🚗',
+                    color: '#00B894', // vert émeraude
+                    faIcon: 'car'
+                },
+                emploi_services: {
+                    icon: '👔',
+                    color: '#0984E3', // bleu
+                    faIcon: 'briefcase'
+                },
+                mode: {
+                    icon: '👕',
+                    color: '#E84393', // rose
+                    faIcon: 'tshirt'
+                },
+                enfants: {
+                    icon: '🧸',
+                    color: '#FDCB6E', // jaune
+                    faIcon: 'puzzle-piece'
+                },
+                electronique: {
+                    icon: '📱',
+                    color: '#2D3436', // gris foncé
+                    faIcon: 'mobile-alt'
+                },
+                maison: {
+                    icon: '🛋️',
+                    color: '#FFA500', // orange
+                    faIcon: 'couch'
+                },
+                loisirs: {
+                    icon: '🛵',
+                    color: '#00CEC9', // turquoise
+                    faIcon: 'futbol'
+                }
+            };
+
+            return styles[category] || {
+                icon: '📍',
+                color: '#636E72', // gris par défaut
+                faIcon: 'map-marker-alt'
+            };
+        }
+
+
 
         // Gestion du modal des favoris
         document.getElementById('favoritesBtn').addEventListener('click', () => {
@@ -1904,7 +2018,6 @@
             // Remplir les données
             document.getElementById('annonceTitle').textContent = annonce.title;
             document.getElementById('annonceSeller').textContent = annonce.seller.name;
-            document.getElementById('annonceRating').textContent = `(${annonce.seller.ratingCount} avis)`;
             document.getElementById('annoncePrice').textContent = `${annonce.price}€`;
             document.getElementById('annonceCondition').textContent = annonce.condition;
             document.getElementById('annonceLocation').textContent = annonce.location;
@@ -1917,7 +2030,19 @@
                     userPosition[0], userPosition[1],
                     annonce.coordinates[0], annonce.coordinates[1]
                 );
-                document.getElementById('annonceDistance').textContent = `À ${distance.toFixed(1)}km`;
+                const badge = document.getElementById('annonceDistance');
+                badge.textContent = `${distance.toFixed(1)} km`;
+                badge.classList.remove('badge-green', 'badge-orange', 'badge-red');
+
+                if (distance < 5) {
+                    badge.classList.add('badge-green');
+                } else if (distance < 20) {
+                    badge.classList.add('badge-orange');
+                } else {
+                    badge.classList.add('badge-red');
+                }
+
+                badge.classList.add('badge-distance');
             } else {
                 document.getElementById('annonceDistance').textContent = '';
             }
@@ -2059,31 +2184,6 @@
             showAnnonceModal(sampleAnnonce);
         }
 
-
-        // Exemple de création de marqueur avec données complètes
-        createCustomMarker(
-            48.8566,
-            2.3522,
-            "120",
-            "🚗",
-            "vehicules",
-            "car123", {
-            id: "car123",
-            title: "Voiture occasion",
-            seller: {
-                name: "Jean Dupont",
-                initials: "JD",
-                ratingCount: 5
-            },
-            price: 120,
-            condition: "Très bon état",
-            location: "Paris 15ème",
-            coordinates: [48.8566, 2.3522],
-            category: "vehicules",
-            description: "Voiture en excellent état, faible kilométrage.",
-            images: ["https://example.com/car1.jpg", "https://example.com/car2.jpg"]
-        }
-        );
 
         // Gestion de l'état d'authentification
         let isAuthenticated = false; // À remplacer par votre logique réelle
