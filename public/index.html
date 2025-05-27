@@ -1034,6 +1034,75 @@
         .badge-red {
             background-color: #D63031;
         }
+
+        /* Ajoutez ces styles à votre section CSS existante */
+
+        /* Style pour les aperçus d'images */
+        #imagePreviews {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        #imagePreviews .relative {
+            transition: all 0.2s;
+        }
+
+        #imagePreviews .relative:hover {
+            transform: scale(1.05);
+        }
+
+        #imagePreviews button {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        #imagePreviews .relative:hover button {
+            opacity: 1;
+        }
+
+        /* Style pour le bouton de chargement */
+        #submitSpinner {
+            transition: all 0.2s;
+        }
+
+        #submitSpinner.hidden {
+            opacity: 0;
+            width: 0;
+            margin-left: 0;
+        }
+
+        /* Style pour la zone de dépôt */
+        #imageUploadArea {
+            transition: all 0.2s;
+        }
+
+        #imageUploadArea:hover {
+            background-color: #f8f9fa;
+        }
+
+        /* Ajoutez ceci à votre section CSS */
+        #addModal .annonce-content {
+            max-width: 400px;
+            margin-top: 20px;
+            /* Laisse de l'espace en haut */
+            max-height: 80vh;
+            overflow-y: auto;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        #addInstructions,
+        #adForm {
+            padding: 16px;
+        }
+
+        #addModal {
+            align-items: flex-start;
+            /* Aligne en haut plutôt qu'au centre */
+            padding-top: 60px;
+            /* Laisse de l'espace pour le header */
+        }
     </style>
 </head>
 
@@ -1441,6 +1510,133 @@
             </button>
         </div>
     </div>
+
+    <!-- Modal d'ajout d'annonce -->
+    <div id="addModal" class="annonce-modal">
+        <div class="annonce-content" style="max-width: 480px;">
+            <button id="closeAddModal" class="close-btn">
+                <i class="fas fa-times"></i>
+            </button>
+
+            <div class="p-6 space-y-4">
+                <!-- Étape 1 - Instructions de positionnement -->
+                <div id="addInstructions" class="text-center">
+                    <i class="fas fa-map-marker-alt text-4xl text-[#6C5CE7] mb-4"></i>
+                    <h3 class="text-xl font-semibold mb-2">Positionnez votre annonce</h3>
+                    <p class="text-[#636E72]">Déplacez le marqueur sur la carte pour choisir l'emplacement exact</p>
+                </div>
+
+                <!-- Étape 3 - Formulaire (caché initialement) -->
+                <form id="adForm" style="display: none;" class="space-y-4">
+                    <!-- Position (lecture seule) -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-[#636E72]">Position</label>
+                        <div class="flex items-center gap-2">
+                            <input id="positionInput" type="text" readonly
+                                class="flex-1 px-3 py-2 border border-[#DCDDE1] rounded-md text-sm bg-gray-100 cursor-not-allowed"
+                                placeholder="Latitude, Longitude" />
+                            <button id="editLocation" type="button"
+                                class="text-[#6C5CE7] border border-[#6C5CE7] rounded-md px-3 py-2 text-sm hover:bg-[#6C5CE7] hover:text-white transition">
+                                <i class="fas fa-map-marker-alt mr-1"></i> Modifier
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Titre -->
+                    <div>
+                        <label for="adTitle" class="block text-sm font-medium text-[#636E72]">Titre *</label>
+                        <input type="text" id="adTitle" placeholder="Nom de l'article"
+                            class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md" required />
+                    </div>
+
+                    <!-- Prix -->
+                    <div>
+                        <label for="adPrice" class="block text-sm font-medium text-[#636E72]">Prix *</label>
+                        <div class="flex">
+                            <span
+                                class="inline-flex items-center px-3 border border-r-0 border-[#DCDDE1] bg-gray-100 rounded-l-md">€</span>
+                            <input type="number" id="adPrice" min="0" step="0.01"
+                                class="w-full px-3 py-2 border border-[#DCDDE1] rounded-r-md" required />
+                        </div>
+                    </div>
+
+                    <!-- Catégorie -->
+                    <div>
+                        <label for="adCategory" class="block text-sm font-medium text-[#636E72]">Catégorie *</label>
+                        <select id="adCategory" class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md" required>
+                            <option value="">Sélectionnez...</option>
+                            <option value="immobilier">Immobilier</option>
+                            <option value="vehicules">Véhicules</option>
+                            <option value="emploi_services">Emploi / Services</option>
+                            <option value="mode">Mode / Accessoires</option>
+                            <option value="enfants">Enfants / Jouets</option>
+                            <option value="electronique">Électronique / Multimédia</option>
+                            <option value="maison">Maison / Meubles</option>
+                            <option value="loisirs">Loisirs / Sports</option>
+                        </select>
+                    </div>
+
+                    <!-- Etat -->
+                    <div>
+                        <label for="adCondition" class="block text-sm font-medium text-[#636E72]">Etat *</label>
+                        <select id="adCondition" class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md" required>
+                            <option value="">Sélectionnez...</option>
+                            <option value="neuf">Neuf</option>
+                            <option value="tres_bon">Très bon état</option>
+                            <option value="bon">Bon état</option>
+                            <option value="correct">Correct</option>
+                        </select>
+                    </div>
+
+                    <!-- Description -->
+                    <div>
+                        <label for="adDescription" class="block text-sm font-medium text-[#636E72]">Description
+                            *</label>
+                        <textarea id="adDescription" rows="3"
+                            class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md"
+                            placeholder="Décrivez votre article..." required></textarea>
+                    </div>
+
+                    <!-- Upload d'image (optionnel) -->
+                    <div>
+                        <label class="block text-sm font-medium text-[#636E72] mb-1">Photos (max 3, optionnel)</label>
+                        <div id="imageUploadArea"
+                            class="border-2 border-dashed border-[#6C5CE7] p-4 rounded-md flex flex-col items-center justify-center text-center text-[#6C5CE7] cursor-pointer hover:bg-[#f5f6fa] transition">
+                            <i class="fas fa-cloud-upload-alt text-3xl"></i>
+                            <p class="text-sm mt-2">Glissez-déposez vos images ici</p>
+                            <p class="text-xs text-[#636E72] mt-1">ou cliquez pour sélectionner</p>
+                            <input type="file" id="imageUploadInput" accept="image/*" multiple style="display: none;" />
+                        </div>
+                        <div id="imagePreviews" class="flex flex-wrap gap-2 mt-2"></div>
+                    </div>
+
+                    <!-- Boutons -->
+                    <div class="flex justify-between items-center pt-4">
+                        <button id="cancelAdd" type="button"
+                            class="px-4 py-2 text-[#2D3436] bg-[#f1f2f6] rounded-md hover:bg-[#dcdde1] transition">
+                            Annuler
+                        </button>
+                        <button id="submitAd" type="submit"
+                            class="px-6 py-2 bg-[#6C5CE7] text-white rounded-md hover:bg-[#5a4dc7] transition flex items-center justify-center">
+                            <span id="submitText">Publier</span>
+                            <span id="submitSpinner" class="ml-2 hidden">
+                                <i class="fas fa-circle-notch fa-spin"></i>
+                            </span>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Bouton de validation de position (étape 2) -->
+                <div id="addActions" class="flex justify-center">
+                    <button id="confirmLocation"
+                        class="py-2 px-6 bg-[#6C5CE7] text-white rounded-md hover:bg-[#5a4dc7] transition">
+                        <i class="fas fa-check mr-2"></i>Valider la position
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal de déconnexion -->
     <div id="logoutModal" class="logout-modal">
         <div class="logout-content">
@@ -1802,11 +1998,6 @@
             if (!filterPanel.contains(e.target) && e.target !== filterToggleBtn) {
                 filterPanel.classList.remove('active');
             }
-        });
-
-        // Bouton d'ajout
-        document.getElementById('addBtn').addEventListener('click', () => {
-            alert("Fonctionnalité d'ajout d'annonce");
         });
 
         // Animation des boutons
@@ -2636,6 +2827,309 @@
                 });
             });
         }
+        // Variables pour l'ajout d'annonce
+        let addMarker = null;
+        let isAddingAd = false;
+        let selectedImages = [];
+
+        // Fonction pour démarrer l'ajout d'annonce (Étape 1)
+        function startAdd() {
+            if (!isAuthenticated) {
+                showToast("Veuillez vous connecter pour ajouter une annonce", "error");
+                authModal.classList.add('active');
+                return;
+            }
+
+            isAddingAd = true;
+            document.getElementById('addModal').classList.add('active');
+
+            // Réinitialiser l'interface
+            document.getElementById('addInstructions').style.display = 'block';
+            document.getElementById('adForm').style.display = 'none';
+            document.getElementById('addActions').style.display = 'flex';
+            document.getElementById('imagePreviews').innerHTML = '';
+            selectedImages = [];
+
+            // Réinitialiser le formulaire
+            document.getElementById('adForm').reset();
+
+            // Centrer la carte sur la position utilisateur ou par défaut
+            const center = userPosition || [48.8566, 2.3522]; // Paris par défaut
+            map.setView(center, 15, {
+                animate: true,
+                duration: 0.5
+            });
+
+            // Créer ou réactiver le marqueur
+            if (!addMarker) {
+                addMarker = L.marker(center, {
+                    draggable: true,
+                    icon: L.divIcon({
+                        html: `<div class="user-marker" style="background:#6C5CE7">
+                          <i class="fas fa-plus"></i>
+                          <div class="ring-animation"></div>
+                       </div>`,
+                        className: 'user-marker-container',
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 32]
+                    }),
+                    zIndexOffset: 1000
+                }).addTo(map);
+
+                // Mise à jour dynamique de la position
+                addMarker.on('drag', function () {
+                    const pos = addMarker.getLatLng();
+                    document.getElementById('positionInput').value = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
+                });
+            } else {
+                addMarker.setLatLng(center);
+                addMarker.dragging.enable();
+                map.addLayer(addMarker);
+            }
+
+            // Mettre à jour le champ position initial
+            const pos = addMarker.getLatLng();
+            document.getElementById('positionInput').value = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
+
+            // Message d'instruction
+            showToast("Déplacez le marqueur pour positionner votre annonce", "info");
+
+            // Ajuster la vue pour que le marqueur soit visible
+            setTimeout(() => {
+                const markerPos = addMarker.getLatLng();
+                const markerPixel = map.latLngToContainerPoint(markerPos);
+                const modalHeight = document.getElementById('addModal').offsetHeight;
+
+                // Si le marqueur est caché sous le modal, ajuster la vue
+                if (markerPixel.y < modalHeight + 50) {
+                    const offset = (modalHeight + 50 - markerPixel.y) / 100;
+                    map.panBy([0, offset], { animate: true });
+                }
+            }, 300);
+        }
+
+        // Fonction pour valider la position (Étape 3)
+        function confirmLocation() {
+            if (!addMarker) return;
+
+            addMarker.dragging.disable();
+            document.getElementById('addInstructions').style.display = 'none';
+            document.getElementById('adForm').style.display = 'block';
+            document.getElementById('addActions').style.display = 'none';
+
+            // Ajuster la vue pour s'assurer que le marqueur reste visible
+            const markerPos = addMarker.getLatLng();
+            const markerPixel = map.latLngToContainerPoint(markerPos);
+            const modalHeight = document.getElementById('addModal').offsetHeight;
+
+            if (markerPixel.y < modalHeight + 50) {
+                const offset = (modalHeight + 50 - markerPixel.y) / 100;
+                map.panBy([0, offset], { animate: true });
+            }
+        }
+
+        // Fonction pour modifier la position (Étape 4)
+        function editLocation() {
+            if (!addMarker) return;
+
+            addMarker.dragging.enable();
+            document.getElementById('addInstructions').style.display = 'block';
+            document.getElementById('adForm').style.display = 'none';
+            document.getElementById('addActions').style.display = 'flex';
+
+            showToast("Déplacez le marqueur pour ajuster la position", "info");
+        }
+
+        // Fonction pour soumettre l'annonce (Étape 6)
+        async function submitAd(e) {
+            e.preventDefault();
+
+            const title = document.getElementById('adTitle').value;
+            const price = document.getElementById('adPrice').value;
+            const category = document.getElementById('adCategory').value;
+            const condition = document.getElementById('adCondition').value;
+            const description = document.getElementById('adDescription').value;
+
+            if (!title || !price || !category || !condition || !description || !addMarker) {
+                showToast("Veuillez remplir tous les champs obligatoires", "error");
+                return;
+            }
+
+            const position = addMarker.getLatLng();
+            const adData = {
+                title,
+                price: parseFloat(price),
+                category,
+                condition,
+                description,
+                coordinates: [position.lat, position.lng],
+                images: selectedImages // Tableau des images sélectionnées
+            };
+
+            try {
+                // Afficher le loader
+                document.getElementById('submitText').textContent = 'Publication...';
+                document.getElementById('submitSpinner').classList.remove('hidden');
+                document.getElementById('submitAd').disabled = true;
+
+                const response = await fetch('/api/annonces', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(adData)
+                });
+
+                if (response.ok) {
+                    const newAd = await response.json();
+
+                    // Créer un marqueur pour la nouvelle annonce
+                    createCustomMarker(
+                        position.lat,
+                        position.lng,
+                        price,
+                        category,
+                        newAd.id,
+                        {
+                            id: newAd.id,
+                            title,
+                            seller: {
+                                name: "Vous", // À remplacer par les infos utilisateur
+                            },
+                            price: parseFloat(price),
+                            condition,
+                            location: "Nouvelle annonce", // À géocoder
+                            coordinates: [position.lat, position.lng],
+                            category,
+                            description,
+                            images: selectedImages.length > 0 ? selectedImages : ["https://via.placeholder.com/400"]
+                        }
+                    );
+
+                    showToast("Annonce publiée avec succès!", "success");
+                    closeAddModal();
+                } else {
+                    const error = await response.json();
+                    showToast(error.message || "Erreur lors de la publication", "error");
+                }
+            } catch (error) {
+                console.error("Erreur:", error);
+                showToast("Erreur serveur. Veuillez réessayer.", "error");
+            } finally {
+                // Cacher le loader
+                document.getElementById('submitText').textContent = 'Publier';
+                document.getElementById('submitSpinner').classList.add('hidden');
+                document.getElementById('submitAd').disabled = false;
+            }
+        }
+
+        // Fermer le modal d'ajout
+        function closeAddModal() {
+            document.getElementById('addModal').classList.remove('active');
+            isAddingAd = false;
+
+            if (addMarker) {
+                map.removeLayer(addMarker);
+            }
+        }
+
+        // Gestion de l'upload d'images
+        function setupImageUpload() {
+            const uploadArea = document.getElementById('imageUploadArea');
+            const fileInput = document.getElementById('imageUploadInput');
+            const previewsContainer = document.getElementById('imagePreviews');
+
+            // Cliquer sur la zone déclenche le file input
+            uploadArea.addEventListener('click', () => fileInput.click());
+
+            // Gestion du drag and drop
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('bg-[#f5f6fa]');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('bg-[#f5f6fa]');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('bg-[#f5f6fa]');
+                handleFiles(e.dataTransfer.files);
+            });
+
+            // Gestion de la sélection de fichiers
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length > 0) {
+                    handleFiles(fileInput.files);
+                }
+            });
+
+            // Fonction pour traiter les fichiers
+            function handleFiles(files) {
+                const remainingSlots = 3 - selectedImages.length;
+                if (remainingSlots <= 0) {
+                    showToast("Vous ne pouvez ajouter que 3 images maximum", "warning");
+                    return;
+                }
+
+                const validFiles = Array.from(files)
+                    .slice(0, remainingSlots)
+                    .filter(file => file.type.startsWith('image/'));
+
+                if (validFiles.length === 0) return;
+
+                validFiles.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const imageData = e.target.result;
+                        selectedImages.push(imageData);
+                        updateImagePreviews();
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            // Mise à jour des aperçus d'images
+            function updateImagePreviews() {
+                previewsContainer.innerHTML = '';
+                selectedImages.forEach((img, index) => {
+                    const preview = document.createElement('div');
+                    preview.className = 'relative w-16 h-16 rounded-md overflow-hidden border border-[#DCDDE1]';
+                    preview.innerHTML = `
+                <img src="${img}" class="w-full h-full object-cover" />
+                <button class="absolute top-0 right-0 bg-[#ff7675] text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-index="${index}">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+                    previewsContainer.appendChild(preview);
+                });
+
+                // Gestion de la suppression d'images
+                document.querySelectorAll('#imagePreviews button').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const index = parseInt(btn.getAttribute('data-index'));
+                        selectedImages.splice(index, 1);
+                        updateImagePreviews();
+                    });
+                });
+            }
+        }
+
+        // Écouteurs d'événements
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('addBtn').addEventListener('click', startAdd);
+            document.getElementById('closeAddModal').addEventListener('click', closeAddModal);
+            document.getElementById('confirmLocation').addEventListener('click', confirmLocation);
+            document.getElementById('editLocation').addEventListener('click', editLocation);
+            document.getElementById('cancelAdd').addEventListener('click', closeAddModal);
+            document.getElementById('adForm').addEventListener('submit', submitAd);
+
+            // Initialiser l'upload d'images
+            setupImageUpload();
+        });
         // Initialisation
         initMarkers();
     </script>
