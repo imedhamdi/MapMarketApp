@@ -1,59 +1,53 @@
-// routes/userRoutes.js
-const express = require('express');
+// /routes/userRoutes.js
+import express from 'express';
+import {
+  getMe,
+  updateMe,
+  updateUserAvatar,
+  // deleteMe // Optionnel, si vous voulez permettre la suppression de compte
+} from '../controllers/userController.js';
+import { protect } from '../middlewares/authMiddleware.js';
+import { uploadUserAvatar as uploadAvatarMiddleware } from '../middlewares/uploadMiddleware.js'; // Middleware pour l'upload d'avatar
+// Importer les schémas de validation si nécessaire pour updateMe
+// import { validateRequest, updateUserSchema } from '../middlewares/validationMiddleware.js';
+
 const router = express.Router();
-const userController = require('../controllers/userController');
-const auth = require('../middleware/auth');
-const { check } = require('express-validator');
-const { validate } = require('../middleware/validation');
 
-// Validation rules
-const registerValidation = [
-  check('name', 'Le nom est requis').not().isEmpty().trim().escape(),
-  check('email', 'Veuillez fournir un email valide').isEmail().normalizeEmail(),
-  check('password', 'Le mot de passe doit contenir au moins 6 caractères').isLength({ min: 6 })
-];
+// Toutes les routes ci-dessous nécessitent que l'utilisateur soit authentifié.
+// Nous appliquons donc le middleware 'protect' à toutes.
+router.use(protect);
 
-const loginValidation = [
-  check('email', 'Veuillez fournir un email valide').isEmail().normalizeEmail(),
-  check('password', 'Le mot de passe est requis').exists()
-];
+/**
+ * @route GET /api/user/me
+ * @description Récupérer les informations du profil de l'utilisateur actuellement connecté.
+ * @access Privé (utilisateur connecté)
+ */
+router.get('/me', getMe);
 
-const updateProfileValidation = [
-  check('name', 'Le nom est requis').optional().not().isEmpty().trim().escape(),
-  check('email', 'Veuillez fournir un email valide').optional().isEmail().normalizeEmail(),
-  check('newPassword', 'Le nouveau mot de passe doit contenir au moins 6 caractères')
-    .optional()
-    .isLength({ min: 6 }),
-  check('currentPassword', 'Le mot de passe actuel est requis pour les modifications')
-    .if(check('newPassword').exists())
-    .not()
-    .isEmpty()
-];
+/**
+ * @route PUT /api/user/me
+ * @description Mettre à jour les informations du profil de l'utilisateur actuellement connecté (sauf mot de passe).
+ * @access Privé (utilisateur connecté)
+ */
+// router.put('/me', validateRequest(updateUserSchema), updateMe); // Activer la validation si un schéma est créé
+router.put('/me', updateMe);
 
-const forgotPasswordValidation = [
-  check('email', 'Veuillez fournir un email valide').isEmail().normalizeEmail()
-];
 
-const resetPasswordValidation = [
-  check('newPassword', 'Le nouveau mot de passe doit contenir au moins 6 caractères').isLength({ min: 6 })
-];
+/**
+ * @route PUT /api/user/avatar
+ * @description Mettre à jour l'avatar de l'utilisateur actuellement connecté.
+ * Attend un champ 'avatar' dans la requête FormData.
+ * @access Privé (utilisateur connecté)
+ */
+router.put('/avatar', uploadAvatarMiddleware, updateUserAvatar);
 
-// Authentification
-router.post('/register', registerValidation,validate, userController.register);
-router.post('/login', loginValidation, validate,userController.login);
 
-// Profil utilisateur
-router.get('/me', auth, userController.getProfile);
-router.put('/me', auth, updateProfileValidation, userController.updateProfile);
-router.delete('/me', auth, userController.deleteAccount);
+// Si vous voulez permettre aux utilisateurs de mettre à jour leur mot de passe via une route dédiée (après connexion)
+// import { updatePassword } from '../controllers/authController.js'; // La logique est souvent dans authController
+// router.patch('/updateMyPassword', updatePassword);
 
-// Favoris
-router.get('/favorites', auth, userController.getFavorites);
-router.get('/favorites/:itemId', auth, userController.checkFavorite);
-router.patch('/favorites/:itemId', auth, userController.manageFavorites);
 
-// Réinitialisation du mot de passe
-router.post('/forgot-password', forgotPasswordValidation,validate, userController.forgotPassword);
-router.get('/reset-password/:token', userController.validateResetToken);
-router.post('/reset-password/:token', resetPasswordValidation, validate, userController.resetPassword);
-module.exports = router;
+// Optionnel: Route pour que l'utilisateur supprime son propre compte
+// router.delete('/deleteMe', deleteMe);
+
+export default router;

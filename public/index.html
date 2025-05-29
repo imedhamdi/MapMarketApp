@@ -4,3136 +4,882 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Marketplace Cartographique</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>MapMarket - Votre Marketplace Locale</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        xintegrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"
+        xintegrity="sha384-Gr6QDuK5EVhXm7BCYLHT7Rmk9SDAiO7A9ISIQhWXcwV5NpulpHNPvZp9P3WLa7XG"
+        crossorigin="anonymous"></script>
+
     <style>
-        .custom-marker {
-            background: #6c5ce7;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 12px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            border: 2px solid white;
-            position: relative;
-        }
-
-        .marker-price {
-            position: absolute;
-            bottom: -20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: white;
-            color: #6c5ce7;
-            padding: 2px 6px;
-            border-radius: 10px;
-            font-size: 10px;
-            font-weight: bold;
-            white-space: nowrap;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .user-marker {
-            background: #00b894;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 14px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-            border: 2px solid white;
-            position: relative;
-        }
-
-        .notification-badge {
-            background: #ff7675;
-            color: white;
-        }
-
-        .success-badge {
-            background: #55efc4;
-            color: #2d3436;
-        }
-
-        * {
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        .leaflet-container {
-            background: #f5f6fa;
-        }
-
-        /* Animation pour le marqueur utilisateur */
-        .animate-pulse {
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-            }
-
-            50% {
-                transform: scale(1.1);
-            }
-
-            100% {
-                transform: scale(1);
-            }
-        }
-
-        /* Animation des cercles concentriques */
-        .ring-animation {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border: 2px solid #00b894;
-            border-radius: 50%;
-            animation: ring 2s infinite;
-            opacity: 0;
-        }
-
-        @keyframes ring {
-            0% {
-                transform: scale(0.5);
-                opacity: 1;
-            }
-
-            100% {
-                transform: scale(1.5);
-                opacity: 0;
-            }
-        }
-
-        /* Animation pour la barre de recherche */
-        .search-bar {
-            transition: all 0.3s ease-out;
-            transform: translateY(-20px);
-            opacity: 0;
-        }
-
-        .search-bar.active {
-            transform: translateY(0);
-            opacity: 1;
-        }
-
-        /* Animation pour le panneau de filtres */
-        .filter-panel {
-            transition: all 0.3s ease-out;
-            transform: translateX(100%);
-            opacity: 0;
-        }
-
-        .filter-panel.active {
-            transform: translateX(0);
-            opacity: 1;
-        }
-
-        /* Style pour le range slider */
-        input[type="range"] {
-            --webkit-appearance: none;
-            height: 6px;
-            background: #d1d5db;
-            border-radius: 3px;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 18px;
-            height: 18px;
-            background: #6c5ce7;
-            border-radius: 50%;
-            cursor: pointer;
-        }
-
-        /* Checkbox personnalisé */
-        .checkbox-container input[type="checkbox"] {
-            display: none;
-        }
-
-        .checkbox-container .checkmark {
-            display: inline-block;
-            width: 18px;
-            height: 18px;
-            border: 2px solid #d1d5db;
-            border-radius: 4px;
-            position: relative;
-            margin-right: 8px;
-        }
-
-        .checkbox-container input:checked~.checkmark {
-            background-color: #6c5ce7;
-            border-color: #6c5ce7;
-        }
-
-        .checkbox-container input:checked~.checkmark:after {
-            content: "✓";
-            color: white;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 12px;
-        }
-
-        /* Styles pour le modal des favoris */
-        .favorites-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 2000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .favorites-modal.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .favorites-content {
-            background-color: white;
-            width: 90%;
-            max-width: 400px;
-            max-height: 80vh;
-            border-radius: 12px;
-            padding: 20px;
-            transform: translateY(20px);
-            transition: transform 0.3s ease;
-            overflow-y: auto;
-        }
-
-        .favorites-modal.active .favorites-content {
-            transform: translateY(0);
-        }
-
-        .favorite-item {
-            display: flex;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid #eee;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .favorite-item:hover {
-            background-color: #f8f9fa;
-        }
-
-        .favorite-item-icon {
-            margin-right: 12px;
-            color: #6c5ce7;
-            font-size: 20px;
-        }
-
-        .favorite-item-details {
-            flex: 1;
-        }
-
-        .favorite-item-title {
-            font-weight: 600;
-            color: #2d3436;
-        }
-
-        .favorite-item-price {
-            color: #6c5ce7;
-            font-size: 14px;
-            margin-top: 4px;
-        }
-
-        .no-favorites {
-            text-align: center;
-            padding: 20px;
-            color: #636e72;
-        }
-
-        /* Modal Annonce */
-        .annonce-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 2000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            padding: 20px;
-        }
-
-        .annonce-modal.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .annonce-content {
-            background-color: white;
-            width: 100%;
-            max-width: 600px;
-            max-height: 90vh;
-            border-radius: 16px;
-            overflow: hidden;
-            transform: translateY(30px);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        /* Styles personnalisés pour l'application MapMarket */
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            height: 100vh;
+            margin: 0;
+            background-color: #f8f9fa;
+            /* Un gris très clair, plus doux */
         }
 
-        .annonce-modal.active .annonce-content {
-            transform: translateY(0);
+        #appContainer {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            overflow: hidden;
         }
 
-        .close-btn {
-            position: absolute;
-            top: 15px;
-            right: 15px;
+        #topNav {
+            height: 64px;
+            /* Légèrement plus haute pour un meilleur espacement */
+            z-index: 1000;
+            background-color:white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+            /* Ombre plus subtile */
+        }
+
+  
+
+        #topNav .logo-text {
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: var(--primary-purple);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #topNav .logo-icon {
+            transition: transform 0.3s ease;
+            font-size: 1.8rem;
+        }
+
+        #topNav .logo-text:hover .logo-icon {
+            transform: rotate(15deg) scale(1.1);
+        }
+
+        #mainContent {
+            flex-grow: 1;
+            display: flex;
+            position: relative;
+        }
+
+        #map {
+            flex-grow: 1;
+            width: 100%;
+            z-index: 0;
+        }
+
+        .leaflet-control-zoom {
+            /* Style des contrôles de zoom Leaflet */
+            border-radius: 0.75rem !important;
+            /* 12px */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .leaflet-control-zoom a {
+            background-color: white !important;
+            color: #4B5563 !important;
+            /* gray-600 */
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+
+        .leaflet-control-zoom a:hover {
+            background-color: #f3f4f6 !important;
+            /* gray-100 */
+            color: #8B5CF6 !important;
+            /* purple-500 */
+        }
+
+
+        #bottomNavContainer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #publishFabContainer {
+            margin-bottom: -28px;
+            z-index: 1001;
+        }
+
+        #publishFab {
+            background: linear-gradient(135deg, #8B5CF6, #C084FC);
+            /* Dégradé lavande */
+            color: white;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+            box-shadow: 0 4px 10px rgba(139, 92, 246, 0.3);
+            /* Ombre douce lavande */
+        }
+
+        #publishFab:hover {
+            transform: scale(1.1) translateY(-2px);
+            box-shadow: 0 8px 16px rgba(139, 92, 246, 0.4);
+        }
+
+
+        #bottomNav {
+            height: 64px;
+            /* Légèrement plus haute */
+            width: 100%;
+            background-color: white;
+            border-top: 1px solid #e5e7eb;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.03);
+            padding-bottom: env(safe-area-inset-bottom);
+            /* Pour iPhone X et plus récent */
+        }
+
+        #bottomNav .nav-item {
+            color: #6B7280;
+            /* gray-500 */
+            transition: color 0.2s ease-in-out, transform 0.1s ease-out;
+        }
+
+        #bottomNav .nav-item:active {
+            transform: scale(0.92);
+        }
+
+        #bottomNav .nav-item.active {
+            color: #8B5CF6;
+            /* purple-500 */
+        }
+
+        /*/#bottomNav .nav-item.active .nav-item-icon { /* Icône pleine quand active */
+        /* Utiliser les classes Font Awesome pour solide si disponible, ou ajuster le style */
+
+        #bottomNav .nav-item .nav-item-label {
+            font-size: 0.65rem;
+            /* Texte plus petit sous les icônes */
+            margin-top: 2px;
+        }
+
+
+        /* Styles pour les marqueurs personnalisés Leaflet (divIcon) */
+        .custom-marker-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            color: white;
+            font-size: 16px;
+            /* Icône légèrement plus grande */
             width: 36px;
             height: 36px;
-            background-color: rgba(255, 255, 255, 0.9);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            cursor: pointer;
-            z-index: 10;
-            color: #2d3436;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            transform: rotate(0deg);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+            border: 2px solid white;
+            /* Bordure blanche pour détacher du fond */
         }
 
-        .close-btn:hover {
-            background-color: #f5f6fa;
-            transform: rotate(90deg);
+        .custom-marker-icon:hover {
+            transform: scale(1.15);
+            box-shadow: 0 5px 12px rgba(0, 0, 0, 0.3);
         }
 
-        .image-carousel {
-            position: relative;
-            height: 250px;
-            background-color: #f5f6fa;
+        .custom-marker-price {
+            position: absolute;
+            bottom: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            color: #1F2937;
+            /* gray-800 */
+            padding: 3px 8px;
+            border-radius: 12px;
+            /* Plus arrondi */
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+            border: 1px solid #e5e7eb;
+            /* gray-200 */
         }
 
-        .main-image {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-
-        .main-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .thumbnails {
-            display: flex;
-            gap: 8px;
-            padding: 10px;
-            overflow-x: auto;
-        }
-
-        .thumbnail {
-            width: 60px;
-            height: 60px;
-            border-radius: 8px;
-            border: 2px solid transparent;
-            cursor: pointer;
-            flex-shrink: 0;
-        }
-
-        .thumbnail.active {
-            border-color: #6c5ce7;
-        }
-
-        .annonce-details {
-            padding: 20px;
-            overflow-y: auto;
-        }
-
-        .annonce-header {
-            margin-bottom: 20px;
-        }
-
-        .annonce-header h2 {
-            font-size: 1.5rem;
-            color: #2d3436;
-            margin-bottom: 10px;
-        }
-
-        .seller-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .seller-details {
-            display: flex;
-            flex-direction: column;
-        }
-
-
-        .price-condition,
-        .location-category {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .price-section,
-        .condition-section,
-        .location-section,
-        .category-section {
-            flex: 1;
-        }
-
-        .label {
-            display: block;
-            color: #636e72;
-            font-size: 0.9rem;
-            margin-bottom: 5px;
-        }
-
-        .price {
-            font-size: 1.3rem;
-            font-weight: bold;
-            color: #6c5ce7;
-        }
-
-        .condition,
-        .category {
-            font-weight: 500;
-        }
-
-        .distance {
-            color: #636e72;
-            font-size: 0.9rem;
-        }
-
-        .description-section {
-            margin-bottom: 25px;
-        }
-
-        .description-section h3 {
-            margin-bottom: 10px;
-            color: #2d3436;
-        }
-
-        .description-section p {
-            color: #636e72;
-            line-height: 1.5;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .favorite-btn,
-        .contact-btn {
-            flex: 1;
-            padding: 12px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .favorite-btn {
-            background-color: #f5f6fa;
-            color: #2d3436;
-            border: 1px solid #dcdde1;
-        }
-
-        .favorite-btn:hover {
-            background-color: #ededed;
-        }
-
-        .favorite-btn.active {
-            background-color: rgba(108, 92, 231, 0.1);
-            color: #6c5ce7;
-            border-color: #6c5ce7;
-        }
-
-        .favorite-btn .favorite-badge {
-            display: none;
-            color: #6c5ce7;
-        }
-
-        .favorite-btn.active .favorite-badge {
-            display: inline;
-        }
-
-        .contact-btn {
-            background-color: #6c5ce7;
-            color: white;
-            border: none;
-        }
-
-        .contact-btn:hover {
-            background-color: #5a4dc7;
-        }
-
-        /* Animation pour le badge favori */
-        @keyframes bounce {
-
-            0%,
-            100% {
-                transform: scale(1);
-            }
-
-            50% {
-                transform: scale(1.2);
-            }
-        }
-
-        .favorite-badge {
-            animation: bounce 0.3s;
-        }
-
-        /* Modal d'authentification */
-        .auth-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 2000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+        /* Styles pour les modales (animation macOS/iOS-like) */
+        .modal {
+            transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: scale(0.9) translateY(20px);
             opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             pointer-events: none;
         }
 
-        .auth-modal.active {
+        .modal.active {
+            transform: scale(1) translateY(0);
             opacity: 1;
-            visibility: visible;
             pointer-events: auto;
         }
 
-        .auth-content {
-            background-color: white;
-            width: 90%;
-            max-width: 400px;
-            border-radius: 16px;
-            padding: 30px;
-            transform: scale(0.8) translateY(50px);
-            opacity: 0;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .auth-modal.active .auth-content {
-            transform: scale(1) translateY(0);
-            opacity: 1;
-        }
-
-        .auth-forms-container {
-            position: relative;
-            transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            /* Animation fluide */
-        }
-
-        .auth-form {
-            position: absolute;
-            width: 100%;
-            padding: 0 10px;
-            transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            opacity: 0;
-            transform: translateX(120%) scale(0.95);
-            visibility: hidden;
-        }
-
-        .auth-form.active {
-            opacity: 1;
-            transform: translateX(0) scale(1);
-            visibility: visible;
-            position: relative;
-        }
-
-        .auth-form.left {
-            transform: translateX(-120%) scale(0.95);
-        }
-
-        .auth-title {
-            text-align: center;
-            color: #6c5ce7;
-            margin-bottom: 25px;
-            font-size: 1.5rem;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #636e72;
-            font-size: 0.9rem;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #dcdde1;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #6c5ce7;
-        }
-
-        .auth-submit-btn {
-            width: 100%;
-            padding: 12px;
-            background-color: #6c5ce7;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            margin-top: 10px;
-        }
-
-        .auth-submit-btn:hover {
-            background-color: #5a4dc7;
-        }
-
-        .auth-footer {
-            margin-top: 25px;
-            padding-top: 15px;
-            border-top: 1px solid #eee;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            /* Augmentez cet espacement */
-        }
-
-        .auth-switch-btn {
-            color: #6c5ce7;
-            text-decoration: none;
-            font-size: 0.9rem;
-            display: block;
-            text-align: center;
-            padding: 5px 0;
-            transition: color 0.2s;
-        }
-
-        .auth-switch-btn:hover {
-            color: #5a4dc7;
-            text-decoration: underline;
-        }
-
-        .auth-form input,
-        .auth-submit-btn {
-            transition: all 0.3s ease;
-            transform: translateY(20px);
-            opacity: 0;
-        }
-
-        .auth-form.active input,
-        .auth-form.active .auth-submit-btn {
-            transform: translateY(0);
-            opacity: 1;
-        }
-
-
-        /* Animation d'entrée/sortie améliorée */
-        @keyframes formSlideIn {
-            from {
-                transform: translateX(120%) scale(0.95);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateX(0) scale(1);
-                opacity: 1;
-            }
-        }
-
-        @keyframes formSlideOut {
-            to {
-                transform: translateX(-120%) scale(0.95);
-                opacity: 0;
-            }
-        }
-
-        /* Effet de chargement pendant la soumission */
-        .auth-submit-btn.loading {
-            position: relative;
-            color: transparent;
-        }
-
-        .auth-submit-btn.loading::after {
-            content: "";
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            top: 50%;
-            left: 50%;
-            margin: -10px 0 0 -10px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 0.6s linear infinite;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* Style pour la popup de déconnexion */
-        .logout-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 2000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .logout-modal.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .logout-content {
-            background-color: white;
-            width: 90%;
-            max-width: 350px;
-            border-radius: 16px;
-            padding: 25px;
-            transform: translateY(20px) scale(0.95);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            text-align: center;
-        }
-
-        .logout-modal.active .logout-content {
-            transform: translateY(0) scale(1);
-        }
-
-        .logout-icon {
-            font-size: 3rem;
-            color: #ff6b6b;
-            margin-bottom: 15px;
-            animation: pulse 1.5s infinite;
-        }
-
-        .logout-message {
-            font-size: 1.1rem;
-            margin-bottom: 20px;
-            color: #2d3436;
-        }
-
-        .logout-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-        }
-
-        .logout-confirm {
-            background-color: #ff6b6b;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .logout-confirm:hover {
-            background-color: #ff5252;
-            transform: translateY(-2px);
-        }
-
-        .logout-cancel {
-            background-color: #f5f6fa;
-            color: #636e72;
-            border: 1px solid #dcdde1;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .logout-cancel:hover {
-            background-color: #ededed;
-        }
-
-        .toast {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-20px);
-            background-color: #00b894;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            z-index: 3000;
-            opacity: 0;
-            transition: all 0.3s ease;
-        }
-
-        .toast.success {
-            background-color: #00b894;
-        }
-
-        .toast.error {
-            background-color: #ff7675;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* Toast/Snackbar Notifications */
-        .notification-toast {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-30px);
-            background-color: #00b894;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            z-index: 3000;
-            opacity: 0;
-            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            max-width: 90%;
-            text-align: center;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .notification-toast.success {
-            background-color: #00b894;
-        }
-
-        .notification-toast.error {
-            background-color: #ff7675;
-        }
-
-        .notification-toast.warning {
-            background-color: #fdcb6e;
-            color: #2d3436;
-        }
-
-        .notification-toast.info {
-            background-color: #6c5ce7;
-        }
-
-        .notification-toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-
-        .notification-toast i {
-            font-size: 1.2rem;
-        }
-
-        /* Modal de confirmation */
-        .confirmation-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 2000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .confirmation-modal.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .confirmation-content {
-            background-color: white;
-            width: 90%;
-            max-width: 400px;
-            border-radius: 16px;
-            padding: 25px;
-            transform: translateY(20px) scale(0.95);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            text-align: center;
-        }
-
-        .confirmation-modal.active .confirmation-content {
-            transform: translateY(0) scale(1);
-        }
-
-        .confirmation-icon {
-            font-size: 3rem;
-            margin-bottom: 15px;
-        }
-
-        .confirmation-icon.success {
-            color: #00b894;
-            animation: bounceIn 0.6s;
-        }
-
-        .confirmation-icon.error {
-            color: #ff7675;
-            animation: shake 0.6s;
-        }
-
-        .confirmation-message {
-            font-size: 1.1rem;
-            margin-bottom: 20px;
-            color: #2d3436;
-            line-height: 1.5;
-        }
-
-        .confirmation-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-        }
-
-        .confirmation-button {
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-weight: 500;
-        }
-
-        .confirmation-button.primary {
-            background-color: #6c5ce7;
-            color: white;
-            border: none;
-        }
-
-        .confirmation-button.primary:hover {
-            background-color: #5a4dc7;
-        }
-
-        .confirmation-button.secondary {
-            background-color: #f5f6fa;
-            color: #636e72;
-            border: 1px solid #dcdde1;
-        }
-
-        .confirmation-button.secondary:hover {
-            background-color: #ededed;
-        }
-
-        @keyframes bounceIn {
-            0% {
-                transform: scale(0.5);
-                opacity: 0;
-            }
-
-            50% {
-                transform: scale(1.2);
-                opacity: 1;
-            }
-
-            100% {
-                transform: scale(1);
-            }
-        }
-
-        @keyframes shake {
-
-            0%,
-            100% {
-                transform: translateX(0);
-            }
-
-            20%,
-            60% {
-                transform: translateX(-10px);
-            }
-
-            40%,
-            80% {
-                transform: translateX(10px);
-            }
-        }
-
-        .badge-distance {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 500;
-            margin-top: 4px;
-            margin-left: 6px;
-            white-space: nowrap;
-            color: white;
-        }
-
-        .badge-green {
-            background-color: #00B894;
-        }
-
-        .badge-orange {
-            background-color: #FFA500;
-        }
-
-        .badge-red {
-            background-color: #D63031;
-        }
-
-        /* Ajoutez ces styles à votre section CSS existante */
-
-        /* Style pour les aperçus d'images */
-        #imagePreviews {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        #imagePreviews .relative {
-            transition: all 0.2s;
-        }
-
-        #imagePreviews .relative:hover {
-            transform: scale(1.05);
-        }
-
-        #imagePreviews button {
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-
-        #imagePreviews .relative:hover button {
-            opacity: 1;
-        }
-
-        /* Style pour le bouton de chargement */
-        #submitSpinner {
-            transition: all 0.2s;
-        }
-
-        #submitSpinner.hidden {
-            opacity: 0;
-            width: 0;
-            margin-left: 0;
-        }
-
-        /* Style pour la zone de dépôt */
-        #imageUploadArea {
-            transition: all 0.2s;
-        }
-
-        #imageUploadArea:hover {
-            background-color: #f8f9fa;
-        }
-
-        /* Ajoutez ceci à votre section CSS */
-        #addModal .annonce-content {
-            max-width: 400px;
-            margin-top: 20px;
-            /* Laisse de l'espace en haut */
-            max-height: 80vh;
+        .modal-content {
+            max-height: 90vh;
             overflow-y: auto;
-            margin-top: 20px;
-            margin-bottom: 20px;
+            border-radius: 1rem;
+            /* 16px, plus arrondi */
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
         }
 
-        #addInstructions,
-        #adForm {
-            padding: 16px;
+        /* Styles pour la messagerie */
+        .chat-bubble {
+            max-width: 75%;
+            padding: 10px 16px;
+            border-radius: 20px;
+            word-break: break-word;
+            line-height: 1.5;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
 
-        #addModal {
-            align-items: flex-start;
-            /* Aligne en haut plutôt qu'au centre */
-            padding-top: 60px;
-            /* Laisse de l'espace pour le header */
+        .chat-bubble-sent {
+            background-image: linear-gradient(to right, #8B5CF6, #A78BFA);
+            /* Dégradé lavande */
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 8px;
+        }
+
+        .chat-bubble-received {
+            background-color: #e9ecef;
+            /* Gris plus doux */
+            color: #212529;
+            /* Texte plus contrasté */
+            margin-right: auto;
+            border-bottom-left-radius: 8px;
+        }
+
+        #chatMessagesContainer {
+            scroll-behavior: smooth;
+            padding-bottom: 1rem;
+            /* Espace pour le dernier message */
+        }
+
+        #messageInput {
+            transition: box-shadow 0.2s ease;
+        }
+
+        #messageInput:focus {
+            box-shadow: 0 0 0 2px #A78BFA;
+            /* Ombre focus lavande */
+        }
+
+
+        /* Scrollbar stylisée */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #C084FC;
+            border-radius: 4px;
+        }
+
+        /* Lavande plus clair */
+        ::-webkit-scrollbar-thumb:hover {
+            background: #A78BFA;
+        }
+
+        .modal-overlay {
+            z-index: 1040;
+        }
+
+        .modal {
+            z-index: 1050;
+        }
+
+        .leaflet-popup-content-wrapper {
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .leaflet-popup-tip-container {
+            display: none;
+        }
+
+        /* Cacher complètement la flèche */
+
+        #photoUploadArea {
+            border: 2px dashed #cbd5e1;
+            /* gray-300 */
+            padding: 2.5rem 1.5rem;
+            /* Plus d'espace */
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+            border-radius: 0.75rem;
+            /* 12px */
+            background-color: #f8f9fa;
+            /* gray-50 */
+        }
+
+        #photoUploadArea:hover,
+        #photoUploadArea.dragover {
+            border-color: #A78BFA;
+            /* Lavande */
+            background-color: #f3e8ff;
+            /* Fond lavande très clair */
+        }
+
+        #imagePreviewContainer img {
+            border: 2px solid #e5e7eb;
+            /* gray-200 */
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .rating-stars .fa-star {
+            color: #fbbf24;
+        }
+
+        /* amber-400 */
+        .rating-stars .fa-star.empty {
+            color: #d1d5db;
+        }
+
+        /* gray-300 */
+
+        #globalLoader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            /* Plus transparent */
+            backdrop-filter: blur(4px);
+            /* Effet de flou */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.3s ease;
+            display: none;
+        }
+
+        .spinner {
+            border: 4px solid rgba(167, 139, 250, 0.2);
+            /* Lavande transparent */
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border-left-color: #8B5CF6;
+            /* Lavande plein */
+            animation: spin 0.8s linear infinite;
+            /* Plus rapide */
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Styles pour les boutons communs */
+        .btn-primary {
+            background-image: linear-gradient(to right, #8B5CF6, #A78BFA);
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(139, 92, 246, 0.2);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-secondary {
+            background-color: #e9ecef;
+            /* gray-200 plus doux */
+            color: #495057;
+            /* gray-700 plus doux */
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            background-color: #dee2e6;
+            /* gray-300 plus doux */
+            transform: translateY(-1px);
+        }
+
+        .input-style {
+            border-radius: 0.5rem;
+            /* 8px */
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .input-style:focus {
+            border-color: #A78BFA;
+            box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.3);
+        }
+
+        /* Amélioration du focus visible pour l'accessibilité */
+        *:focus-visible {
+            outline: 2px solid #8B5CF6;
+            outline-offset: 2px;
+            border-radius: 4px;
+            /* Pour que l'outline suive les coins arrondis */
+        }
+
+        /* Pour les éléments qui n'ont pas de bordure par défaut mais qui sont focusables */
+        button:focus-visible,
+        [role="button"]:focus-visible,
+        [tabindex="0"]:focus-visible {
+            box-shadow: 0 0 0 2px #fff, 0 0 0 4px #8B5CF6;
+            /* Style de focus type "anneau" */
+        }
+
+        /* Toast notification style */
+        #toastNotification {
+            border-radius: 0.75rem;
+            /* 12px */
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            padding: 1rem 1.25rem;
+            /* 16px 20px */
+            font-weight: 500;
         }
     </style>
 </head>
 
-<body class="bg-[#F5F6FA] text-[#2D3436] font-sans h-screen overflow-hidden">
-    <!-- Header -->
-    <header
-        class="fixed top-0 left-0 right-0 z-[1000] px-4 py-3 flex justify-between items-center bg-white h-[60px] border-b border-[#DCDDE1]">
-        <div class="logo font-semibold text-lg text-[#6C5CE7] flex items-center gap-2 group">
-            <span class="inline-block transition-transform duration-300 ease-in-out group-hover:-rotate-12">📍</span>
-            <span>MapMarket</span>
-        </div>
-        <div class="header-actions flex gap-3 items-center">
-            <!-- Icône de déconnexion (visible seulement quand connecté) -->
-            <button id="logoutIcon"
-                class="icon-btn w-10 h-10 rounded-full bg-[rgba(255,107,107,0.1)] border-none flex items-center justify-center cursor-pointer text-[#ff6b6b] text-lg transition-all duration-200 ease-in-out active:scale-95 hidden">
-                <i class="fas fa-sign-out-alt"></i>
-            </button>
+<body class="bg-gray-100 text-gray-800">
 
-            <!-- Icône d'authentification -->
-            <button id="authIcon"
-                class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
-                <i class="fas fa-user"></i>
-            </button>
+    <div id="globalLoader" class="hidden">
+        <div class="spinner"></div>
+    </div>
 
-            <div class="header-actions flex gap-3 items-center">
-                <button id="searchToggleBtn"
-                    class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
-                    <i class="fas fa-search"></i>
+    <div id="appContainer">
+        <nav id="topNav" class="flex items-center justify-between px-4 md:px-6">
+            <div class="logo-text">
+                <span class="logo-icon">📍</span>
+                <span>MapMarket</span>
+            </div>
+            <div class="flex items-center space-x-3 md:space-x-4">
+                <button id="notificationBtn"
+                    class="text-gray-500 hover:text-primary-purple relative p-2 rounded-full hover:bg-primary-100 transition-colors"
+                    aria-label="Notifications">
+                    <i class="fas fa-bell text-xl"></i>
+                    <span id="notificationBadge"
+                        class="absolute top-0 right-0 bg-pink-500 text-white text-xs font-semibold rounded-full h-4 w-4 flex items-center justify-center transform translate-x-1/4 -translate-y-1/4 hidden">0</span>
                 </button>
-                <button
-                    class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg transition-all duration-200 ease-in-out active:scale-95">
-                    <i class="fas fa-bell"></i>
+                <button id="profileAvatarBtn" class="text-gray-500 hover:text-primary-purple"
+                    aria-label="Profil utilisateur">
+                    <img id="userAvatarSmall" src="https://placehold.co/32x32/E2E8F0/A0AEC0?text=U"
+                        alt="Avatar de l'utilisateur"
+                        class="w-9 h-9 rounded-full object-cover border-2 border-transparent hover:border-primary-300 transition-all duration-200">
                 </button>
             </div>
+        </nav>
+
+        <main id="mainContent">
+            <div id="map"></div>
+        </main>
+
+        <div id="bottomNavContainer">
+            <div id="publishFabContainer">
+                <button id="publishFab"
+                    class="bg-purple-600 hover:bg-purple-700 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center focus:outline-none focus:ring-4 focus:ring-purple-300"
+                    aria-label="Publier une annonce ou une alerte">
+                    <i class="fas fa-plus text-2xl"></i>
+                </button>
+            </div>
+            <nav id="bottomNav" class="flex justify-around items-center pt-2 pb-1">
+                <button data-target-view="map" class="nav-item p-2 text-center rounded-md flex-1 active"
+                    aria-label="Carte">
+                    <i class="fas fa-map-marked-alt text-2xl nav-item-icon"></i>
+                    <span class="block nav-item-label">Carte</span>
+                </button>
+                <button data-target-view="filters" class="nav-item p-2 text-center rounded-md flex-1"
+                    aria-label="Filtres">
+                    <i class="fas fa-sliders-h text-2xl nav-item-icon"></i>
+                    <span class="block nav-item-label">Filtres</span>
+                </button>
+                <div class="flex-1"></div>
+                <button data-target-view="messages" class="nav-item p-2 text-center rounded-md flex-1"
+                    aria-label="Messages">
+                    <i class="fas fa-comments text-2xl nav-item-icon"></i>
+                    <span class="block nav-item-label">Messages</span>
+                </button>
+                <button data-target-view="profile" class="nav-item p-2 text-center rounded-md flex-1"
+                    aria-label="Profil">
+                    <i class="fas fa-user text-2xl nav-item-icon"></i>
+                    <span class="block nav-item-label">Profil</span>
+                </button>
+            </nav>
         </div>
-    </header>
-    <!-- Modal d'authentification -->
-    <div id="authModal" class="auth-modal">
-        <div class="auth-content">
-            <button id="closeAuthModal" class="close-btn">
-                <i class="fas fa-times"></i>
-            </button>
+    </div>
 
-            <div class="auth-forms-container">
-                <!-- Formulaire de connexion -->
-                <div id="loginForm" class="auth-form active">
-                    <h2 class="auth-title">Connexion</h2>
-                    <form id="loginFormContent">
-                        <div class="form-group">
-                            <label for="loginEmail">Email</label>
-                            <input type="email" id="loginEmail" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="loginPassword">Mot de passe</label>
-                            <input type="password" id="loginPassword" required>
-                        </div>
-                        <button type="submit" class="auth-submit-btn">Se connecter</button>
-                    </form>
-                    <div class="auth-footer">
-                        <a href="#" class="auth-switch-btn" data-target="registerForm">Créer un compte</a>
-                        <a href="#" class="auth-switch-btn" data-target="forgotForm">Mot de passe oublié ?</a>
-                    </div>
-                </div>
-
-                <!-- Formulaire d'inscription -->
-                <div id="registerForm" class="auth-form">
-                    <h2 class="auth-title">Inscription</h2>
-                    <form id="registerFormContent" novalidate>
-                        <div class="form-group">
-                            <label for="registerName">Nom complet</label>
-                            <!-- Nom complet -->
-                            <input type="text" id="registerName" required pattern="^[A-Za-zÀ-ÿ'\- ]{2,40}$"
-                                title="Le nom doit contenir uniquement des lettres (min. 2 caractères)">
-
-                        </div>
-                        <div class="form-group">
-                            <label for="registerEmail">Email</label>
-                            <!-- Email -->
-                            <input type="email" id="registerEmail" required
-                                pattern="^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
-                                title="Entrez une adresse email valide">
-                        </div>
-                        <div class="form-group">
-                            <label for="registerPassword">Mot de passe</label>
-                            <!-- Mot de passe -->
-                            <input type="password" id="registerPassword" required
-                                pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$"
-                                title="Minimum 8 caractères avec majuscule, minuscule, chiffre et caractère spécial">
-
-                        </div>
-                        <div class="form-group">
-                            <label for="registerConfirmPassword">Confirmer le mot de passe</label>
-                            <input type="password" id="registerConfirmPassword" required>
-                        </div>
-                        <button type="submit" class="auth-submit-btn">S'inscrire</button>
-                    </form>
-                    <div class="auth-footer">
-                        <a href="#" class="auth-switch-btn" data-target="loginForm">Déjà un compte ? Se connecter</a>
-                    </div>
-                </div>
-
-                <!-- Formulaire de réinitialisation -->
-                <div id="forgotForm" class="auth-form">
-                    <h2 class="auth-title">Réinitialiser le mot de passe</h2>
-                    <form id="forgotFormContent">
-                        <div class="form-group">
-                            <label for="forgotEmail">Email</label>
-                            <input type="email" id="forgotEmail" required>
-                        </div>
-                        <button type="submit" class="auth-submit-btn">Envoyer le lien</button>
-                    </form>
-                    <div class="auth-footer">
-                        <a href="#" class="auth-switch-btn" data-target="loginForm">Retour à la connexion</a>
-                    </div>
-                </div>
-                <!-- Formulaire de réinitialisation avec token -->
-                <div id="resetForm" class="auth-form">
-                    <h2 class="auth-title">Nouveau mot de passe</h2>
-                    <form id="resetPasswordFormContent">
-                        <div class="form-group">
-                            <label for="resetPassword">Nouveau mot de passe</label>
-                            <input type="password" id="resetPassword" required />
-                        </div>
-                        <button type="submit" class="auth-submit-btn">Réinitialiser</button>
-                    </form>
-                    <div class="auth-footer">
-                        <a href="#" class="auth-switch-btn" data-target="loginForm">Retour à la connexion</a>
-                    </div>
-                </div>
+    <div id="authModal"
+        class="modal fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="modal-content bg-white p-6 md:p-8 rounded-xl shadow-2xl w-full max-w-md">
+            <div id="authModalContent">
             </div>
         </div>
     </div>
-    <div id="resetPasswordPage" style="display: none;">
-        <div class="auth-content">
-            <h2 class="auth-title">Nouveau mot de passe</h2>
-            <form id="resetPasswordForm">
-                <div class="form-group">
-                    <label for="newPassword">Nouveau mot de passe</label>
-                    <input type="password" id="newPassword" required>
+
+    <div id="itemFormModal"
+        class="modal fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="modal-content bg-white p-6 md:p-8 rounded-xl shadow-2xl w-full max-w-lg">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="itemFormTitle" class="text-2xl font-semibold text-gray-800">Nouvelle annonce</h2>
+                <button id="closeItemFormModal" class="text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label="Fermer le formulaire"><i class="fas fa-times fa-lg"></i></button>
+            </div>
+            <form id="itemForm" class="space-y-5">
+                <input type="hidden" id="itemId" name="id">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Position de l'article/alerte</label>
+                    <div
+                        class="mt-1 flex items-center justify-between p-3 border border-gray-300 rounded-lg bg-gray-50">
+                        <span id="itemPositionCoords" class="text-sm text-gray-600">Lat: ..., Lng: ...</span>
+                        <input type="hidden" id="itemLat" name="latitude">
+                        <input type="hidden" id="itemLng" name="longitude">
+                        <button type="button" id="modifyPositionBtn"
+                            class="text-sm text-purple-600 hover:text-purple-700 font-semibold flex items-center"
+                            aria-label="Modifier la position sur la carte">
+                            <i class="fas fa-map-marker-alt mr-1.5"></i> Modifier
+                        </button>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="confirmPassword">Confirmer le mot de passe</label>
-                    <input type="password" id="confirmPassword" required>
+
+                <div>
+                    <label for="itemType" class="block text-sm font-medium text-gray-700 mb-1">Type de
+                        publication</label>
+                    <select id="itemType" name="type" class="input-style mt-1 block w-full py-2.5 px-3">
+                        <option value="annonce">Vendre un article (Annonce)</option>
+                        <option value="alerte">Rechercher un article (Alerte)</option>
+                    </select>
                 </div>
-                <button type="submit" class="auth-submit-btn">Réinitialiser</button>
+
+                <div>
+                    <label for="itemTitle" class="block text-sm font-medium text-gray-700 mb-1">Titre *</label>
+                    <input type="text" id="itemTitle" name="title" required class="input-style mt-1 block w-full"
+                        placeholder="Ex: Magnifique vase en céramique">
+                </div>
+
+                <div id="itemPriceContainer">
+                    <label for="itemPrice" class="block text-sm font-medium text-gray-700 mb-1">Prix *</label>
+                    <input type="number" id="itemPrice" name="price" step="0.01" class="input-style mt-1 block w-full"
+                        placeholder="€">
+                </div>
+                <div id="itemPriceRangeContainer" class="hidden space-y-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Fourchette de prix (€)</label>
+                    <div>
+                        <input type="number" id="itemMinPrice" name="minPrice" step="0.01"
+                            class="input-style mt-1 block w-full" placeholder="Prix Minimum">
+                    </div>
+                    <div>
+                        <input type="number" id="itemMaxPrice" name="maxPrice" step="0.01"
+                            class="input-style mt-1 block w-full" placeholder="Prix Maximum">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="itemCategory" class="block text-sm font-medium text-gray-700 mb-1">Catégorie *</label>
+                    <select id="itemCategory" name="category" required
+                        class="input-style mt-1 block w-full py-2.5 px-3">
+                    </select>
+                </div>
+
+                <div id="itemStateContainer">
+                    <label for="itemState" class="block text-sm font-medium text-gray-700 mb-1">État *</label>
+                    <select id="itemState" name="etat" required class="input-style mt-1 block w-full py-2.5 px-3">
+                    </select>
+                </div>
+
+                <div>
+                    <label for="itemDescription" class="block text-sm font-medium text-gray-700 mb-1">Description
+                        *</label>
+                    <textarea id="itemDescription" name="description" rows="4" required
+                        class="input-style mt-1 block w-full"
+                        placeholder="Décrivez votre article en détail, son histoire, ses particularités..."></textarea>
+                </div>
+
+                <div id="itemImageUploadContainer">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Photos (max 3, format JPG, PNG)</label>
+                    <div id="photoUploadArea" class="mt-1 rounded-lg" role="button" tabindex="0"
+                        aria-label="Zone de téléversement d'images">
+                        <input type="file" id="itemImages" name="images" multiple accept="image/jpeg, image/png"
+                            class="hidden">
+                        <i class="fas fa-cloud-upload-alt text-5xl text-purple-300 mb-3"></i>
+                        <p class="text-sm text-gray-500">Glissez-déposez vos images ici <br>ou cliquez pour sélectionner
+                        </p>
+                    </div>
+                    <div id="imagePreviewContainer" class="mt-3 flex flex-wrap gap-3" aria-live="polite">
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-5">
+                    <button type="button" id="cancelItemForm" class="btn-secondary">Annuler</button>
+                    <button type="submit" class="btn-primary">Publier l'annonce</button>
+                </div>
             </form>
         </div>
     </div>
-    <!-- Barre de recherche -->
-    <div id="searchBar" class="search-bar fixed top-[60px] left-0 right-0 z-[999] bg-white px-4 py-3 shadow-md">
-        <div class="flex items-center gap-2">
-            <div class="flex-1 relative">
-                <input type="text" id="searchInput" placeholder="Rechercher des annonces..."
-                    class="w-full pl-10 pr-4 py-2 border border-[#DCDDE1] rounded-full focus:outline-none focus:ring-2 focus:ring-[#6C5CE7] focus:border-transparent">
-                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-[#636E72]"></i>
+
+    <div id="itemDetailModal"
+        class="modal fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div class="flex justify-between items-center p-4 border-b border-gray-200">
+                <h2 id="itemDetailTitle" class="text-xl lg:text-2xl font-semibold text-gray-800 truncate pr-4">Titre de
+                    l'annonce</h2>
+                <button id="closeItemDetailModal" class="text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label="Fermer les détails de l'annonce"><i class="fas fa-times fa-lg"></i></button>
             </div>
-            <button id="filterToggleBtn"
-                class="icon-btn w-10 h-10 rounded-full bg-[rgba(108,92,231,0.1)] border-none flex items-center justify-center cursor-pointer text-[#6C5CE7] text-lg">
-                <i class="fas fa-sliders-h"></i>
-            </button>
-        </div>
-    </div>
-
-    <!-- Carte -->
-    <main id="map" role="main" aria-label="Carte des annonces"
-        class="fixed top-[60px] bottom-[80px] left-0 right-0 z-10"></main>
-
-    <!-- Panneau de filtres -->
-    <div id="filterPanel" class="filter-panel fixed top-[120px] right-4 z-[998] w-72 bg-white rounded-lg shadow-xl p-4">
-        <h3 class="font-semibold text-lg mb-4 text-[#2D3436]">Filtres</h3>
-
-        <!-- Rayon de recherche -->
-        <div class="mb-6">
-            <label class="block text-sm font-medium text-[#636E72] mb-2">Rayon de recherche: <span
-                    id="radiusValue">5</span> km</label>
-            <input id="radiusRange" type="range" min="1" max="50" value="5" class="w-full">
-        </div>
-
-        <!-- Catégories -->
-        <div class="mb-6">
-            <h4 class="font-medium text-[#636E72] mb-3">Catégories</h4>
-            <div class="space-y-2">
-                <label class="checkbox-container flex items-center cursor-pointer">
-                    <input type="checkbox" checked class="category-filter" value="immobilier">
-                    <span class="checkmark"></span>
-                    <span>🏠 Immobilier</span>
-                </label>
-                <label class="checkbox-container flex items-center cursor-pointer">
-                    <input type="checkbox" checked class="category-filter" value="vehicules">
-                    <span class="checkmark"></span>
-                    <span>🚗 Véhicules</span>
-                </label>
-                <label class="checkbox-container flex items-center cursor-pointer">
-                    <input type="checkbox" checked class="category-filter" value="emploi_services">
-                    <span class="checkmark"></span>
-                    <span>👔 Emploi / Services</span>
-                </label>
-                <label class="checkbox-container flex items-center cursor-pointer">
-                    <input type="checkbox" checked class="category-filter" value="mode">
-                    <span class="checkmark"></span>
-                    <span>👕 Mode / Accessoires</span>
-                </label>
-                <label class="checkbox-container flex items-center cursor-pointer">
-                    <input type="checkbox" checked class="category-filter" value="enfants">
-                    <span class="checkmark"></span>
-                    <span>🧸 Enfants / Jouets</span>
-                </label>
-                <label class="checkbox-container flex items-center cursor-pointer">
-                    <input type="checkbox" checked class="category-filter" value="electronique">
-                    <span class="checkmark"></span>
-                    <span>📱 Électronique / Multimédia</span>
-                </label>
-                <label class="checkbox-container flex items-center cursor-pointer">
-                    <input type="checkbox" checked class="category-filter" value="maison">
-                    <span class="checkmark"></span>
-                    <span>🛋️ Maison / Meubles</span>
-                </label>
-                <label class="checkbox-container flex items-center cursor-pointer">
-                    <input type="checkbox" checked class="category-filter" value="loisirs">
-                    <span class="checkmark"></span>
-                    <span>🛵 Loisirs / Sports</span>
-                </label>
-            </div>
-
-        </div>
-
-        <!-- Prix -->
-        <div class="mb-6">
-            <h4 class="font-medium text-[#636E72] mb-3">Prix</h4>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm text-[#636E72] mb-1">Min</label>
-                    <input type="number" id="priceMin" placeholder="Min"
-                        class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md">
-                </div>
-                <div>
-                    <label class="block text-sm text-[#636E72] mb-1">Max</label>
-                    <input type="number" id="priceMax" placeholder="Max"
-                        class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md">
-                </div>
-            </div>
-        </div>
-
-        <!-- Boutons d'action -->
-        <div class="flex gap-2">
-            <button id="resetFiltersBtn"
-                class="flex-1 py-2 px-4 border border-[#6C5CE7] text-[#6C5CE7] rounded-md hover:bg-[#F5F6FA] transition">
-                Réinitialiser
-            </button>
-            <button id="applyFiltersBtn"
-                class="flex-1 py-2 px-4 bg-[#6C5CE7] text-white rounded-md hover:bg-[#5a4dc7] transition">
-                Appliquer
-            </button>
-        </div>
-    </div>
-    <!-- Modal des favoris -->
-    <div id="favoritesModal" class="favorites-modal">
-        <div class="favorites-content">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold text-[#2D3436]">Mes favoris</h3>
-                <button id="closeFavoritesModal" class="text-[#636E72] hover:text-[#6C5CE7]">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-
-            <div id="favoritesList">
-                <!-- Les favoris seront chargés ici dynamiquement -->
-                <div class="no-favorites">
-                    <i class="fas fa-heart text-2xl text-[#6C5CE7] mb-2"></i>
-                    <p>Aucun favori pour le moment</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
-
-    <!-- Modal d'annonce -->
-    <div id="annonceModal" class="annonce-modal">
-        <div class="annonce-content">
-            <button id="closeAnnonceModal" class="close-btn">
-                <i class="fas fa-times"></i>
-            </button>
-
-            <!-- Carrousel d'images -->
-            <div class="image-carousel">
-                <div class="main-image">
-                    <img id="annonceMainImage" src="" alt="Image principale">
-                </div>
-                <div class="thumbnails">
-                    <!-- Les miniatures seront ajoutées dynamiquement -->
-                </div>
-            </div>
-
-            <div class="annonce-details">
-                <!-- En-tête -->
-                <div class="annonce-header">
-                    <h2 id="annonceTitle">Table à manger + 4 chaises</h2>
-                    <div class="seller-info">
-                        <div class="seller-avatar">PL</div>
-                        <div class="seller-details">
-                            <span id="annonceSeller">Pierre Lefevre</span>
-                        </div>
+            <div class="max-h-[calc(90vh-130px)] overflow-y-auto">
+                <div id="itemDetailImageCarousel" class="relative bg-gray-100 h-64 md:h-80 w-full">
+                    <div class="absolute inset-0 flex items-center justify-center text-gray-300">
+                        <i class="fas fa-image fa-5x"></i>
                     </div>
                 </div>
-
-                <!-- Prix et état -->
-                <div class="price-condition">
-                    <div class="price-section">
-                        <span class="label">Prix</span>
-                        <span id="annoncePrice" class="price">350€</span>
-                    </div>
-                    <div class="condition-section">
-                        <span class="label">État</span>
-                        <span id="annonceCondition" class="condition">Très bon état</span>
-                    </div>
-                </div>
-
-                <!-- Localisation et catégorie -->
-                <div class="location-category">
-                    <div class="location-section">
-                        <span class="label">Localisation</span>
-                        <div class="location-details">
-                            <span id="annonceLocation">Paris 3ème</span>
-                            <span id="annonceDistance" class="distance badge-distance">À 6.3km</span>
-                        </div>
-                    </div>
-                    <div class="category-section">
-                        <span class="label">Catégorie</span>
-                        <span id="annonceCategory" class="category">Maison</span>
-                    </div>
-                </div>
-
-                <!-- Description -->
-                <div class="description-section">
-                    <h3>Description</h3>
-                    <p id="annonceDescription">Table en chêne massif, 140×80cm, avec 4 chaises assorties. Excellent
-                        état.</p>
-                </div>
-
-                <!-- Boutons d'action -->
-                <div class="action-buttons">
-                    <button id="favoriteBtn" class="favorite-btn">
-                        <i class="far fa-heart"></i>
-                        <span>Favori</span>
-                        <span class="favorite-badge">✓</span>
-                    </button>
-                    <button id="contactBtn" class="contact-btn">
-                        <i class="fas fa-comment-dots"></i>
-                        <span>Contacter</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
-    <!-- Barre d'actions en bas -->
-    <div
-        class="fixed bottom-0 left-0 right-0 z-[1000] bg-white border-t border-[#DCDDE1] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-        <div class="flex justify-around items-stretch h-20 px-2">
-            <!-- Bouton Explorer -->
-            <button id="exploreBtn"
-                class="action-btn flex-1 flex flex-col items-center justify-center relative px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#6C5CE7]">
-                <div class="relative">
-                    <i class="fas fa-map-marker-alt text-2xl"></i>
-                    <div
-                        class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full">
-                    </div>
-                </div>
-                <span class="text-xs font-medium mt-1">Explorer</span>
-            </button>
-
-            <!-- Bouton Favoris -->
-            <button id="favoritesBtn"
-                class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
-                <i class="fas fa-heart text-2xl"></i>
-                <span class="text-xs font-medium mt-1">Favoris</span>
-            </button>
-
-            <!-- Bouton central avec contour vide -->
-            <div class="relative flex items-center justify-center px-1" style="flex: 0 0 auto;">
-                <button id="addBtn"
-                    class="absolute -top-6 w-14 h-14 rounded-full border-2 border-[#6C5CE7] bg-white flex items-center justify-center text-[#6C5CE7] shadow-lg transform transition-all duration-300 hover:bg-[#6C5CE7] hover:text-white active:scale-95 active:shadow-md">
-                    <i class="fas fa-plus text-xl"></i>
-                </button>
-            </div>
-
-            <!-- Bouton Messages -->
-            <button
-                class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
-                <div class="relative">
-                    <i class="fas fa-comment-alt text-2xl"></i>
-                    <span
-                        class="notification-badge absolute -top-1 -right-2 text-xs rounded-full w-4 h-4 flex items-center justify-center">3</span>
-                </div>
-                <span class="text-xs font-medium mt-1">Messages</span>
-            </button>
-
-            <!-- Bouton Profil -->
-            <button
-                class="action-btn flex-1 flex flex-col items-center justify-center px-1 py-2 transition-all duration-200 active:bg-[rgba(108,92,231,0.05)] text-[#636E72]">
-                <i class="fas fa-user text-2xl"></i>
-                <span class="text-xs font-medium mt-1">Profil</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- Modal d'ajout d'annonce -->
-    <div id="addModal" class="annonce-modal">
-        <div class="annonce-content" style="max-width: 480px;">
-            <button id="closeAddModal" class="close-btn">
-                <i class="fas fa-times"></i>
-            </button>
-
-            <div class="p-6 space-y-4">
-                <!-- Étape 1 - Instructions de positionnement -->
-                <div id="addInstructions" class="text-center">
-                    <i class="fas fa-map-marker-alt text-4xl text-[#6C5CE7] mb-4"></i>
-                    <h3 class="text-xl font-semibold mb-2">Positionnez votre annonce</h3>
-                    <p class="text-[#636E72]">Déplacez le marqueur sur la carte pour choisir l'emplacement exact</p>
-                </div>
-
-                <!-- Étape 3 - Formulaire (caché initialement) -->
-                <form id="adForm" style="display: none;" class="space-y-4">
-                    <!-- Position (lecture seule) -->
-                    <div class="space-y-2">
-                        <label class="block text-sm font-medium text-[#636E72]">Position</label>
-                        <div class="flex items-center gap-2">
-                            <input id="positionInput" type="text" readonly
-                                class="flex-1 px-3 py-2 border border-[#DCDDE1] rounded-md text-sm bg-gray-100 cursor-not-allowed"
-                                placeholder="Latitude, Longitude" />
-                            <button id="editLocation" type="button"
-                                class="text-[#6C5CE7] border border-[#6C5CE7] rounded-md px-3 py-2 text-sm hover:bg-[#6C5CE7] hover:text-white transition">
-                                <i class="fas fa-map-marker-alt mr-1"></i> Modifier
-                            </button>
+                <div class="p-5 md:p-6">
+                    <div class="flex items-center mb-5">
+                        <img id="itemDetailSellerAvatar" src="https://placehold.co/48x48/E2E8F0/A0AEC0?text=S"
+                            alt="Avatar du vendeur" class="w-12 h-12 rounded-full mr-4 border-2 border-gray-200">
+                        <div>
+                            <p id="itemDetailSellerName" class="font-semibold text-gray-800 text-lg">Nom du vendeur</p>
+                            <div id="itemDetailSellerRating" class="rating-stars text-sm">
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Titre -->
-                    <div>
-                        <label for="adTitle" class="block text-sm font-medium text-[#636E72]">Titre *</label>
-                        <input type="text" id="adTitle" placeholder="Nom de l'article"
-                            class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md" required />
-                    </div>
-
-                    <!-- Prix -->
-                    <div>
-                        <label for="adPrice" class="block text-sm font-medium text-[#636E72]">Prix *</label>
-                        <div class="flex">
-                            <span
-                                class="inline-flex items-center px-3 border border-r-0 border-[#DCDDE1] bg-gray-100 rounded-l-md">€</span>
-                            <input type="number" id="adPrice" min="0" step="0.01"
-                                class="w-full px-3 py-2 border border-[#DCDDE1] rounded-r-md" required />
+                    <div class="grid grid-cols-2 gap-x-6 gap-y-4 mb-5 text-sm">
+                        <div>
+                            <p class="text-gray-500 uppercase text-xs tracking-wider">Prix</p>
+                            <p id="itemDetailPrice" class="font-bold text-gray-900 text-xl">€0</p>
                         </div>
-                    </div>
-
-                    <!-- Catégorie -->
-                    <div>
-                        <label for="adCategory" class="block text-sm font-medium text-[#636E72]">Catégorie *</label>
-                        <select id="adCategory" class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md" required>
-                            <option value="">Sélectionnez...</option>
-                            <option value="immobilier">Immobilier</option>
-                            <option value="vehicules">Véhicules</option>
-                            <option value="emploi_services">Emploi / Services</option>
-                            <option value="mode">Mode / Accessoires</option>
-                            <option value="enfants">Enfants / Jouets</option>
-                            <option value="electronique">Électronique / Multimédia</option>
-                            <option value="maison">Maison / Meubles</option>
-                            <option value="loisirs">Loisirs / Sports</option>
-                        </select>
-                    </div>
-
-                    <!-- Etat -->
-                    <div>
-                        <label for="adCondition" class="block text-sm font-medium text-[#636E72]">Etat *</label>
-                        <select id="adCondition" class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md" required>
-                            <option value="">Sélectionnez...</option>
-                            <option value="neuf">Neuf</option>
-                            <option value="tres_bon">Très bon état</option>
-                            <option value="bon">Bon état</option>
-                            <option value="correct">Correct</option>
-                        </select>
-                    </div>
-
-                    <!-- Description -->
-                    <div>
-                        <label for="adDescription" class="block text-sm font-medium text-[#636E72]">Description
-                            *</label>
-                        <textarea id="adDescription" rows="3"
-                            class="w-full px-3 py-2 border border-[#DCDDE1] rounded-md"
-                            placeholder="Décrivez votre article..." required></textarea>
-                    </div>
-
-                    <!-- Upload d'image (optionnel) -->
-                    <div>
-                        <label class="block text-sm font-medium text-[#636E72] mb-1">Photos (max 3, optionnel)</label>
-                        <div id="imageUploadArea"
-                            class="border-2 border-dashed border-[#6C5CE7] p-4 rounded-md flex flex-col items-center justify-center text-center text-[#6C5CE7] cursor-pointer hover:bg-[#f5f6fa] transition">
-                            <i class="fas fa-cloud-upload-alt text-3xl"></i>
-                            <p class="text-sm mt-2">Glissez-déposez vos images ici</p>
-                            <p class="text-xs text-[#636E72] mt-1">ou cliquez pour sélectionner</p>
-                            <input type="file" id="imageUploadInput" accept="image/*" multiple style="display: none;" />
+                        <div id="itemDetailStateDisplay">
+                            <p class="text-gray-500 uppercase text-xs tracking-wider">État</p>
+                            <p id="itemDetailStateText" class="font-semibold text-gray-700">Non spécifié</p>
                         </div>
-                        <div id="imagePreviews" class="flex flex-wrap gap-2 mt-2"></div>
-                    </div>
-
-                    <!-- Boutons -->
-                    <div class="flex justify-between items-center pt-4">
-                        <button id="cancelAdd" type="button"
-                            class="px-4 py-2 text-[#2D3436] bg-[#f1f2f6] rounded-md hover:bg-[#dcdde1] transition">
-                            Annuler
-                        </button>
-                        <button id="submitAd" type="submit"
-                            class="px-6 py-2 bg-[#6C5CE7] text-white rounded-md hover:bg-[#5a4dc7] transition flex items-center justify-center">
-                            <span id="submitText">Publier</span>
-                            <span id="submitSpinner" class="ml-2 hidden">
-                                <i class="fas fa-circle-notch fa-spin"></i>
+                        <div>
+                            <p class="text-gray-500 uppercase text-xs tracking-wider">Localisation</p>
+                            <p id="itemDetailLocationText" class="font-semibold text-gray-700">Ville</p>
+                            <p id="itemDetailDistance" class="text-xs text-purple-600 font-medium">À ~ km</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 uppercase text-xs tracking-wider">Catégorie</p>
+                            <span id="itemDetailCategoryBadge"
+                                class="text-xs font-semibold inline-block py-1 px-2.5 uppercase rounded-full text-white bg-purple-500">
+                                Catégorie
                             </span>
-                        </button>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2 text-gray-800">Description</h3>
+                    <p id="itemDetailDescription"
+                        class="text-gray-600 text-sm mb-6 whitespace-pre-wrap leading-relaxed">Description de
+                        l'article...</p>
+
+                    <div id="offerSection" class="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                        <label for="offerAmount" class="block text-sm font-medium text-purple-700 mb-2">Faire une offre
+                            au vendeur</label>
+                        <div class="flex space-x-3">
+                            <input type="number" id="offerAmount" name="offerAmount"
+                                class="input-style flex-grow mt-1 block w-full" placeholder="Montant en €">
+                            <button id="submitOfferBtn" class="btn-primary px-5 py-2.5">Proposer</button>
+                        </div>
+                    </div>
+                    <button id="itemDetailGoToBtn"
+                        class="w-full mt-4 px-4 py-3 text-sm font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 flex items-center justify-center transition-colors">
+                        <i class="fas fa-directions mr-2.5"></i> Y Aller (Google Maps)
+                    </button>
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
+                <button id="itemDetailFavoriteBtn"
+                    class="text-2xl text-gray-400 hover:text-pink-500 transition-all duration-200 p-3 rounded-full hover:bg-pink-100 focus:outline-none focus:ring-2 focus:ring-pink-300"
+                    aria-label="Ajouter aux favoris" aria-pressed="false">
+                    <i class="far fa-heart"></i> </button>
+                <button id="itemDetailContactBtn" class="btn-primary flex-grow ml-4 py-3">
+                    <i class="fas fa-comments mr-2"></i> Contacter le vendeur
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="filtersModal"
+        class="modal fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="modal-content bg-white p-0 rounded-xl shadow-2xl w-full max-w-md">
+            <div class="flex justify-between items-center p-5 border-b border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-800">Affiner votre recherche</h2>
+                <button id="closeFiltersModal" class="text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label="Fermer les filtres"><i class="fas fa-times fa-lg"></i></button>
+            </div>
+            <form id="filtersForm" class="p-5 space-y-6 max-h-[calc(90vh-130px)] overflow-y-auto">
+                <div>
+                    <label for="filterSearchText" class="block text-sm font-medium text-gray-700 mb-1">Mots-clés</label>
+                    <input type="text" id="filterSearchText" name="searchText" class="input-style mt-1 block w-full"
+                        placeholder="Ex: canapé velours, iPhone 12...">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Catégories</label>
+                    <div id="filterCategoriesContainer" class="mt-2 grid grid-cols-2 gap-2.5">
+                        <button type="button" data-category-key="all"
+                            class="filter-category-btn col-span-full bg-purple-500 text-white py-2.5 px-3 rounded-lg text-sm font-medium">Tout</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Prix</label>
+                    <div class="flex items-center space-x-3 mt-1">
+                        <input type="number" id="filterPriceMin" name="priceMin" class="input-style block w-full"
+                            placeholder="Min €">
+                        <span class="text-gray-400">-</span>
+                        <input type="number" id="filterPriceMax" name="priceMax" class="input-style block w-full"
+                            placeholder="Max €">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Rayon autour de moi</label>
+                    <div id="filterDistanceContainer" class="mt-1 grid grid-cols-3 gap-2.5">
+                        <button type="button" data-distance="5"
+                            class="filter-distance-btn bg-gray-200 text-gray-700 py-2.5 px-3 rounded-lg text-sm font-medium">5
+                            km</button>
+                        <button type="button" data-distance="10"
+                            class="filter-distance-btn bg-gray-200 text-gray-700 py-2.5 px-3 rounded-lg text-sm font-medium">10
+                            km</button>
+                        <button type="button" data-distance="50"
+                            class="filter-distance-btn bg-purple-500 text-white py-2.5 px-3 rounded-lg text-sm font-medium">50
+                            km</button>
+                        <input type="hidden" id="filterDistanceInput" name="distance" value="50">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">État de l'article</label>
+                    <div id="filterStateContainer" class="mt-1 grid grid-cols-2 gap-2.5">
+                    </div>
+                </div>
+            </form>
+            <div class="p-5 border-t border-gray-200 flex justify-between items-center">
+                <button type="button" id="resetFiltersBtn"
+                    class="px-5 py-2.5 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">Réinitialiser</button>
+                <button type="button" id="applyFiltersBtn" class="btn-primary px-6 py-2.5">Appliquer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="profileModal"
+        class="modal fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="modal-content bg-white p-6 md:p-8 rounded-xl shadow-2xl w-full max-w-lg">
+            <div id="profileView">
+                <h2 class="text-2xl font-semibold mb-6 text-gray-800">Mon Espace</h2>
+                <div class="mb-6 space-y-2">
+                    <p><strong>Pseudo:</strong> <span id="profileUsername" class="text-gray-700">Non connecté</span></p>
+                    <p><strong>Email:</strong> <span id="profileEmail" class="text-gray-700"></span></p>
+                </div>
+                <div class="space-y-3">
+                    <button id="editProfileBtn" class="w-full btn-primary py-2.5">Modifier mes informations</button>
+                    <button id="myItemsBtn"
+                        class="w-full btn-secondary py-2.5 bg-sky-500 hover:bg-sky-600 text-white">Mes Annonces</button>
+                    <button id="myAlertsBtn"
+                        class="w-full btn-secondary py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white">Mes
+                        Alertes</button>
+                    <button id="logoutBtn"
+                        class="w-full btn-secondary py-2.5 bg-rose-500 hover:bg-rose-600 text-white mt-4">Déconnexion</button>
+                </div>
+            </div>
+            <div id="editProfileView" class="hidden">
+                <h2 class="text-2xl font-semibold mb-6 text-gray-800">Modifier le Profil</h2>
+                <form id="editProfileForm" class="space-y-4">
+                    <div><label for="editUsername"
+                            class="block text-sm font-medium text-gray-700 mb-1">Pseudo</label><input type="text"
+                            id="editUsername" name="username" required class="input-style mt-1 block w-full"></div>
+                    <div><label for="editEmail" class="block text-sm font-medium text-gray-700 mb-1">Email</label><input
+                            type="email" id="editEmail" name="email" required class="input-style mt-1 block w-full">
+                    </div>
+                    <div><label for="editPassword" class="block text-sm font-medium text-gray-700 mb-1">Nouveau mot de
+                            passe</label><input type="password" id="editPassword" name="password"
+                            class="input-style mt-1 block w-full" placeholder="Laisser vide pour ne pas changer"></div>
+                    <div class="flex justify-end space-x-3 pt-3">
+                        <button type="button" id="cancelEditProfileBtn" class="btn-secondary">Annuler</button>
+                        <button type="submit" class="btn-primary">Sauvegarder</button>
                     </div>
                 </form>
-
-                <!-- Bouton de validation de position (étape 2) -->
-                <div id="addActions" class="flex justify-center">
-                    <button id="confirmLocation"
-                        class="py-2 px-6 bg-[#6C5CE7] text-white rounded-md hover:bg-[#5a4dc7] transition">
-                        <i class="fas fa-check mr-2"></i>Valider la position
-                    </button>
-                </div>
             </div>
+            <div id="userItemsView" class="hidden">
+                <h2 id="userItemsTitle" class="text-2xl font-semibold mb-6 text-gray-800">Mes Publications</h2>
+                <div id="userItemsList" class="space-y-3 max-h-80 overflow-y-auto pr-2">
+                </div>
+                <button id="backToProfileBtn" class="mt-6 w-full btn-secondary py-2.5">Retour au profil</button>
+            </div>
+            <button id="closeProfileModalBtn"
+                class="mt-8 w-full py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Fermer</button>
         </div>
     </div>
 
-    <!-- Modal de déconnexion -->
-    <div id="logoutModal" class="logout-modal">
-        <div class="logout-content">
-            <div class="logout-icon">
-                <i class="fas fa-sign-out-alt"></i>
-            </div>
-            <h3 class="logout-message">Êtes-vous sûr de vouloir vous déconnecter ?</h3>
-            <div class="logout-buttons">
-                <button id="logoutConfirm" class="logout-confirm">Déconnexion</button>
-                <button id="logoutCancel" class="logout-cancel">Annuler</button>
-            </div>
-        </div>
-    </div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        // Variables globales
-        let userMarker = null;
-        let userPosition = null;
-        let accuracyCircle = null;
-        let mapMarkers = [];
-        let allMarkers = [];
-        let favorites = [];
-        let authToken = null; // À remplacer par votre token d'authentification
-
-
-        // Initialisation de la carte
-        const map = L.map('map').setView([48.8566, 2.3522], 13);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-        // Au début de votre script, après la déclaration des variables
-        document.addEventListener('DOMContentLoaded', () => {
-            updateAuthIcon();
-
-            // Vérifiez si un token existe déjà
-            const token = localStorage.getItem('authToken');
-            if (token) {
-                authToken = token;
-                isAuthenticated = true;
-            }
-        });
-        // Fonction pour créer des marqueurs
-        function createCustomMarker(lat, lng, price, category, itemId, annonceData) {
-            const { icon, color } = getCategoryStyle(category);
-
-            const marker = L.marker([lat, lng], {
-                icon: L.divIcon({
-                    html: `
-        <div class="custom-marker" style="background:${color}" data-category="${category}" data-price="${price}">
-          ${icon}
-          <div class="marker-price">${price}€</div>
-        </div>
-      `,
-                    className: 'custom-marker-container',
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 32]
-                }),
-                category: category,
-                price: parseFloat(price),
-                itemId: itemId || Math.random().toString(36).substr(2, 9)
-            }).addTo(map);
-
-            marker.on('click', function () {
-                const annonce = annonceData || {
-                    id: itemId,
-                    title: `${category} - ${price}€`,
-                    seller: {
-                        name: "Vendeur",
-                    },
-                    price: price,
-                    condition: "Bon état",
-                    location: "Localisation inconnue",
-                    coordinates: [lat, lng],
-                    category: category,
-                    description: "Aucune description",
-                    images: ["https://via.placeholder.com/400"]
-                };
-                showAnnonceModal(annonce);
-            });
-
-            allMarkers.push(marker);
-            return marker;
-        }
-
-
-        // Fonction pour obtenir le nom de la catégorie
-        function getCategoryName(category) {
-            const categories = {
-                'immobilier': 'Immobilier',
-                'vehicules': 'Véhicule',
-                'emploi': 'Offre d\'emploi',
-                'services': 'Service'
-            };
-            return categories[category] || category;
-        }
-
-        // Création des marqueurs initiaux
-        function initMarkers() {
-            userPosition = [48.8566, 2.3522]; // position fictive à Paris pour tests
-
-            createCustomMarker(
-                48.8584,
-                2.2945,
-                320,
-                'immobilier',
-                'item001',
-                {
-                    id: 'item001',
-                    title: 'Studio à Paris 16ème',
-                    seller: {
-                        name: 'Alice Martin',
-                        ratingCount: 12
-                    },
-                    price: 320,
-                    condition: 'Très bon état',
-                    location: 'Paris 16ème',
-                    coordinates: [48.8584, 2.2945],
-                    category: 'immobilier',
-                    description: 'Charmant studio de 18m² proche Trocadéro. Loué meublé.',
-                    images: [
-                        'https://via.placeholder.com/400x300.png?text=Studio+Paris',
-                        'https://via.placeholder.com/400x300.png?text=Salon',
-                        'https://via.placeholder.com/400x300.png?text=Vue'
-                    ]
-                }
-            );
-
-        }
-
-        // Fonction de filtrage
-        function filterMarkers() {
-            const radius = parseInt(document.getElementById('radiusRange').value);
-            const selectedCategories = Array.from(
-                document.querySelectorAll('.category-filter:checked')
-            ).map(el => el.value);
-
-            const priceMin = parseFloat(document.getElementById('priceMin').value) || 0;
-            const priceMax = parseFloat(document.getElementById('priceMax').value) || Infinity;
-
-            const searchText = document.getElementById('searchInput').value.toLowerCase();
-
-            mapMarkers.forEach(marker => {
-                let isVisible = true;
-
-                // Filtre par catégorie
-                if (selectedCategories.length > 0 && !selectedCategories.includes(marker.options.category)) {
-                    isVisible = false;
-                }
-
-                // Filtre par prix
-                if (marker.options.price < priceMin || marker.options.price > priceMax) {
-                    isVisible = false;
-                }
-
-                // Filtre par texte (si implémenté)
-                if (searchText && !getCategoryName(marker.options.category).toLowerCase().includes(searchText)) {
-                    isVisible = false;
-                }
-
-                // Filtre par distance si position utilisateur disponible
-                if (isVisible && userPosition) {
-                    const distance = map.distance(userPosition, marker.getLatLng()) / 1000;
-                    if (distance > radius) {
-                        isVisible = false;
-                    }
-                }
-
-                // Appliquer la visibilité
-                if (isVisible) {
-                    map.addLayer(marker);
-                    marker.setOpacity(1);
-                } else {
-                    marker.setOpacity(0);
-                }
-            });
-
-            filterPanel.classList.remove('active');
-        }
-
-        // Réinitialisation des filtres
-        function resetFilters() {
-            document.getElementById('radiusRange').value = 5;
-            document.getElementById('radiusValue').textContent = '5';
-            document.querySelectorAll('.category-filter').forEach(checkbox => {
-                checkbox.checked = true;
-            });
-            document.getElementById('priceMin').value = '';
-            document.getElementById('priceMax').value = '';
-            document.getElementById('searchInput').value = '';
-
-            mapMarkers.forEach(marker => {
-                map.addLayer(marker);
-                marker.setOpacity(1);
-            });
-        }
-
-        // Géolocalisation
-        document.getElementById('exploreBtn').addEventListener('click', () => {
-            if (!navigator.geolocation) {
-                alert("La géolocalisation n'est pas supportée par votre navigateur");
-                return;
-            }
-
-            // Feedback visuel pendant la recherche
-            const btn = document.getElementById('exploreBtn');
-            btn.innerHTML = `
-                <div class="relative">
-                    <i class="fas fa-circle-notch fa-spin text-2xl"></i>
-                    <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full"></div>
-                </div>
-                <span class="text-xs font-medium mt-1">Localisation...</span>
-            `;
-
-            // Options améliorées pour la géolocalisation
-            const options = {
-                enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 30000
-            };
-
-            navigator.geolocation.getCurrentPosition(
-                position => {
-                    // Réussite - Remet le texte original du bouton
-                    btn.innerHTML = `
-                        <div class="relative">
-                            <i class="fas fa-map-marker-alt text-2xl"></i>
-                            <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full"></div>
-                        </div>
-                        <span class="text-xs font-medium mt-1">Explorer</span>
-                    `;
-
-                    placeUserMarker(position);
-                    filterMarkers(); // Re-filtre après nouvelle position
-                },
-                error => {
-                    // Échec - Remet le texte original et affiche un message détaillé
-                    btn.innerHTML = `
-                        <div class="relative">
-                            <i class="fas fa-map-marker-alt text-2xl"></i>
-                            <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#6C5CE7] rounded-full"></div>
-                        </div>
-                        <span class="text-xs font-medium mt-1">Explorer</span>
-                    `;
-
-                    let errorMessage;
-                    switch (error.code) {
-                        case error.PERMISSION_DENIED:
-                            errorMessage = "Vous avez refusé la géolocalisation. Activez-la dans les paramètres de votre navigateur.";
-                            break;
-                        case error.POSITION_UNAVAILABLE:
-                            errorMessage = "Position indisponible. Vérifiez votre connexion réseau ou votre signal GPS.";
-                            break;
-                        case error.TIMEOUT:
-                            errorMessage = "Délai de localisation dépassé. Essayez dans une zone avec meilleur signal.";
-                            break;
-                        default:
-                            errorMessage = "Erreur inconnue lors de la localisation.";
-                    }
-
-                    alert(errorMessage);
-                    console.error("Erreur de géolocalisation:", error);
-                },
-                options
-            );
-        });
-
-        // Fonction pour placer le marqueur utilisateur
-        function placeUserMarker(position) {
-            const userLatLng = [position.coords.latitude, position.coords.longitude];
-            userPosition = userLatLng;
-
-            // Supprime l'ancien marqueur s'il existe
-            if (userMarker) {
-                map.removeLayer(userMarker);
-            }
-            if (accuracyCircle) {
-                map.removeLayer(accuracyCircle);
-            }
-
-            // Crée un nouveau marqueur stylé avec animation
-            userMarker = L.marker(userLatLng, {
-                icon: L.divIcon({
-                    html: `
-                        <div class="user-marker animate-pulse">
-                            <i class="fas fa-user"></i>
-                            <div class="ring-animation"></div>
-                        </div>
-                    `,
-                    className: 'user-marker-container',
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 32]
-                }),
-                zIndexOffset: 1000
-            }).addTo(map)
-                .bindPopup("<b>Vous êtes ici</b><br>Précision: " + Math.round(position.coords.accuracy) + " mètres")
-                .openPopup();
-
-            // Cercle de précision
-            accuracyCircle = L.circle(userLatLng, {
-                radius: position.coords.accuracy,
-                color: '#00B894',
-                fillColor: '#00B894',
-                fillOpacity: 0.2,
-                weight: 1
-            }).addTo(map);
-
-            // Centre la carte
-            map.setView(userLatLng, 15, {
-                animate: true,
-                duration: 1
-            });
-        }
-
-        // Gestion de la barre de recherche
-        const searchToggleBtn = document.getElementById('searchToggleBtn');
-        const searchBar = document.getElementById('searchBar');
-        const filterToggleBtn = document.getElementById('filterToggleBtn');
-        const filterPanel = document.getElementById('filterPanel');
-        const radiusRange = document.getElementById('radiusRange');
-        const radiusValue = document.getElementById('radiusValue');
-        const applyFiltersBtn = document.getElementById('applyFiltersBtn');
-        const resetFiltersBtn = document.getElementById('resetFiltersBtn');
-        const searchInput = document.getElementById('searchInput');
-
-        // Toggle barre de recherche
-        searchToggleBtn.addEventListener('click', () => {
-            searchBar.classList.toggle('active');
-            if (filterPanel.classList.contains('active')) {
-                filterPanel.classList.remove('active');
-            }
-        });
-
-        // Toggle panneau de filtres
-        filterToggleBtn.addEventListener('click', () => {
-            filterPanel.classList.toggle('active');
-        });
-
-        // Mise à jour de la valeur du rayon
-        radiusRange.addEventListener('input', () => {
-            radiusValue.textContent = radiusRange.value;
-        });
-
-        // Appliquer les filtres
-        applyFiltersBtn.addEventListener('click', filterMarkers);
-
-        // Réinitialiser les filtres
-        resetFiltersBtn.addEventListener('click', resetFilters);
-
-        // Recherche par texte
-        searchInput.addEventListener('input', () => {
-            if (searchInput.value.length > 2 || searchInput.value.length === 0) {
-                filterMarkers();
-            }
-        });
-
-        // Fermer le panneau si on clique en dehors
-        document.addEventListener('click', (e) => {
-            if (!filterPanel.contains(e.target) && e.target !== filterToggleBtn) {
-                filterPanel.classList.remove('active');
-            }
-        });
-
-        // Animation des boutons
-        document.querySelectorAll('.action-btn').forEach(btn => {
-            btn.addEventListener('click', function () {
-                document.querySelectorAll('.action-btn').forEach(b => {
-                    b.classList.remove('text-[#6C5CE7]');
-                    const icon = b.querySelector('i');
-                    if (icon) icon.classList.remove('text-[#6C5CE7]');
-                });
-                this.classList.add('text-[#6C5CE7]');
-                const icon = this.querySelector('i');
-                if (icon) icon.classList.add('text-[#6C5CE7]');
-            });
-        });
-        // Fonction pour charger les favoris depuis l'API
-        async function loadFavorites() {
-            try {
-                const response = await fetch('/api/users/favorites', {
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
-
-                if (response.ok) {
-                    favorites = await response.json();
-                    renderFavorites();
-                } else {
-                    console.error('Erreur lors du chargement des favoris');
-                }
-            } catch (error) {
-                console.error('Erreur:', error);
-            }
-        }
-
-        // Fonction pour afficher les favoris dans le modal
-        function renderFavorites() {
-            const favoritesList = document.getElementById('favoritesList');
-
-            if (favorites.length === 0) {
-                favoritesList.innerHTML = `
-                    <div class="no-favorites">
-                        <i class="fas fa-heart text-2xl text-[#6C5CE7] mb-2"></i>
-                        <p>Aucun favori pour le moment</p>
-                    </div>
-                `;
-                return;
-            }
-
-            favoritesList.innerHTML = '';
-
-            favorites.forEach(fav => {
-                const favoriteItem = document.createElement('div');
-                favoriteItem.className = 'favorite-item';
-                favoriteItem.innerHTML = `
-                    <div class="favorite-item-icon">
-                        <i class="fas fa-${getCategoryIcon(fav.category)}"></i>
-                    </div>
-                    <div class="favorite-item-details">
-                        <div class="favorite-item-title">${fav.title}</div>
-                        <div class="favorite-item-price">${fav.price}€</div>
-                    </div>
-                `;
-
-                favoriteItem.addEventListener('click', () => {
-                    zoomToFavorite(fav.itemId);
-                    document.getElementById('favoritesModal').classList.remove('active');
-                });
-
-                favoritesList.appendChild(favoriteItem);
-            });
-        }
-
-
-
-
-        async function addToFavorites(itemId) {
-            try {
-                const response = await fetch('/api/users/favorites', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    body: JSON.stringify({
-                        itemId
-                    })
-                });
-
-                if (response.ok) {
-                    loadFavorites(); // Recharge la liste
-                }
-            } catch (error) {
-                console.error('Erreur:', error);
-            }
-        }
-
-        // Fonction pour zoomer sur un favori
-        function zoomToFavorite(itemId) {
-            const marker = allMarkers.find(m => m.options.itemId === itemId);
-            if (marker) {
-                map.setView(marker.getLatLng(), 16, {
-                    animate: true,
-                    duration: 0.5
-                });
-                marker.openPopup();
-
-                // Animation du marqueur
-                const icon = marker.getElement();
-                if (icon) {
-                    icon.classList.add('animate-bounce');
-                    setTimeout(() => {
-                        icon.classList.remove('animate-bounce');
-                    }, 2000);
-                }
-            }
-        }
-
-        // Fonction utilitaire pour obtenir l'icône de catégorie
-        function getCategoryIcon(category) {
-            const icons = {
-                immobilier: 'home',
-                vehicules: 'car',
-                emploi_services: 'briefcase',
-                mode: 'tshirt',
-                enfants: 'puzzle-piece',
-                electronique: 'mobile-alt',
-                maison: 'couch',
-                loisirs: 'futbol' // ou 'running', 'gamepad'
-            };
-            return icons[category] || 'map-marker-alt';
-        }
-        function getCategoryStyle(category) {
-            const styles = {
-                immobilier: {
-                    icon: '🏠',
-                    color: '#6C5CE7', // violet
-                    faIcon: 'home'
-                },
-                vehicules: {
-                    icon: '🚗',
-                    color: '#00B894', // vert émeraude
-                    faIcon: 'car'
-                },
-                emploi_services: {
-                    icon: '👔',
-                    color: '#0984E3', // bleu
-                    faIcon: 'briefcase'
-                },
-                mode: {
-                    icon: '👕',
-                    color: '#E84393', // rose
-                    faIcon: 'tshirt'
-                },
-                enfants: {
-                    icon: '🧸',
-                    color: '#FDCB6E', // jaune
-                    faIcon: 'puzzle-piece'
-                },
-                electronique: {
-                    icon: '📱',
-                    color: '#2D3436', // gris foncé
-                    faIcon: 'mobile-alt'
-                },
-                maison: {
-                    icon: '🛋️',
-                    color: '#FFA500', // orange
-                    faIcon: 'couch'
-                },
-                loisirs: {
-                    icon: '🛵',
-                    color: '#00CEC9', // turquoise
-                    faIcon: 'futbol'
-                }
-            };
-
-            return styles[category] || {
-                icon: '📍',
-                color: '#636E72', // gris par défaut
-                faIcon: 'map-marker-alt'
-            };
-        }
-
-
-
-        // Gestion du modal des favoris
-        document.getElementById('favoritesBtn').addEventListener('click', () => {
-            document.getElementById('favoritesModal').classList.add('active');
-            loadFavorites();
-        });
-
-        document.getElementById('closeFavoritesModal').addEventListener('click', () => {
-            document.getElementById('favoritesModal').classList.remove('active');
-        });
-
-        // Fermer le modal en cliquant à l'extérieur
-        document.getElementById('favoritesModal').addEventListener('click', (e) => {
-            if (e.target === document.getElementById('favoritesModal')) {
-                document.getElementById('favoritesModal').classList.remove('active');
-            }
-        });
-        // Variables pour le modal d'annonce
-        let currentAnnonce = null;
-
-        // Fonction pour afficher une annonce dans le modal
-        function showAnnonceModal(annonce) {
-            currentAnnonce = annonce;
-
-            // Remplir les données
-            document.getElementById('annonceTitle').textContent = annonce.title;
-            document.getElementById('annonceSeller').textContent = annonce.seller.name;
-            document.getElementById('annoncePrice').textContent = `${annonce.price}€`;
-            document.getElementById('annonceCondition').textContent = annonce.condition;
-            document.getElementById('annonceLocation').textContent = annonce.location;
-            document.getElementById('annonceCategory').textContent = annonce.category;
-            document.getElementById('annonceDescription').textContent = annonce.description;
-
-            // Calculer et afficher la distance
-            if (userPosition) {
-                const distance = calculateDistance(
-                    userPosition[0], userPosition[1],
-                    annonce.coordinates[0], annonce.coordinates[1]
-                );
-                const badge = document.getElementById('annonceDistance');
-                badge.textContent = `${distance.toFixed(1)} km`;
-                badge.classList.remove('badge-green', 'badge-orange', 'badge-red');
-
-                if (distance < 5) {
-                    badge.classList.add('badge-green');
-                } else if (distance < 20) {
-                    badge.classList.add('badge-orange');
-                } else {
-                    badge.classList.add('badge-red');
-                }
-
-                badge.classList.add('badge-distance');
-            } else {
-                document.getElementById('annonceDistance').textContent = '';
-            }
-
-            // Gestion des images
-            const mainImage = document.getElementById('annonceMainImage');
-            const thumbnailsContainer = document.querySelector('.thumbnails');
-
-            thumbnailsContainer.innerHTML = '';
-            annonce.images.forEach((img, index) => {
-                if (index === 0) mainImage.src = img;
-
-                const thumbnail = document.createElement('div');
-                thumbnail.className = `thumbnail ${index === 0 ? 'active' : ''}`;
-                thumbnail.innerHTML = `<img src="${img}" alt="Miniature ${index + 1}">`;
-
-                thumbnail.addEventListener('click', () => {
-                    mainImage.src = img;
-                    document.querySelectorAll('.thumbnail').forEach(t => t.classList.remove('active'));
-                    thumbnail.classList.add('active');
-                });
-
-                thumbnailsContainer.appendChild(thumbnail);
-            });
-
-            // Vérifier si l'annonce est en favori
-            checkIfFavorite(annonce.id).then(isFavorite => {
-                const favoriteBtn = document.getElementById('favoriteBtn');
-                favoriteBtn.classList.toggle('active', isFavorite);
-                favoriteBtn.querySelector('.favorite-badge').style.display = isFavorite ? 'inline' : 'none';
-            });
-
-            // Afficher le modal avec animation
-            document.getElementById('annonceModal').classList.add('active');
-        }
-
-        // Fonction pour calculer la distance en km
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Rayon de la Terre en km
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a =
-                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
-        }
-
-        // Vérifier si une annonce est en favori
-        async function checkIfFavorite(annonceId) {
-            try {
-                const response = await fetch(`/api/users/favorites/check?itemId=${annonceId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
-                return response.ok && (await response.json()).isFavorite;
-            } catch (error) {
-                console.error('Erreur:', error);
-                return false;
-            }
-        }
-
-        // Gestion des événements
-        document.getElementById('closeAnnonceModal').addEventListener('click', () => {
-            document.getElementById('annonceModal').classList.remove('active');
-        });
-
-        document.getElementById('annonceModal').addEventListener('click', (e) => {
-            if (e.target === document.getElementById('annonceModal')) {
-                document.getElementById('annonceModal').classList.remove('active');
-            }
-        });
-
-        // Bouton favori
-        document.getElementById('favoriteBtn').addEventListener('click', async () => {
-            if (!currentAnnonce) return;
-
-            const favoriteBtn = document.getElementById('favoriteBtn');
-            const isFavorite = favoriteBtn.classList.contains('active');
-
-            try {
-                const response = await fetch('/api/users/favorites', {
-                    method: isFavorite ? 'DELETE' : 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    body: JSON.stringify({
-                        itemId: currentAnnonce.id
-                    })
-                });
-
-                if (response.ok) {
-                    favoriteBtn.classList.toggle('active');
-                    const badge = favoriteBtn.querySelector('.favorite-badge');
-                    badge.style.display = !isFavorite ? 'inline' : 'none';
-                    badge.style.animation = 'none';
-                    void badge.offsetWidth; // Trigger reflow
-                    badge.style.animation = 'bounce 0.3s';
-                }
-            } catch (error) {
-                console.error('Erreur:', error);
-            }
-        });
-
-        // Bouton contacter
-        document.getElementById('contactBtn').addEventListener('click', () => {
-            if (currentAnnonce) {
-                // Implémentez votre logique de contact ici
-                alert(`Ouverture de la conversation avec ${currentAnnonce.seller.name}`);
-            }
-        });
-
-        // Exemple d'ouverture de modal (à appeler quand on clique sur un marqueur)
-        function openSampleAnnonce() {
-            const sampleAnnonce = {
-                id: '123abc',
-                title: 'Table à manger + 4 chaises',
-                seller: {
-                    name: 'Pierre Lefevre',
-                    initials: 'PL',
-                    ratingCount: 9
-                },
-                price: 350,
-                condition: 'Très bon état',
-                location: 'Paris 3ème',
-                coordinates: [48.8625, 2.3625],
-                category: 'Maison',
-                description: 'Table en chêne massif, 140×80cm, avec 4 chaises assorties. Excellent état.',
-                images: [
-                    'https://example.com/table1.jpg',
-                    'https://example.com/table2.jpg',
-                    'https://example.com/table3.jpg'
-                ]
-            };
-
-            showAnnonceModal(sampleAnnonce);
-        }
-
-
-        // Gestion de l'état d'authentification
-        let isAuthenticated = false; // À remplacer par votre logique réelle
-
-        // Gestion du modal d'authentification
-        const authIcon = document.getElementById('authIcon');
-        const authModal = document.getElementById('authModal');
-        const closeAuthModal = document.getElementById('closeAuthModal');
-        const authForms = document.querySelectorAll('.auth-form');
-        const authSwitchBtns = document.querySelectorAll('.auth-switch-btn');
-
-        // Afficher/cacher l'icône en fonction de l'authentification
-        // Mettez à jour la fonction updateAuthIcon pour gérer aussi l'icône de déconnexion
-        function updateAuthIcon() {
-            const isLoggedIn = localStorage.getItem('authToken') !== null;
-            authIcon.style.display = isLoggedIn ? 'none' : 'flex';
-            document.getElementById('logoutIcon').style.display = isLoggedIn ? 'flex' : 'none';
-            isAuthenticated = isLoggedIn;
-        }
-
-        // Ajoutez ces écouteurs d'événements
-        document.getElementById('logoutIcon').addEventListener('click', () => {
-            document.getElementById('logoutModal').classList.add('active');
-        });
-
-        document.getElementById('logoutCancel').addEventListener('click', () => {
-            document.getElementById('logoutModal').classList.remove('active');
-        });
-
-        document.getElementById('logoutConfirm').addEventListener('click', () => {
-            // Animation de déconnexion
-            const logoutIcon = document.querySelector('.logout-icon i');
-            logoutIcon.style.animation = 'none';
-            void logoutIcon.offsetWidth; // Trigger reflow
-            logoutIcon.style.animation = 'spin 0.6s linear';
-
-            setTimeout(() => {
-                // Déconnexion réelle
-                localStorage.removeItem('authToken');
-                authToken = null;
-                isAuthenticated = false;
-                updateAuthIcon();
-
-                // Fermer le modal avec un effet
-                document.getElementById('logoutModal').classList.remove('active');
-
-                // Afficher un message de succès
-                showToast('Déconnexion réussie !', 'success');
-            }, 600);
-        });
-
-        // Fonction pour afficher des notifications toast (ajoutez-la si pas déjà présente)
-        function showToast(message, type = 'success') {
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.textContent = message;
-            document.body.appendChild(toast);
-
-            // Animation d'entrée
-            setTimeout(() => {
-                toast.style.opacity = '1';
-                toast.style.transform = 'translateY(0)';
-            }, 10);
-
-            // Disparaît après 3 secondes
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateY(-20px)';
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
-        }
-
-        // Ouvrir le modal d'authentification
-        authIcon.addEventListener('click', () => {
-            authModal.classList.add('active');
-            showAuthForm('loginForm');
-        });
-
-        // Fermer le modal
-        closeAuthModal.addEventListener('click', () => {
-            authModal.classList.remove('active');
-        });
-
-        // Fermer en cliquant à l'extérieur
-        authModal.addEventListener('click', (e) => {
-            if (e.target === authModal) {
-                authModal.classList.remove('active');
-            }
-        });
-
-        // Basculer entre les formulaires
-        authSwitchBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                const targetForm = btn.getAttribute('data-target');
-                showAuthForm(targetForm);
-            });
-        });
-        // Afficher un formulaire spécifique avec animation
-        function showAuthForm(formId) {
-            // Calculer la hauteur nécessaire pour le nouveau formulaire
-            const newForm = document.getElementById(formId);
-            const newHeight = newForm.scrollHeight + 50; // 50px de marge
-
-            // Mettre à jour la hauteur du conteneur
-            const formsContainer = document.querySelector('.auth-forms-container');
-            formsContainer.style.height = `${formsContainer.scrollHeight}px`;
-
-            // Forcer le recalcul du layout
-            void formsContainer.offsetHeight;
-
-            // Appliquer la nouvelle hauteur avec transition
-            formsContainer.style.height = `${newHeight}px`;
-
-            // Gérer les transitions des formulaires
-            authForms.forEach(form => {
-                form.classList.remove('active', 'left');
-
-                if (form.id === formId) {
-                    form.style.animation = 'formSlideIn 0.4s forwards';
-                    setTimeout(() => {
-                        form.classList.add('active');
-                        form.style.animation = '';
-                    }, 400);
-                } else {
-                    if (Array.from(authForms).findIndex(f => f.id === formId) >
-                        Array.from(authForms).findIndex(f => f.id === form.id)) {
-                        form.classList.add('left');
-                    }
-                    form.style.animation = 'formSlideOut 0.3s forwards';
-                }
-            });
-
-            // Ajuster la hauteur finale après la transition
-            setTimeout(() => {
-                formsContainer.style.height = 'auto';
-            }, 400);
-        }
-
-        // Gestion de la soumission du formulaire de connexion
-
-        document.getElementById('registerFormContent').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const nameInput = document.getElementById('registerName');
-            const emailInput = document.getElementById('registerEmail');
-            const passwordInput = document.getElementById('registerPassword');
-            const confirmPasswordInput = document.getElementById('registerConfirmPassword');
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-
-            const name = nameInput.value;
-            const email = emailInput.value;
-            const password = passwordInput.value;
-            const confirmPassword = confirmPasswordInput.value;
-
-            const nameRegex = /^[A-Za-zÀ-ÿ'\- ]{2,40}$/;
-            const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
-            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
-
-            if (!nameRegex.test(name)) {
-                showToast("Nom invalide. Lettres uniquement (2 à 40 caractères).", "error");
-                return;
-            }
-            if (!emailRegex.test(email)) {
-                showToast("Adresse email invalide.", "error");
-                return;
-            }
-            if (!passwordRegex.test(password)) {
-                showToast("Mot de passe faible. Min. 8 caractères, avec majuscule, minuscule, chiffre, spécial.", "error");
-                return;
-            }
-            if (password !== confirmPassword) {
-                showToast("Les mots de passe ne correspondent pas.", "error");
-                return;
-            }
-
-            try {
-                submitBtn.classList.add('loading');
-                submitBtn.disabled = true;
-
-                const response = await fetch('/api/users/register', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ name, email, password })
-                });
-
-                if (response.ok) {
-                    showToast('Compte créé avec succès !', 'success');
-                    showAuthForm('loginForm');
-                } else {
-                    const errorData = await response.json().catch(() => null);
-                    const errorMessage = errorData?.message || "Erreur lors de la création du compte";
-                    showToast(errorMessage, 'error');
-                }
-            } catch (error) {
-                console.error('Erreur lors de l\'inscription:', error);
-                showToast("Erreur serveur. Veuillez réessayer.", 'error');
-            } finally {
-                submitBtn.classList.remove('loading');
-                submitBtn.disabled = false;
-            }
-        });
-
-
-        document.getElementById('loginFormContent').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-
-            try {
-                submitBtn.classList.add('loading');
-                submitBtn.disabled = true;
-
-                const response = await fetch('/api/users/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        email,
-                        password
-                    })
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    authToken = data.token;
-                    isAuthenticated = true;
-                    updateAuthIcon();
-                    authModal.classList.remove('active');
-                    localStorage.setItem('authToken', data.token);
-
-
-                    // Remplacement de l'alert par une notification stylée
-                    showToast('Connexion réussie !', 'success');
-                    setTimeout(() => window.location.reload(), 800); // Laisse le temps d'afficher le toast
-
-                } else {
-                    // Message d'erreur plus élaboré
-                    const errorData = await response.json().catch(() => null);
-                    const errorMessage = errorData?.message || "Identifiants incorrects";
-                    showToast(errorMessage, 'error');
-                }
-            } catch (error) {
-                console.error("Erreur lors de la connexion:", error);
-                showToast("Erreur serveur. Veuillez réessayer.", 'error');
-            } finally {
-                submitBtn.classList.remove('loading');
-                submitBtn.disabled = false;
-            }
-        });
-
-        document.getElementById('forgotFormContent').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const email = document.getElementById('forgotEmail').value;
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-
-            try {
-                submitBtn.classList.add('loading');
-                submitBtn.disabled = true;
-
-                const response = await fetch('/api/users/forgot-password', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        email
-                    })
-                });
-
-                if (response.ok) {
-                    await showConfirmationModal(
-                        "Un lien de réinitialisation a été envoyé à votre adresse email.",
-                        "success",
-                        { showCancel: false }
-                    );
-                    showAuthForm('loginForm');
-                } else {
-                    const errorData = await response.json().catch(() => null);
-                    const errorMessage = errorData?.message || "Adresse email introuvable";
-                    showToast(errorMessage, 'error');
-                }
-            } catch (error) {
-                console.error("Erreur lors de la demande de réinitialisation:", error);
-                showToast("Erreur serveur. Veuillez réessayer.", 'error');
-            } finally {
-                submitBtn.classList.remove('loading');
-                submitBtn.disabled = false;
-            }
-        });
-        // Remplacer dans le formulaire de réinitialisation
-        document.getElementById('resetPasswordFormContent').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const token = window.location.pathname.split('/').pop(); // Récupérer le token de l'URL
-            const newPassword = document.getElementById('resetPassword').value;
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-
-            try {
-                submitBtn.classList.add('loading');
-                submitBtn.disabled = true;
-
-                const response = await fetch(`/api/users/reset-password/${token}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        newPassword
-                    })
-                });
-                if (response.ok) {
-                    alert("Mot de passe réinitialisé avec succès !");
-                    showAuthForm('loginForm');
-                } else {
-                    const error = await response.json();
-                    alert(error.message || "Erreur lors de la réinitialisation");
-                }
-            } catch (error) {
-                console.error("Erreur:", error);
-                alert("Erreur serveur. Veuillez réessayer.");
-            } finally {
-                submitBtn.classList.remove('loading');
-                submitBtn.disabled = false;
-            }
-        });
-
-        // Initialisation
-        updateAuthIcon();
-
-        async function updateProfile(profileData) {
-            try {
-                const response = await fetch('/api/users/me', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    body: JSON.stringify(profileData)
-                });
-
-                if (!response.ok) {
-                    throw new Error('Échec de la mise à jour du profil');
-                }
-                return await response.json();
-            } catch (error) {
-                console.error('Erreur:', error);
-                throw error;
-            }
-        }
-
-        // Fonction pour afficher une notification toast
-        function showToast(message, type = 'success', duration = 3000) {
-            const toast = document.createElement('div');
-            toast.className = `notification-toast ${type}`;
-
-            // Ajout d'icônes selon le type
-            let icon;
-            switch (type) {
-                case 'success': icon = 'fas fa-check-circle'; break;
-                case 'error': icon = 'fas fa-exclamation-circle'; break;
-                case 'warning': icon = 'fas fa-exclamation-triangle'; break;
-                default: icon = 'fas fa-info-circle';
-            }
-
-            toast.innerHTML = `<i class="${icon}"></i><span>${message}</span>`;
-            document.body.appendChild(toast);
-
-            // Animation d'entrée
-            setTimeout(() => {
-                toast.classList.add('show');
-            }, 10);
-
-            // Disparaît après la durée spécifiée
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 300);
-            }, duration);
-        }
-
-        // Fonction pour afficher une boîte de dialogue modale
-        function showConfirmationModal(message, type = 'info', options = {}) {
-            return new Promise((resolve) => {
-                const modal = document.createElement('div');
-                modal.className = 'confirmation-modal';
-
-                let icon;
-                switch (type) {
-                    case 'success': icon = 'fas fa-check-circle'; break;
-                    case 'error': icon = 'fas fa-times-circle'; break;
-                    case 'warning': icon = 'fas fa-exclamation-triangle'; break;
-                    default: icon = 'fas fa-info-circle';
-                }
-
-                const { confirmText = 'OK', cancelText = 'Annuler', showCancel = true } = options;
-
-                modal.innerHTML = `
-            <div class="confirmation-content">
-                <div class="confirmation-icon ${type}">
-                    <i class="${icon}"></i>
-                </div>
-                <div class="confirmation-message">${message}</div>
-                <div class="confirmation-buttons">
-                    ${showCancel ? `<button class="confirmation-button secondary" id="modalCancelBtn">${cancelText}</button>` : ''}
-                    <button class="confirmation-button primary" id="modalConfirmBtn">${confirmText}</button>
-                </div>
-            </div>
-        `;
-
-                document.body.appendChild(modal);
-
-                // Animation d'entrée
-                setTimeout(() => {
-                    modal.classList.add('active');
-                }, 10);
-
-                // Gestion des clics
-                document.getElementById('modalConfirmBtn').addEventListener('click', () => {
-                    modal.classList.remove('active');
-                    setTimeout(() => {
-                        modal.remove();
-                        resolve(true);
-                    }, 300);
-                });
-
-                if (showCancel) {
-                    document.getElementById('modalCancelBtn').addEventListener('click', () => {
-                        modal.classList.remove('active');
-                        setTimeout(() => {
-                            modal.remove();
-                            resolve(false);
-                        }, 300);
-                    });
-                }
-
-                // Fermer en cliquant à l'extérieur
-                modal.addEventListener('click', (e) => {
-                    if (e.target === modal && showCancel) {
-                        modal.classList.remove('active');
-                        setTimeout(() => {
-                            modal.remove();
-                            resolve(false);
-                        }, 300);
-                    }
-                });
-            });
-        }
-        // Variables pour l'ajout d'annonce
-        let addMarker = null;
-        let isAddingAd = false;
-        let selectedImages = [];
-
-        // Fonction pour démarrer l'ajout d'annonce (Étape 1)
-        function startAdd() {
-            if (!isAuthenticated) {
-                showToast("Veuillez vous connecter pour ajouter une annonce", "error");
-                authModal.classList.add('active');
-                return;
-            }
-
-            isAddingAd = true;
-            document.getElementById('addModal').classList.add('active');
-
-            // Réinitialiser l'interface
-            document.getElementById('addInstructions').style.display = 'block';
-            document.getElementById('adForm').style.display = 'none';
-            document.getElementById('addActions').style.display = 'flex';
-            document.getElementById('imagePreviews').innerHTML = '';
-            selectedImages = [];
-
-            // Réinitialiser le formulaire
-            document.getElementById('adForm').reset();
-
-            // Centrer la carte sur la position utilisateur ou par défaut
-            const center = userPosition || [48.8566, 2.3522]; // Paris par défaut
-            map.setView(center, 15, {
-                animate: true,
-                duration: 0.5
-            });
-
-            // Créer ou réactiver le marqueur
-            if (!addMarker) {
-                addMarker = L.marker(center, {
-                    draggable: true,
-                    icon: L.divIcon({
-                        html: `<div class="user-marker" style="background:#6C5CE7">
-                          <i class="fas fa-plus"></i>
-                          <div class="ring-animation"></div>
-                       </div>`,
-                        className: 'user-marker-container',
-                        iconSize: [32, 32],
-                        iconAnchor: [16, 32]
-                    }),
-                    zIndexOffset: 1000
-                }).addTo(map);
-
-                // Mise à jour dynamique de la position
-                addMarker.on('drag', function () {
-                    const pos = addMarker.getLatLng();
-                    document.getElementById('positionInput').value = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
-                });
-            } else {
-                addMarker.setLatLng(center);
-                addMarker.dragging.enable();
-                map.addLayer(addMarker);
-            }
-
-            // Mettre à jour le champ position initial
-            const pos = addMarker.getLatLng();
-            document.getElementById('positionInput').value = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
-
-            // Message d'instruction
-            showToast("Déplacez le marqueur pour positionner votre annonce", "info");
-
-            // Ajuster la vue pour que le marqueur soit visible
-            setTimeout(() => {
-                const markerPos = addMarker.getLatLng();
-                const markerPixel = map.latLngToContainerPoint(markerPos);
-                const modalHeight = document.getElementById('addModal').offsetHeight;
-
-                // Si le marqueur est caché sous le modal, ajuster la vue
-                if (markerPixel.y < modalHeight + 50) {
-                    const offset = (modalHeight + 50 - markerPixel.y) / 100;
-                    map.panBy([0, offset], { animate: true });
-                }
-            }, 300);
-        }
-
-        // Fonction pour valider la position (Étape 3)
-        function confirmLocation() {
-            if (!addMarker) return;
-
-            addMarker.dragging.disable();
-            document.getElementById('addInstructions').style.display = 'none';
-            document.getElementById('adForm').style.display = 'block';
-            document.getElementById('addActions').style.display = 'none';
-
-            // Ajuster la vue pour s'assurer que le marqueur reste visible
-            const markerPos = addMarker.getLatLng();
-            const markerPixel = map.latLngToContainerPoint(markerPos);
-            const modalHeight = document.getElementById('addModal').offsetHeight;
-
-            if (markerPixel.y < modalHeight + 50) {
-                const offset = (modalHeight + 50 - markerPixel.y) / 100;
-                map.panBy([0, offset], { animate: true });
-            }
-        }
-
-        // Fonction pour modifier la position (Étape 4)
-        function editLocation() {
-            if (!addMarker) return;
-
-            addMarker.dragging.enable();
-            document.getElementById('addInstructions').style.display = 'block';
-            document.getElementById('adForm').style.display = 'none';
-            document.getElementById('addActions').style.display = 'flex';
-
-            showToast("Déplacez le marqueur pour ajuster la position", "info");
-        }
-
-        // Fonction pour soumettre l'annonce (Étape 6)
-        async function submitAd(e) {
-            e.preventDefault();
-
-            const title = document.getElementById('adTitle').value;
-            const price = document.getElementById('adPrice').value;
-            const category = document.getElementById('adCategory').value;
-            const condition = document.getElementById('adCondition').value;
-            const description = document.getElementById('adDescription').value;
-
-            if (!title || !price || !category || !condition || !description || !addMarker) {
-                showToast("Veuillez remplir tous les champs obligatoires", "error");
-                return;
-            }
-
-            const position = addMarker.getLatLng();
-            const adData = {
-                title,
-                price: parseFloat(price),
-                category,
-                condition,
-                description,
-                coordinates: [position.lat, position.lng],
-                images: selectedImages // Tableau des images sélectionnées
-            };
-
-            try {
-                // Afficher le loader
-                document.getElementById('submitText').textContent = 'Publication...';
-                document.getElementById('submitSpinner').classList.remove('hidden');
-                document.getElementById('submitAd').disabled = true;
-
-                const response = await fetch('/api/annonces', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    body: JSON.stringify(adData)
-                });
-
-                if (response.ok) {
-                    const newAd = await response.json();
-
-                    // Créer un marqueur pour la nouvelle annonce
-                    createCustomMarker(
-                        position.lat,
-                        position.lng,
-                        price,
-                        category,
-                        newAd.id,
-                        {
-                            id: newAd.id,
-                            title,
-                            seller: {
-                                name: "Vous", // À remplacer par les infos utilisateur
-                            },
-                            price: parseFloat(price),
-                            condition,
-                            location: "Nouvelle annonce", // À géocoder
-                            coordinates: [position.lat, position.lng],
-                            category,
-                            description,
-                            images: selectedImages.length > 0 ? selectedImages : ["https://via.placeholder.com/400"]
-                        }
-                    );
-
-                    showToast("Annonce publiée avec succès!", "success");
-                    closeAddModal();
-                } else {
-                    const error = await response.json();
-                    showToast(error.message || "Erreur lors de la publication", "error");
-                }
-            } catch (error) {
-                console.error("Erreur:", error);
-                showToast("Erreur serveur. Veuillez réessayer.", "error");
-            } finally {
-                // Cacher le loader
-                document.getElementById('submitText').textContent = 'Publier';
-                document.getElementById('submitSpinner').classList.add('hidden');
-                document.getElementById('submitAd').disabled = false;
-            }
-        }
-
-        // Fermer le modal d'ajout
-        function closeAddModal() {
-            document.getElementById('addModal').classList.remove('active');
-            isAddingAd = false;
-
-            if (addMarker) {
-                map.removeLayer(addMarker);
-            }
-        }
-
-        // Gestion de l'upload d'images
-        function setupImageUpload() {
-            const uploadArea = document.getElementById('imageUploadArea');
-            const fileInput = document.getElementById('imageUploadInput');
-            const previewsContainer = document.getElementById('imagePreviews');
-
-            // Cliquer sur la zone déclenche le file input
-            uploadArea.addEventListener('click', () => fileInput.click());
-
-            // Gestion du drag and drop
-            uploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadArea.classList.add('bg-[#f5f6fa]');
-            });
-
-            uploadArea.addEventListener('dragleave', () => {
-                uploadArea.classList.remove('bg-[#f5f6fa]');
-            });
-
-            uploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadArea.classList.remove('bg-[#f5f6fa]');
-                handleFiles(e.dataTransfer.files);
-            });
-
-            // Gestion de la sélection de fichiers
-            fileInput.addEventListener('change', () => {
-                if (fileInput.files.length > 0) {
-                    handleFiles(fileInput.files);
-                }
-            });
-
-            // Fonction pour traiter les fichiers
-            function handleFiles(files) {
-                const remainingSlots = 3 - selectedImages.length;
-                if (remainingSlots <= 0) {
-                    showToast("Vous ne pouvez ajouter que 3 images maximum", "warning");
-                    return;
-                }
-
-                const validFiles = Array.from(files)
-                    .slice(0, remainingSlots)
-                    .filter(file => file.type.startsWith('image/'));
-
-                if (validFiles.length === 0) return;
-
-                validFiles.forEach(file => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const imageData = e.target.result;
-                        selectedImages.push(imageData);
-                        updateImagePreviews();
-                    };
-                    reader.readAsDataURL(file);
-                });
-            }
-
-            // Mise à jour des aperçus d'images
-            function updateImagePreviews() {
-                previewsContainer.innerHTML = '';
-                selectedImages.forEach((img, index) => {
-                    const preview = document.createElement('div');
-                    preview.className = 'relative w-16 h-16 rounded-md overflow-hidden border border-[#DCDDE1]';
-                    preview.innerHTML = `
-                <img src="${img}" class="w-full h-full object-cover" />
-                <button class="absolute top-0 right-0 bg-[#ff7675] text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-index="${index}">
-                    <i class="fas fa-times"></i>
+    <div id="messagingModal"
+        class="modal fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center p-0 md:p-4">
+        <div
+            class="modal-content bg-white rounded-xl shadow-2xl w-full h-full md:max-w-2xl md:h-auto md:max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                <h2 id="messagingTitle" class="text-xl font-semibold text-gray-800">Messagerie</h2>
+                <button id="closeMessagingModalBtn" class="text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label="Fermer la messagerie">
+                    <i class="fas fa-times fa-lg"></i>
                 </button>
-            `;
-                    previewsContainer.appendChild(preview);
-                });
+            </div>
+            <div id="messagingContainer" class="flex-grow overflow-y-auto">
+                <div id="threadsListView">
+                    <div id="threadsList" class="divide-y divide-gray-100">
+                    </div>
+                    <p id="noThreadsText" class="p-8 text-center text-gray-500 hidden">Aucune discussion pour le moment.
+                        <br>Contactez un vendeur pour démarrer !</p>
+                </div>
+                <div id="chatView" class="hidden flex flex-col h-full">
+                    <div id="chatHeader"
+                        class="p-4 border-b border-gray-200 flex items-center space-x-3 sticky top-0 bg-white z-10">
+                        <button id="backToThreadsBtn"
+                            class="text-purple-500 hover:text-purple-700 p-1 rounded-full hover:bg-purple-100 transition-colors"
+                            aria-label="Retour à la liste des discussions"><i
+                                class="fas fa-arrow-left fa-lg"></i></button>
+                        <img id="chatWithAvatar" src="https://placehold.co/40x40/E2E8F0/A0AEC0?text=U"
+                            alt="Avatar de l'interlocuteur" class="w-10 h-10 rounded-full object-cover">
+                        <span id="chatWithUser" class="font-semibold text-gray-700">Nom de l'interlocuteur</span>
+                    </div>
+                    <div id="chatMessagesContainer" class="flex-grow p-4 space-y-3 overflow-y-auto bg-gray-50">
+                    </div>
+                    <div class="p-3 border-t border-gray-200 bg-white sticky bottom-0">
+                        <form id="sendMessageForm" class="flex items-center space-x-2">
+                            <input type="text" id="messageInput"
+                                class="input-style flex-grow p-2.5 border-gray-300 rounded-full"
+                                placeholder="Écrire un message..." autocomplete="off" aria-label="Message à envoyer">
+                            <button type="submit"
+                                class="bg-purple-500 text-white p-2.5 rounded-full hover:bg-purple-600 w-10 h-10 flex items-center justify-center transition-colors"
+                                aria-label="Envoyer le message"><i class="fas fa-paper-plane"></i></button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                // Gestion de la suppression d'images
-                document.querySelectorAll('#imagePreviews button').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const index = parseInt(btn.getAttribute('data-index'));
-                        selectedImages.splice(index, 1);
-                        updateImagePreviews();
-                    });
-                });
-            }
-        }
+    <div id="toastNotification"
+        class="fixed bottom-24 md:bottom-6 right-6 bg-gray-900 text-white py-3 px-5 rounded-xl shadow-2xl transition-all duration-300 opacity-0 transform translate-y-5 z-[2000]"
+        role="alert" aria-live="assertive">
+        <span id="toastMessage">Message de notification</span>
+    </div>
 
-        // Écouteurs d'événements
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('addBtn').addEventListener('click', startAdd);
-            document.getElementById('closeAddModal').addEventListener('click', closeAddModal);
-            document.getElementById('confirmLocation').addEventListener('click', confirmLocation);
-            document.getElementById('editLocation').addEventListener('click', editLocation);
-            document.getElementById('cancelAdd').addEventListener('click', closeAddModal);
-            document.getElementById('adForm').addEventListener('submit', submitAd);
-
-            // Initialiser l'upload d'images
-            setupImageUpload();
-        });
-        // Initialisation
-        initMarkers();
-    </script>
-
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="main.js" defer></script>
 </body>
 
 </html>
