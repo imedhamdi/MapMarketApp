@@ -1,64 +1,98 @@
-// /utils/email.js
-import sgMail from '@sendgrid/mail';
-import { logger } from '../config/logger.js';
-
-// Configurer SendGrid avec votre clé API (depuis les variables d'environnement)
-if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-} else {
-  logger.warn('SENDGRID_API_KEY non définie. L\'envoi d\'e-mails sera désactivé.');
-}
+// /utils/apiFeatures.js
 
 /**
- * Envoie un e-mail en utilisant SendGrid.
- * @param {object} options - Options pour l'e-mail.
- * @param {string} options.to - Adresse e-mail du destinataire.
- * @param {string} options.subject - Sujet de l'e-mail.
- * @param {string} options.text - Contenu de l'e-mail en texte brut.
- * @param {string} [options.html] - Contenu de l'e-mail en HTML (optionnel).
- * @returns {Promise<void>} Une promesse qui se résout si l'e-mail est envoyé avec succès.
+ * Classe pour construire et exécuter des requêtes API avancées avec Mongoose.
+ * Permet le filtrage, le tri, la limitation des champs et la pagination.
  */
-const sendEmail = async (options) => {
-  if (!process.env.SENDGRID_API_KEY) {
-    logger.error('Tentative d\'envoi d\'e-mail alors que SENDGRID_API_KEY n\'est pas configurée.');
-    // En mode développement, on pourrait logger l'email au lieu de l'envoyer
-    if (process.env.NODE_ENV === 'development') {
-        logger.info(`Email (non envoyé - Pas de clé API SendGrid): 
-        À: ${options.to}
-        De: ${process.env.SENDGRID_FROM_EMAIL || 'noreply@example.com'}
-        Sujet: ${options.subject}
-        Texte: ${options.text}
-        HTML: ${options.html || 'Non fourni'}
-      `);
-      return Promise.resolve(); // Simuler un envoi réussi en développement si pas de clé
-    }
-    return Promise.reject(new Error('Configuration d\'e-mail manquante pour envoyer l\'e-mail.'));
+class APIFeatures {
+  /**
+   * Crée une instance de APIFeatures.
+   * @param {mongoose.Query} query - La requête Mongoose initiale (ex: Model.find()).
+   * @param {object} queryString - L'objet query string de la requête Express (req.query).
+   */
+  constructor(query, queryString) {
+    this.query = query; // La requête Mongoose (ex: Item.find())
+    this.queryString = queryString; // Les paramètres de l'URL (req.query)
   }
 
-  const mailOptions = {
-    to: options.to,
-    from: {
-        email: process.env.SENDGRID_FROM_EMAIL || 'noreply@example.com',
-        name: process.env.SENDGRID_FROM_NAME || 'MapMarket'
-    },
-    subject: options.subject,
-    text: options.text,
-    html: options.html // Optionnel, SendGrid utilisera `text` si `html` n'est pas fourni
-  };
+  /**
+   * Filtre les résultats en fonction des paramètres de la query string.
+   * Exclut les champs spéciaux comme 'page', 'sort', 'limit', 'fields'.
+   * Permet les opérateurs de comparaison (gte, gt, lte, lt).
+   * @returns {APIFeatures} L'instance actuelle de APIFeatures pour le chaînage.
+   */
+  filter() {
+    // 1A) Filtrage de base
+    const queryObj = { ...this.queryString };
+    const excludedFields = ['page', 'sort', 'limit', 'fields'];
+    excludedFields.forEach(el => delete queryObj[el]);
 
-  try {
-    await sgMail.send(mailOptions);
-    logger.info(`E-mail envoyé avec succès à ${options.to} avec le sujet "${options.subject}"`);
-  } catch (error) {
-    logger.error(`Erreur lors de l'envoi de l'e-mail à ${options.to}: ${error.message}`);
-    if (error.response) {
-      logger.error('Détails de l\'erreur SendGrid:', JSON.stringify(error.response.body, null, 2));
-    }
-    // Ne pas rejeter l'erreur ici pour ne pas bloquer le flux principal si l'envoi d'email échoue,
-    // sauf si c'est critique pour l'opération (ex: vérification d'email).
-    // La gestion de l'échec de l'envoi d'email doit être faite par la fonction appelante.
-    throw new Error(`L'envoi de l'e-mail a échoué. ${error.message}`);
+    // 1B) Filtrage avancé (pour les opérateurs gte, gt, lte, lt)
+    let queryStr = JSON.stringify(queryObj);
+    // Remplace gte, gt, lte, lt par $gte, $gt, $lte, $lt (format MongoDB)
+    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, match => `$${match}`);
+    
+    this.query = this.query.find(JSON.parse(queryStr));
+    
+    return this; // Permet de chaîner les méthodes
   }
-};
 
-export default sendEmail;
+  /**
+   * Trie les résultats.
+   * Par défaut, trie par `createdAt` en ordre décroissant.
+   * Permet le tri sur plusieurs champs (ex: sort=price,-ratingsAverage).
+   * @returns {APIFeatures} L'instance actuelle de APIFeatures.
+   */
+  sort() {
+    if (this.queryString.sort) {
+      // Remplace les virgules par des espaces pour le format de Mongoose
+      const sortBy = this.queryString.sort.split(',').join(' ');
+      this.query = this.query.sort(sortBy);
+    } else {
+      // Tri par défaut si aucun paramètre de tri n'est fourni
+      this.query = this.query.sort('-createdAt'); // Plus récent d'abord
+    }
+    return this;
+  }
+
+  /**
+   * Limite les champs retournés dans les résultats (projection).
+   * Permet de sélectionner uniquement certains champs (ex: fields=name,price,category).
+   * Exclut par défaut le champ `__v` de Mongoose.
+   * @returns {APIFeatures} L'instance actuelle de APIFeatures.
+   */
+  limitFields() {
+    if (this.queryString.fields) {
+      const fields = this.queryString.fields.split(',').join(' ');
+      this.query = this.query.select(fields);
+    } else {
+      // Exclure le champ __v par défaut
+      this.query = this.query.select('-__v');
+    }
+    return this;
+  }
+
+  /**
+   * Gère la pagination des résultats.
+   * Utilise les paramètres `page` et `limit` de la query string.
+   * `page` est le numéro de la page (défaut: 1).
+   * `limit` est le nombre de résultats par page (défaut: 100).
+   * @returns {APIFeatures} L'instance actuelle de APIFeatures.
+   */
+  paginate() {
+    const page = parseInt(this.queryString.page, 10) || 1;
+    const limit = parseInt(this.queryString.limit, 10) || 100; // Limite par défaut
+    const skip = (page - 1) * limit; // Nombre de documents à sauter
+
+    this.query = this.query.skip(skip).limit(limit);
+    
+    // Optionnel: vérifier si la page demandée existe (nécessite un countDocuments)
+    // if (this.queryString.page) {
+    //   const numDocuments = await this.query.model.countDocuments(); // Attention: exécute une requête
+    //   if (skip >= numDocuments) throw new Error('Cette page n\'existe pas');
+    // }
+    return this;
+  }
+}
+
+export default APIFeatures;
