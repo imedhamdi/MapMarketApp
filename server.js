@@ -9,7 +9,7 @@ const xss = require('xss-clean');
 const path = require('path');
 
 const connectDB = require('./config/db');
-const corsOptions = require('./config/corsOptions');
+// const corsOptions = require('./config/corsOptions');
 const { morganStream, logger } = require('./config/winston');
 const globalErrorHandler = require('./middlewares/errorHandler');
 const { generalRateLimiter } = require('./config/rateLimit');
@@ -31,59 +31,110 @@ const app = express();
 app.use(
   helmet({
     contentSecurityPolicy: {
+      useDefaults: false, // Désactive les valeurs par défaut pour un contrôle total
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: [
           "'self'",
           "'unsafe-inline'",
-          'https://unpkg.com',
-          'https://cdn.jsdelivr.net',
-          'https://cdnjs.cloudflare.com',
-          'https://cdn.lordicon.com'
+          "'unsafe-eval'",
+          "http://localhost:5001",
+          "https://unpkg.com",
+          "https://cdn.jsdelivr.net",
+          "https://cdnjs.cloudflare.com",
+          "https://cdn.lordicon.com",
+          "https://cdn.socket.io"
         ],
         styleSrc: [
           "'self'",
           "'unsafe-inline'",
-          'https://unpkg.com',
-          'https://cdn.jsdelivr.net',
-          'https://cdnjs.cloudflare.com'
+          "https://fonts.googleapis.com", // Ajouté pour Google Fonts
+          "https://unpkg.com",
+          "https://cdn.jsdelivr.net",
+          "https://cdnjs.cloudflare.com"
         ],
         imgSrc: [
           "'self'",
-          'data:',
-          'https://cdn.lordicon.com',
-          'https://cdn.jsdelivr.net',
-          'https://unpkg.com',
-          'https://cdnjs.cloudflare.com',
-          'https://placehold.co'
+          "data:",
+          "blob:",
+          "https://placehold.co",
+          "https://cdn.lordicon.com",
+          "https://cdn.jsdelivr.net",
+          "https://unpkg.com",
+          "https://cdnjs.cloudflare.com",
+          "https://*.tile.openstreetmap.org", // Ajouté pour les tuiles OSM
+          "https://a.tile.openstreetmap.org",
+          "https://b.tile.openstreetmap.org",
+          "https://c.tile.openstreetmap.org"
         ],
         fontSrc: [
           "'self'",
-          'https://fonts.gstatic.com',
-          'https://cdnjs.cloudflare.com',
-          'https://cdn.jsdelivr.net'
+          "data:",
+          "https://fonts.gstatic.com", // Ajouté pour Google Fonts
+          "https://cdnjs.cloudflare.com",
+          "https://cdn.jsdelivr.net"
         ],
         connectSrc: [
           "'self'",
-          'wss://localhost:*',
-          'ws://localhost:*',
-          'https://unpkg.com',
-          'https://cdn.jsdelivr.net',
-          'https://cdnjs.cloudflare.com'
+          "http://localhost:5001",
+          "ws://localhost:5001",
+          "wss://localhost:5001",
+          "https://*.tile.openstreetmap.org",
+          "https://unpkg.com",
+          "https://cdn.jsdelivr.net",
+          "https://cdnjs.cloudflare.com",
+          "https://cdn.socket.io"
         ],
+        frameSrc: ["'self'"],
         objectSrc: ["'none'"],
-        baseUri: ["'self'"]
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        // Ajout des directives pour les nouvelles fonctionnalités CSP
+        scriptSrcElem: [
+          "'self'",
+          "https://unpkg.com",
+          "https://cdn.jsdelivr.net",
+          "https://cdnjs.cloudflare.com",
+          "https://cdn.lordicon.com",
+          "https://cdn.socket.io"
+        ],
+        styleSrcElem: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com",
+          "https://unpkg.com",
+          "https://cdn.jsdelivr.net",
+          "https://cdnjs.cloudflare.com"
+        ]
       }
     }
   })
 );
-
 // Statics : public et uploads
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Middlewares de base
+const corsOptions = {
+  origin: [
+    'http://localhost:5001',
+    'https://votredomaine.com' // Ajoutez votre domaine de production ici
+  ],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept'
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
 app.use(cors(corsOptions));
+
+// Ajoutez ce middleware pour gérer les pré-vols OPTIONS
+app.options('*', cors(corsOptions));;
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(mongoSanitize());
