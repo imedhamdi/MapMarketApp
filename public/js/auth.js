@@ -353,7 +353,7 @@ async function handlePasswordResetRequest(event) {
     const email = resetEmailField.value.trim();
 
     try {
-        const response = await secureFetch(`${API_BASE_URL}/reset-password-request`, {
+        const response = await secureFetch(`${API_BASE_URL}/forgot-password`, {
             method: 'POST',
             body: { email }
         });
