@@ -26,47 +26,158 @@ const mapImageUrls = (req, ad) => {
 /**
  * Créer une nouvelle annonce
  * POST /api/ads
+ * Middlewares requis avant ce contrôleur sur la route:
+ * - `protect`: pour authentifier l'utilisateur et attacher `req.user`.
+ * - `uploadAdImages` (ou similaire utilisant Multer): pour parser `multipart/form-data` et attacher `req.files`.
  */
 exports.createAd = asyncHandler(async (req, res, next) => {
+    logger.info('BACKEND: Entrée dans exports.createAd');
+    logger.debug('BACKEND: req.body initial:', req.body);
+    logger.debug('BACKEND: req.files initial:', req.files);
+    logger.debug('BACKEND: req.user.id:', req.user ? req.user.id : 'NON AUTHENTIFIÉ');
+
+    // 1. Vérification de l'authentification
+    if (!req.user || !req.user.id) {
+        logger.warn('BACKEND: Tentative de création d\'annonce sans utilisateur authentifié.');
+        return next(new AppError('Utilisateur non authentifié. Impossible de créer l\'annonce.', 401));
+    }
+
+    // 2. Déstructuration et validation des champs provenant de req.body
     const { title, description, price, category, latitude, longitude, locationAddress } = req.body;
 
-    if (!title || !description || !price || !category || !latitude || !longitude) {
-        return next(new AppError('Veuillez fournir tous les champs requis: titre, description, prix, catégorie et localisation.', 400));
+    // Validation du titre
+    if (!title || typeof title !== 'string' || title.trim() === '') {
+        logger.warn('BACKEND: Validation échouée - titre.', { title });
+        return next(new AppError('Le titre est requis et doit être une chaîne de caractères non vide.', 400));
+    }
+    // Ajoutez d'autres validations pour title si nécessaire (longueur min/max, etc.)
+
+    // Validation de la description
+    if (!description || typeof description !== 'string' || description.trim() === '') {
+        logger.warn('BACKEND: Validation échouée - description.', { description });
+        return next(new AppError('La description est requise et doit être une chaîne de caractères non vide.', 400));
     }
 
+    // Validation de la catégorie
+    // La chaîne "undefined" peut arriver si le frontend envoie la valeur d'une option non sélectionnée.
+    if (!category || typeof category !== 'string' || category.trim() === '' || category.trim().toLowerCase() === 'undefined') {
+        logger.warn('BACKEND: Validation échouée - catégorie.', { category });
+        return next(new AppError('La catégorie est requise et doit être valide.', 400));
+    }
+    // Ici, vous pourriez aussi vérifier si l'ID de catégorie existe dans votre DB de catégories.
+
+    // Validation du prix
+    if (price === undefined || price === null || String(price).trim() === '') {
+        logger.warn('BACKEND: Validation échouée - prix manquant.', { price_raw: price });
+        return next(new AppError('Le prix est requis.', 400));
+    }
+    const parsedPrice = parseFloat(price);
+    if (isNaN(parsedPrice) || parsedPrice < 0) {
+        logger.warn('BACKEND: Validation échouée - prix invalide.', { price_raw: price, price_parsed: parsedPrice });
+        return next(new AppError('Le prix doit être un nombre positif ou nul.', 400));
+    }
+
+    // Validation de la latitude
+    if (latitude === undefined || latitude === null || String(latitude).trim() === '') {
+        logger.warn('BACKEND: Validation échouée - latitude manquante.', { latitude_raw: latitude });
+        return next(new AppError('La latitude est requise.', 400));
+    }
+    const parsedLat = parseFloat(latitude);
+    if (isNaN(parsedLat) || parsedLat < -90 || parsedLat > 90) {
+        logger.warn('BACKEND: Validation échouée - latitude invalide.', { latitude_raw: latitude, latitude_parsed: parsedLat });
+        return next(new AppError('La latitude doit être un nombre valide entre -90 et 90.', 400));
+    }
+
+    // Validation de la longitude
+    if (longitude === undefined || longitude === null || String(longitude).trim() === '') {
+        logger.warn('BACKEND: Validation échouée - longitude manquante.', { longitude_raw: longitude });
+        return next(new AppError('La longitude est requise.', 400));
+    }
+    const parsedLng = parseFloat(longitude);
+    if (isNaN(parsedLng) || parsedLng < -180 || parsedLng > 180) {
+        logger.warn('BACKEND: Validation échouée - longitude invalide.', { longitude_raw: longitude, longitude_parsed: parsedLng });
+        return next(new AppError('La longitude doit être un nombre valide entre -180 et 180.', 400));
+    }
+
+    logger.info('BACKEND: Toutes les validations des champs de base sont passées.');
+
+    // 3. Préparation de l'objet adData pour la création
     const adData = {
-        title,
-        description,
-        price: parseFloat(price),
-        category,
+        title: title.trim(),
+        description: description.trim(),
+        price: parsedPrice,
+        category: category.trim(), // Devrait être un ID de catégorie valide
         location: {
             type: 'Point',
-            coordinates: [parseFloat(longitude), parseFloat(latitude)], // [longitude, latitude]
-            address: locationAddress || ''
+            coordinates: [parsedLng, parsedLat], // GeoJSON: [longitude, latitude]
+            address: (locationAddress && typeof locationAddress === 'string') ? locationAddress.trim() : ''
         },
-        userId: req.user.id, // Ajouté par le middleware `protect`
-        status: 'online', // Ou 'pending_review' selon votre workflow
+        userId: req.user.id,
+        status: 'online', // Ou 'pending_review', 'draft' selon votre logique métier
+        imageUrls: [] // Initialiser comme tableau vide
     };
 
-    // Gestion des images uploadées par Multer
+    // 4. Gestion des images uploadées
     if (req.files && req.files.length > 0) {
+        const MAX_IMAGES = parseInt(process.env.MAX_AD_IMAGES_COUNT || '5'); // Configurable
+        if (req.files.length > MAX_IMAGES) {
+            logger.warn(`BACKEND: Tentative d'upload de ${req.files.length} images. Maximum autorisé: ${MAX_IMAGES}.`);
+            // Supprimer les fichiers uploadés en excès pour éviter de les stocker inutilement.
+            req.files.forEach(file => {
+                try {
+                    fs.unlinkSync(file.path); // Supprime le fichier du stockage temporaire de Multer
+                } catch (unlinkErr) {
+                    logger.error(`BACKEND: Échec de la suppression du fichier uploadé en excès: ${file.path}`, unlinkErr);
+                }
+            });
+            return next(new AppError(`Vous ne pouvez télécharger qu'un maximum de ${MAX_IMAGES} images.`, 400));
+        }
+        // Les chemins doivent être relatifs à votre dossier 'uploads' global.
+        // Le préfixe 'ads/' aide à organiser les images.
         adData.imageUrls = req.files.map(file => path.join('ads', file.filename).replace(/\\/g, '/'));
-    } else {
-        adData.imageUrls = []; // Ou une image par défaut si souhaité
     }
 
-    const newAd = await Ad.create(adData);
-    const populatedAd = await Ad.findById(newAd._id).populate('userId', 'name avatarUrl');
-    
+    logger.debug('BACKEND: Objet adData final avant Ad.create:', JSON.stringify(adData, null, 2));
+
+    // 5. Création de l'annonce dans la base de données
+    let newAdDocument;
+    try {
+        newAdDocument = await Ad.create(adData); // Mongoose applique ici les validations du schéma (adModel.js)
+        logger.info(`BACKEND: Annonce créée avec succès dans la DB. ID: ${newAdDocument._id}`);
+    } catch (error) {
+        logger.error('BACKEND: Erreur Mongoose lors de Ad.create:', { message: error.message, name: error.name, errors: error.errors });
+        if (error.name === 'ValidationError') {
+            // Construire un message d'erreur plus spécifique à partir des erreurs de validation Mongoose
+            const messages = Object.values(error.errors).map(val => val.message);
+            const userFriendlyMessage = `Erreur de validation des données: ${messages.join('. ')}`;
+            return next(new AppError(userFriendlyMessage, 400));
+        }
+        // Pour d'autres erreurs (ex: problème de connexion à la DB)
+        return next(error); // Laisser le gestionnaire d'erreurs global s'occuper
+    }
+
+    // 6. Peupler les informations de l'utilisateur pour la réponse
+    // Utiliser .lean() pour obtenir un objet JS simple, ce qui est généralement plus performant.
+    const populatedAd = await Ad.findById(newAdDocument._id)
+                                .populate('userId', 'name avatarUrl') // Sélectionner les champs de l'utilisateur
+                                .lean(); // Important pour la performance et pour éviter les objets Mongoose complexes
+
+    if (!populatedAd) {
+        // Ce cas est très improbable si Ad.create a réussi et que l'annonce n'a pas été supprimée immédiatement après.
+        logger.error(`BACKEND: CRITIQUE - L'annonce ${newAdDocument._id} a été créée mais n'a pas pu être récupérée pour la réponse.`);
+        return next(new AppError('Erreur interne: L\'annonce a été créée mais sa récupération a échoué.', 500));
+    }
+
+    // 7. Formater et envoyer la réponse
     res.status(201).json({
         success: true,
         message: 'Annonce créée avec succès.',
         data: {
-            ad: mapImageUrls(req, populatedAd.toObject())
+            // mapImageUrls transforme les chemins relatifs en URLs complètes
+            ad: mapImageUrls(req, populatedAd) // populatedAd est déjà un plain object
         },
     });
 });
-
 /**
  * Récupérer toutes les annonces (avec filtres, tri, pagination)
  * GET /api/ads

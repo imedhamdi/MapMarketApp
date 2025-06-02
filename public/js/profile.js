@@ -139,8 +139,8 @@ function initProfileUI() {
             deleteAccountTriggerBtn.classList.remove('hidden');
             deleteAccountTriggerBtn.setAttribute('aria-expanded', 'false');
             deleteAccountConfirmSection.setAttribute('aria-hidden', 'true');
-            if(deleteAccountCheckbox) deleteAccountCheckbox.checked = false;
-            if(confirmDeleteAccountBtn) confirmDeleteAccountBtn.disabled = true;
+            if (deleteAccountCheckbox) deleteAccountCheckbox.checked = false;
+            if (confirmDeleteAccountBtn) confirmDeleteAccountBtn.disabled = true;
             deleteAccountTriggerBtn.focus();
         });
     }
@@ -222,6 +222,8 @@ function populateProfileFields(userData) {
     // Gestion de l'affichage de l'avatar
     if (profileAvatarImg && profileAvatarDefaultIcon && profileAvatarContainer) {
         if (userData.avatarUrl && !userData.avatarUrl.endsWith('avatar-default.svg')) {
+            console.log('Valeur de userData.avatarUrl reçue du serveur:', userData.avatarUrl);
+            console.log('Chemin final tenté pour profileAvatarImg.src:', avatarSrcToDisplay);
             profileAvatarImg.src = userData.avatarUrl;
             profileAvatarImg.alt = `Avatar de ${sanitizeHTML(userData.name || 'utilisateur')}`;
             profileAvatarImg.classList.remove('hidden');
@@ -277,7 +279,7 @@ function handleAvatarPreview() {
                 profileAvatarImg.classList.remove('hidden');
                 profileAvatarDefaultIcon.classList.add('hidden');
             }
-            
+
             // Si on est en mode édition du profil OU si le bouton "Sauvegarder" n'est pas visible (mode vue simple),
             // on téléverse l'avatar immédiatement.
             // Cela permet de changer l'avatar même sans passer en mode "édition" du nom/mdp.
@@ -483,8 +485,8 @@ async function handleProfileUpdate(event) {
         // Mais validateForm devrait ignorer les champs non-required s'ils sont vides.
         // Pour être sûr, on ne valide password que s'il est rempli.
         if (profileNewPasswordField.value.trim() === '') {
-             delete currentRules['profile-new-password']; // Ne pas valider si vide
-             delete currentRules['profile-confirm-password']; // Ne pas valider si vide
+            delete currentRules['profile-new-password']; // Ne pas valider si vide
+            delete currentRules['profile-confirm-password']; // Ne pas valider si vide
         }
     }
 

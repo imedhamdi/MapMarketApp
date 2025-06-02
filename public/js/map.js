@@ -347,6 +347,119 @@ function updateUserMarker(lat, lng, accuracy, centerMap = true) {
     }
 }
 
+// NOUVELLE FONCTION À AJOUTER ET EXPORTER
+/**
+ * Initialise une mini-carte Leaflet dans un conteneur spécifié.
+ * Utilisée typiquement pour des formulaires où une localisation doit être choisie.
+ * @param {string} containerId - L'ID de l'élément HTML qui contiendra la mini-carte.
+ * @param {function} onMarkerPlacedCallback - Fonction appelée avec les latlng lorsque le marqueur est placé/déplacé.
+ * @param {object|null} initialCoords - Coordonnées initiales {lat, lng} pour centrer la carte et placer un marqueur.
+ * @param {number} initialZoom - Zoom initial si initialCoords n'est pas fourni (défaut 12).
+ * @param {number} markerZoom - Zoom appliqué après le placement d'un marqueur (défaut 15).
+ * @returns {L.Map|null} L'instance de la mini-carte Leaflet, ou null en cas d'erreur.
+ */
+export function initMiniMap(containerId, onMarkerPlacedCallback, initialCoords = null, initialZoom = 12, markerZoom = 15) {
+    const mapContainer = document.getElementById(containerId);
+    if (!mapContainer) {
+        console.error(`MiniMap Error: Container element #${containerId} not found.`);
+        showToast(`Erreur : conteneur de mini-carte #${containerId} introuvable.`, 'error');
+        return null;
+    }
+
+    if (typeof L === 'undefined') {
+        console.error("MiniMap Error: Leaflet (L) is not defined.");
+        showToast("Erreur : Librairie de carte (Leaflet) non chargée.", 'error');
+        return null;
+    }
+
+    // Si une carte Leaflet existe déjà dans ce conteneur, la supprimer avant de réinitialiser.
+    // Cela est crucial car adFormMiniMap.remove() est appelé dans ads.js,
+    // mais cette vérification interne rend initMiniMap plus robuste.
+    if (mapContainer._leaflet_id) {
+        // Tenter de récupérer l'instance existante et la supprimer proprement.
+        // Leaflet ne stocke pas l'instance directement sur l'élément de manière accessible facilement.
+        // Le plus simple est de vider le conteneur et de laisser la logique appelante (ads.js) gérer
+        // la suppression de l'ancienne instance (adFormMiniMap.remove()).
+        // Ici, on assume que si _leaflet_id existe, ads.js devrait avoir appelé .remove() dessus.
+        // Pour éviter les conflits, on peut vider le conteneur.
+        mapContainer.innerHTML = ''; // Vide le contenu pour s'assurer qu'une ancienne carte ne persiste pas visuellement.
+        delete mapContainer._leaflet_id; // Supprime la référence pour permettre une nouvelle initialisation.
+         console.warn(`MiniMap: Container #${containerId} was already initialized. Cleaned up for re-initialization.`);
+    }
+
+
+    const viewCenter = initialCoords ? [initialCoords.lat, initialCoords.lng] : [48.8566, 2.3522]; // Paris par défaut
+    const zoomLevel = initialCoords ? markerZoom : initialZoom;
+
+    try {
+        const miniMapInstance = L.map(containerId, {
+            zoomControl: true,
+            preferCanvas: true,
+            attributionControl: false, // Pas d'attribution pour une mini-carte pour garder l'UI simple
+        }).setView(viewCenter, zoomLevel);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            // attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>' // Attribution courte si besoin
+        }).addTo(miniMapInstance);
+
+        let currentMarker = null;
+
+        const updateMarkerAndCallback = (latlng) => {
+            if (!currentMarker) {
+                currentMarker = L.marker(latlng, { draggable: true }).addTo(miniMapInstance);
+                currentMarker.on('dragend', function(event) {
+                    const newLatLng = event.target.getLatLng();
+                    miniMapInstance.panTo(newLatLng);
+                    if (onMarkerPlacedCallback) {
+                        onMarkerPlacedCallback(newLatLng);
+                    }
+                });
+            } else {
+                currentMarker.setLatLng(latlng);
+            }
+            miniMapInstance.panTo(latlng);
+            if (onMarkerPlacedCallback) {
+                onMarkerPlacedCallback(latlng);
+            }
+        };
+
+        if (initialCoords) {
+            updateMarkerAndCallback(L.latLng(initialCoords.lat, initialCoords.lng));
+        }
+
+        miniMapInstance.on('click', function(e) {
+            updateMarkerAndCallback(e.latlng);
+            miniMapInstance.setView(e.latlng, Math.max(miniMapInstance.getZoom(), markerZoom));
+        });
+
+        // S'assurer que la taille de la carte est correcte après son affichage (ex: dans une modale)
+        // Un léger délai peut aider si la modale a des transitions CSS.
+        setTimeout(() => {
+            miniMapInstance.invalidateSize();
+            if (currentMarker) { // Recentrer sur le marqueur si existant
+                 miniMapInstance.setView(currentMarker.getLatLng(), Math.max(miniMapInstance.getZoom(), markerZoom));
+            } else if (initialCoords) { // Ou sur les coords initiales
+                miniMapInstance.setView([initialCoords.lat, initialCoords.lng], markerZoom);
+            }
+        }, 200); // Augmenté pour être sûr
+
+        return miniMapInstance;
+
+    } catch (error) {
+        console.error(`Error initializing mini-map in #${containerId}:`, error);
+        showToast(`Erreur d'initialisation de la mini-carte: ${error.message}`, 'error');
+        if (mapContainer && !mapContainer._leaflet_id) { // Si l'initialisation a échoué avant que Leaflet ne s'attache
+            mapContainer.innerHTML = `<p style="color:red;">Erreur d'init. mini-carte: ${error.message}</p>`;
+        }
+        return null;
+    }
+}
+
+
+// ... Votre fonction export function init() pour la carte principale ...
+
+
 function handleMapClick(event) {
     if (!mapInstance) return;
     const isPlacingAdMarker = state.get('ui.map.isPlacingAdMarker');

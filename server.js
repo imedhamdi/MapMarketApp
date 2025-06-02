@@ -171,6 +171,10 @@ app.get('/favicon.ico', (req, res) => {
 });
 app.use('/avatars', express.static(path.join(__dirname, '/uploads/avatars')));
 // Catch-all SPA (doit être après toutes les routes API et fichiers statiques)
+
+
+// Sert le dossier 'uploads' (qui contient 'avatars') sous la route '/uploads'
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('*', (req, res, next) => {
   if (
     req.originalUrl.startsWith('/api') ||

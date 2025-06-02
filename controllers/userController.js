@@ -34,32 +34,40 @@ const filterObj = (obj, ...allowedFields) => {
  * Récupère le profil de l'utilisateur actuellement connecté.
  * GET /api/users/me
  */
+// controllers/userController.js
 exports.getMe = asyncHandler(async (req, res, next) => {
-  // req.user est défini par le middleware `protect`
-  // On peut vouloir populer des informations supplémentaires ici
-  const user = await User.findById(req.user.id)
-    // .populate('favorites') // Si vous voulez les détails des favoris directement
-    // Pour les statistiques, il est préférable de les calculer ou de les agréger séparément
-    // pour ne pas surcharger ce simple appel de profil.
-    // Un endpoint /api/users/me/stats pourrait être plus approprié.
+  const user = await User.findById(req.user.id);
 
   if (!user) {
     return next(new AppError('Utilisateur non trouvé. Une erreur est survenue.', 404));
   }
-  
-  // Calculer les statistiques de base pour l'affichage du profil
-  // Ceci est un exemple, pourrait être optimisé ou géré par des champs dénormalisés
+
+  const userProfileData = user.toObject();
+
+  // --- MODIFICATION POUR CONSTRUIRE L'URL COMPLÈTE DE L'AVATAR ---
+  if (userProfileData.avatarUrl &&
+      !userProfileData.avatarUrl.startsWith('http') && // Si ce n'est pas déjà une URL complète
+      userProfileData.avatarUrl !== 'avatar-default.svg') { // Et si ce n'est pas la chaîne du défaut
+    // Construit l'URL complète en incluant /uploads/
+    // userProfileData.avatarUrl depuis la BDD est, par exemple, 'avatars/monimage.jpg'
+    // process.env.API_URL est, par exemple, 'http://localhost:5001'
+    // Résultat: 'http://localhost:5001/uploads/avatars/monimage.jpg'
+    userProfileData.avatarUrl = `${process.env.API_URL}/uploads/${userProfileData.avatarUrl}`;
+  } else if (userProfileData.avatarUrl === 'avatar-default.svg') {
+    // Pour l'image par défaut, il est généralement mieux que le client gère son propre chemin statique.
+    // Cependant, si vous voulez absolument une URL complète servie par le backend :
+    // userProfileData.avatarUrl = `${process.env.API_URL}/img/avatar-default.svg`; // Assurez-vous que ce chemin est correct et servi
+  }
+  // --- FIN DE LA MODIFICATION ---
+
   const adsPublishedCount = await Ad.countDocuments({ userId: user._id, status: 'online' });
-  // const avgRating = ... // Nécessiterait un modèle de notation/avis
   const favoritesCount = user.favorites ? user.favorites.length : 0;
 
-  const userProfileData = user.toObject(); // Convertir en objet simple pour ajouter des propriétés
   userProfileData.stats = {
       adsPublished: adsPublishedCount,
       avgRating: 'N/A', // À implémenter si vous avez un système d'avis
       favoritesCount: favoritesCount,
   };
-
 
   res.status(200).json({
     success: true,
