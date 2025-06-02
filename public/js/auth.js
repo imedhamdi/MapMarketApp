@@ -224,34 +224,72 @@ async function handleLogin(event) {
     const email = loginEmailField.value.trim();
     const password = loginPasswordField.value;
 
+    toggleGlobalLoader(true, "Connexion en cours..."); // Affiche un indicateur de chargement
+
     try {
         const response = await secureFetch(`${API_BASE_URL}/login`, {
             method: 'POST',
             body: { email, password }
-        });
+        }, false); // Le 'false' ici est si secureFetch gère son propre loader, sinon retirez-le.
 
-        if (response && response.token && response.user) {
+        toggleGlobalLoader(false); // Masque l'indicateur de chargement
+
+        // La réponse du serveur en cas de succès est :
+        // { success: true, message: '...', token: '...', data: { user: { ... } } }
+        if (response && response.success && response.token && response.data && response.data.user) {
+            const loggedInUser = response.data.user;
+
+            // 1. Stocker le token et mettre à jour l'état global de l'application
             localStorage.setItem(JWT_STORAGE_KEY, response.token);
-            state.setCurrentUser(response.user);
-            updateUIAfterLogin(response.user);
-            showToast('Connexion réussie ! Bienvenue.', 'success');
-            document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'auth-modal' } }));
+            state.setCurrentUser(loggedInUser);
 
-            // Rediriger ou effectuer d'autres actions après la connexion
-            // Par exemple, si l'utilisateur n'a pas validé son email :
-            if (!response.user.emailVerified) {
-                showEmailValidationScreen(response.user.email);
+            // 2. Mettre à jour les éléments communs de l'interface utilisateur (ex: en-tête, menu)
+            // Cette fonction est cruciale pour refléter l'état connecté sans rechargement complet.
+            updateUIAfterLogin(loggedInUser);
+
+            // 3. Gérer la suite en fonction de la vérification de l'e-mail
+            if (loggedInUser.emailVerified) {
+                // E-mail vérifié : Connexion standard
+                showToast('Connexion réussie ! Bienvenue.', 'success', 3000); // Toast de succès (3 secondes)
+
+                // Fermer la modale d'authentification
+                document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'auth-modal' } }));
+                loginForm.reset(); // Vider les champs du formulaire
+
+                // UX APRÈS CONNEXION : Mettre à jour l'interface ou rediriger
+                // Option A : Rechargement de la page (simple et robuste pour assurer la cohérence)
+                // Un petit délai pour que l'utilisateur voie le toast et que la modale se ferme.
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500); // Recharger après 0.5 seconde
+
+                // Option B (pour SPA plus avancée sans rechargement complet) :
+                // - Si vous étiez sur une page spécifique avant d'ouvrir la modale, y retourner.
+                //   Ex: const previousUrl = state.getRedirectUrl() || '/dashboard';
+                //       router.navigate(previousUrl); state.clearRedirectUrl();
+                // - Ou déclencher un événement pour que les composants se mettent à jour.
+                //   Ex: document.dispatchEvent(new CustomEvent('userContextUpdated', { detail: { user: loggedInUser } }));
+
+            } else {
+                // E-mail NON vérifié : Connexion réussie, mais guider l'utilisateur
+                showToast('Connexion réussie ! Veuillez vérifier votre e-mail pour activer toutes les fonctionnalités.', 'warning', 7000); // Toast d'avertissement plus long
+
+                // Maintenir la modale ouverte et afficher l'écran de validation d'e-mail
+                // L'utilisateur pourra y voir des instructions ou demander un renvoi de l'e-mail.
+                showEmailValidationScreen(loggedInUser.email);
+                // Ne pas fermer la modale ici.
             }
 
         } else {
-            // La gestion d'erreur de secureFetch devrait déjà afficher un toast
-            // Mais on peut ajouter un message plus spécifique si la réponse est inattendue
+            // Cas où la connexion a échoué mais le serveur a renvoyé une réponse structurée (moins courant si secureFetch lève des erreurs pour les statuts non-2xx)
+            toggleGlobalLoader(false); // S'assurer que le loader est masqué
             showToast(response.message || 'Erreur de connexion. Réponse inattendue du serveur.', 'error');
         }
     } catch (error) {
-        // secureFetch gère déjà l'affichage du toast d'erreur.
-        // On pourrait vouloir logger l'erreur ici ou effectuer d'autres actions.
-        console.error('Erreur lors de la connexion:', error);
+        toggleGlobalLoader(false); // Masquer le loader en cas d'erreur
+        console.error('Erreur détaillée lors de la connexion (capturée dans handleLogin):', error);
+        // error.message devrait contenir le message d'erreur du serveur si secureFetch le propage.
+        showToast(error.message || 'Une erreur de connexion est survenue.', 'error');
     }
 }
 
@@ -508,50 +546,55 @@ function updateUIAfterLogout() {
  */
 async function checkInitialAuthState() {
     const token = localStorage.getItem(JWT_STORAGE_KEY);
+
     if (token) {
+        const targetUrl = `${API_BASE_URL}/me`; // CIBLE CORRECTE : /api/auth/me
         try {
-            // Il est préférable de valider le token côté serveur en récupérant le profil
             toggleGlobalLoader(true, "Vérification de la session...");
-            const userData = await secureFetch(`${API_BASE_URL}/profile`, { method: 'GET' }, false); // false pour ne pas montrer le loader global de secureFetch ici
+            const response = await secureFetch(targetUrl, { method: 'GET' }, false);
             toggleGlobalLoader(false);
 
-            if (userData) {
+            if (response && response.success && response.data && response.data.user) {
+                const userData = response.data.user;
                 state.setCurrentUser(userData);
                 updateUIAfterLogin(userData);
-                console.log('Utilisateur authentifié via token existant:', userData);
+                console.log('Utilisateur authentifié via token existant:', userData.name);
 
                 if (!userData.emailVerified) {
-                    // Si l'utilisateur est connecté mais n'a pas validé son email,
-                    // et qu'il n'est pas déjà sur la modale d'auth pour valider.
                     const authModalIsOpen = authModal && authModal.getAttribute('aria-hidden') === 'false';
                     const currentAuthView = authModal?.dataset.currentView;
                     if (!(authModalIsOpen && currentAuthView === 'validate-email')) {
-                        // Ouvre la modale d'authentification sur l'écran de validation
-                        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' } }));
-                        showEmailValidationScreen(userData.email);
-                        showToast("Veuillez valider votre adresse e-mail.", "warning", 5000);
+                        console.info(`L'utilisateur ${userData._id} est connecté mais son e-mail n'est pas vérifié.`);
+                        // Gérer l'affichage de l'écran de validation d'e-mail ou un bandeau
+                        // Exemple (si vous voulez toujours la modale pour ça) :
+                        // document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' } }));
+                        // showEmailValidationScreen(userData.email);
+                        // showToast("Veuillez valider votre adresse e-mail.", "warning", 7000);
                     }
                 }
-
             } else {
-                // Token invalide ou expiré, le supprimer
-                performLocalLogout(); // `secureFetch` peut avoir déjà géré cela si 401
+                // Le serveur a répondu, mais la structure n'est pas {success: true, data: {user: ...}}
+                console.warn(`Token JWT présent, mais la récupération des données utilisateur depuis ${targetUrl} a échoué (structure de réponse incorrecte).`, response);
+                performLocalLogout(); // Échec de validation de session -> déconnexion locale
             }
         } catch (error) {
+            // Erreur réseau, ou secureFetch a levé une erreur pour un statut non-2xx (ex: 401, 403, 404 sur targetUrl)
             toggleGlobalLoader(false);
-            console.warn('Erreur lors de la vérification du token initial:', error.message);
-            // Si l'erreur est une 401 Unauthorized, le token est probablement invalide/expiré.
-            if (error.status === 401 || error.status === 403) {
-                performLocalLogout();
-            } else {
-                // Pour d'autres erreurs (ex: réseau), on ne déconnecte pas forcément,
-                // mais on informe l'utilisateur.
-                showToast("Impossible de vérifier votre session. Vérifiez votre connexion.", "error");
-                updateUIAfterLogout(); // Mettre l'UI en état déconnecté visuellement
+            console.warn(`Échec critique lors de la vérification du token initial sur ${targetUrl}: ${error.message}. Déconnexion locale effectuée.`);
+
+            // Toute erreur ici signifie que nous ne pouvons pas valider la session avec le token actuel.
+            // Il faut donc déconnecter l'utilisateur localement pour briser la boucle et nettoyer l'état.
+            performLocalLogout();
+
+            // Afficher un toast seulement si l'erreur n'est pas une erreur d'authentification standard (401/403)
+            // pour lesquelles secureFetch ou d'autres parties pourraient déjà afficher un message.
+            // Une 404 sur /api/auth/me est une erreur serveur critique, mais le client doit se déconnecter.
+            if (!(error.message.includes('401') || error.message.includes('403'))) {
+                 showToast("Votre session n'a pas pu être vérifiée. Veuillez vous reconnecter.", "error");
             }
         }
     } else {
-        updateUIAfterLogout(); // Assurer que l'UI est en mode déconnecté
+        updateUIAfterLogout(); // Pas de token, s'assurer que l'UI est en mode déconnecté.
     }
 }
 
