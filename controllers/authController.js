@@ -1,16 +1,17 @@
 // controllers/authController.js
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const User = require('../models/userModel');
-const { AppError } = require('../middlewares/errorHandler');
-const { logger } = require('../config/winston');
-// const sendEmail = require('../utils/email'); // À créer pour l'envoi d'emails
+const User = require('../models/userModel'); // Assurez-vous que le chemin est correct
+const { AppError } = require('../middlewares/errorHandler'); // Assurez-vous que le chemin est correct
+const { logger } = require('../config/winston'); // Assurez-vous que le chemin est correct
+// const sendEmail = require('../utils/email'); // Décommentez et configurez pour l'envoi réel d'e-mails
+
+// --- Fonctions Utilitaires ---
 
 /**
- * Utilitaire pour envelopper les fonctions de contrôleur asynchrones
- * et passer les erreurs au middleware global de gestion des erreurs.
+ * Enveloppe les fonctions de contrôleur asynchrones pour une gestion centralisée des erreurs.
  * @param {Function} fn - La fonction de contrôleur asynchrone.
- * @returns {Function} Une nouvelle fonction qui gère les erreurs.
+ * @returns {Function} Une nouvelle fonction qui transmet les erreurs au middleware Express.
  */
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
@@ -18,49 +19,56 @@ const asyncHandler = (fn) => (req, res, next) => {
 
 /**
  * Génère un token JWT signé.
- * @param {string} id - L'ID de l'utilisateur.
+ * @param {string} userId - L'ID de l'utilisateur.
  * @returns {string} Le token JWT.
  */
-const signToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+const signToken = (userId) => {
+  if (!process.env.JWT_SECRET || !process.env.JWT_EXPIRES_IN) {
+    logger.error('Variables d\'environnement JWT_SECRET ou JWT_EXPIRES_IN non définies.');
+    throw new AppError('Erreur de configuration serveur pour l\'authentification.', 500);
+  }
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
 };
 
 /**
- * Crée et envoie un token JWT dans la réponse.
- * @param {Object} user - L'objet utilisateur.
- * @param {number} statusCode - Le code de statut HTTP.
- * @param {Object} req - L'objet requête Express.
+ * Crée et envoie un token JWT dans la réponse, en s'assurant de ne pas modifier l'instance Mongoose.
+ * @param {Object} user - L'instance Mongoose de l'utilisateur.
+ * @param {number} statusCode - Le code de statut HTTP pour la réponse.
  * @param {Object} res - L'objet réponse Express.
  */
-const createSendToken = (user, statusCode, req, res) => {
+const createSendToken = (user, statusCode, res) => {
   const token = signToken(user._id);
 
   // Options pour le cookie (si vous choisissez de stocker le token en cookie)
-  // const cookieOptions = {
-  //   expires: new Date(
-  //     Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
-  //   ),
-  //   httpOnly: true, // Le cookie ne peut pas être accédé ou modifié par le navigateur
-  //   secure: req.secure || req.headers['x-forwarded-proto'] === 'https', // Uniquement en HTTPS
-  // };
-  // if (process.env.NODE_ENV === 'production') cookieOptions.secure = true;
-  // res.cookie('jwt', token, cookieOptions);
+  const cookieOptions = {
+    expires: new Date(
+      Date.now() + (parseInt(process.env.JWT_COOKIE_EXPIRES_IN_DAYS || '90', 10) * 24 * 60 * 60 * 1000)
+    ),
+    httpOnly: true, // Empêche l'accès au cookie via JavaScript côté client
+    secure: process.env.NODE_ENV === 'production', // Transmis uniquement sur HTTPS en production
+    sameSite: 'strict', // Aide à se protéger contre les attaques CSRF
+  };
 
-  // Retirer le mot de passe de la sortie
-  user.password = undefined;
+  res.cookie('jwt', token, cookieOptions);
+
+  // Préparer l'objet utilisateur pour la réponse.
+  // Utiliser toObject() pour obtenir une copie simple et éviter de modifier l'instance Mongoose.
+  const userForResponse = user.toObject();
+  delete userForResponse.password; // Ne jamais renvoyer le mot de passe, même hashé.
+  delete userForResponse.passwordChangedAt; // Souvent non nécessaire pour le client après connexion.
+  delete userForResponse.__v; // Version key de Mongoose.
 
   res.status(statusCode).json({
     success: true,
     message: statusCode === 201 ? 'Inscription réussie.' : 'Connexion réussie.',
-    token,
+    token, // Le token est aussi envoyé dans le corps pour les clients qui ne gèrent pas les cookies (ex: mobile)
     data: {
-      user,
+      user: userForResponse,
     },
   });
 };
-
 
 // --- Fonctions de Contrôleur ---
 
@@ -71,53 +79,73 @@ const createSendToken = (user, statusCode, req, res) => {
 exports.signup = asyncHandler(async (req, res, next) => {
   const { name, email, password, passwordConfirm } = req.body;
 
+  // Validation basique (des validations plus poussées peuvent être dans le modèle ou un middleware)
   if (!name || !email || !password || !passwordConfirm) {
-    return next(new AppError('Veuillez fournir nom, email, mot de passe et confirmation.', 400));
+    return next(new AppError('Veuillez fournir nom, email, mot de passe et confirmation de mot de passe.', 400));
+  }
+  if (password !== passwordConfirm) {
+      return next(new AppError('Le mot de passe et sa confirmation ne correspondent pas.', 400));
   }
 
+
+  // Création de l'utilisateur. Le hook pre-save s'occupera du hachage du mot de passe.
   const newUser = await User.create({
     name,
     email,
     password,
-    passwordConfirm,
+    passwordConfirm, // Ce champ est utilisé par le validateur Mongoose puis écarté.
+    // Les autres champs (role, etc.) prendront leurs valeurs par défaut définies dans le schéma.
   });
 
-  // Générer le token de vérification d'email
+  // Générer le token de vérification d'e-mail
   const verificationToken = newUser.createEmailVerificationToken();
-  await newUser.save({ validateBeforeSave: false }); // Sauvegarder le token et l'expiration sans re-valider le reste
+  // Sauvegarder l'utilisateur avec le token de vérification généré (sans re-valider tout)
+  // Il est important que createEmailVerificationToken ne fasse pas de save lui-même pour éviter les doubles saves.
+  await newUser.save({ validateBeforeSave: false });
 
-  // Envoyer l'email de vérification (URL à construire côté client ou ici)
-  // Exemple d'URL: `${req.protocol}://${req.get('host')}/api/auth/validate-email/${verificationToken}`
-  // Ou mieux, une URL frontend: `${process.env.APP_URL}/verify-email?token=${verificationToken}`
+  // Construction de l'URL de vérification pour l'e-mail
+  // Idéalement, l'URL de base du frontend est dans les variables d'environnement.
   const verificationURL = `${process.env.APP_URL}/verify-email?token=${verificationToken}`;
 
   try {
-    // await sendEmail({
-    //   to: newUser.email,
-    //   subject: 'Validez votre adresse e-mail pour MapMarket',
-    //   html: `<p>Bienvenue sur MapMarket ! Veuillez cliquer sur ce lien pour valider votre e-mail : <a href="${verificationURL}">${verificationURL}</a>. Ce lien expirera dans 24 heures.</p>`,
-    //   text: `Bienvenue sur MapMarket ! Veuillez copier et coller ce lien dans votre navigateur pour valider votre e-mail : ${verificationURL}. Ce lien expirera dans 24 heures.`
-    // });
-    logger.info(`Email de validation (simulé) envoyé à ${newUser.email}. URL: ${verificationURL}`);
+    // TODO: Implémenter la logique d'envoi d'e-mail (décommenter et adapter sendEmail)
+    /*
+    await sendEmail({
+      to: newUser.email,
+      subject: 'Validez votre adresse e-mail pour [Nom de votre Application]',
+      template: 'emailVerification', // Utiliser un template d'e-mail
+      context: { // Données à passer au template
+        name: newUser.name,
+        verificationURL,
+      },
+    });
+    */
+    logger.info(`E-mail de validation (simulation) envoyé à ${newUser.email}. URL: ${verificationURL}`);
 
+    // Réponse au client après succès de l'inscription et envoi (simulé) de l'e-mail.
     res.status(201).json({
       success: true,
-      message: 'Inscription réussie ! Un e-mail de validation a été envoyé à votre adresse. Veuillez vérifier votre boîte de réception.',
+      message: `Inscription réussie ! Un e-mail de validation a été envoyé à ${newUser.email}. Veuillez vérifier votre boîte de réception.`,
+      // Il est généralement préférable de ne pas connecter l'utilisateur automatiquement
+      // avant la validation de l'e-mail, mais d'envoyer un ID peut être utile.
       data: {
-        // Ne pas envoyer l'utilisateur complet ici, attendre la validation
-        userId: newUser._id, // Envoyer l'ID peut être utile pour le frontend
+        userId: newUser._id,
       }
     });
-  } catch (err) {
-    logger.error('Erreur lors de l\'envoi de l\'email de validation:', err);
-    // Important: Si l'email échoue, l'utilisateur est quand même créé.
-    // Il faut une logique pour gérer cela (ex: permettre le renvoi, ou supprimer l'utilisateur si pas validé après X temps)
-    newUser.emailVerificationToken = undefined;
-    newUser.emailVerificationExpires = undefined;
-    await newUser.save({ validateBeforeSave: false }); // Nettoyer les tokens si l'email échoue
 
+  } catch (emailError) {
+    logger.error(`Échec de l'envoi de l'e-mail de validation à ${newUser.email}: ${emailError.message}`, { error: emailError, stack: emailError.stack });
+
+    // Si l'envoi d'e-mail échoue, l'utilisateur est déjà créé.
+    // Il est crucial de ne pas annuler la création de l'utilisateur, mais de permettre une nouvelle tentative d'envoi.
+    // Nettoyer les tokens de vérification n'est pas forcément la meilleure approche ici,
+    // car l'utilisateur pourrait vouloir demander un renvoi.
+    // Une meilleure stratégie serait de logguer l'erreur et d'informer l'utilisateur
+    // qu'il peut demander un renvoi de l'e-mail de validation depuis son profil ou une page dédiée.
+
+    // Pour l'instant, on renvoie une erreur mais l'utilisateur reste créé.
     return next(
-      new AppError('Erreur lors de l\'envoi de l\'e-mail de validation. Veuillez réessayer de vous inscrire ou contacter le support.', 500)
+      new AppError('Inscription réussie, mais l\'envoi de l\'e-mail de validation a échoué. Veuillez essayer de vous connecter et de demander un nouveau lien de validation.', 502) // 502 Bad Gateway (ou un code personnalisé)
     );
   }
 });
@@ -129,226 +157,268 @@ exports.signup = asyncHandler(async (req, res, next) => {
 exports.login = asyncHandler(async (req, res, next) => {
   const { email, password } = req.body;
 
-  // 1) Vérifier si email et mot de passe existent
   if (!email || !password) {
-    return next(new AppError('Veuillez fournir un e-mail et un mot de passe.', 400));
+    return next(new AppError('Veuillez fournir une adresse e-mail et un mot de passe.', 400));
   }
 
-  // 2) Vérifier si l'utilisateur existe ET si le mot de passe est correct
-  const user = await User.findOne({ email }).select('+password +isActive'); // Inclure le mdp et isActive pour vérification
+  const user = await User.findOne({ email }).select('+password +isActive +emailVerified');
 
   if (!user || !(await user.correctPassword(password, user.password))) {
-    logger.warn(`Tentative de connexion échouée pour l'email: ${email} (identifiants incorrects)`);
-    return next(new AppError('E-mail ou mot de passe incorrect.', 401)); // Message générique
+    logger.warn(`Tentative de connexion échouée pour l'email: ${email} (identifiants incorrects ou utilisateur inexistant)`);
+    return next(new AppError('Adresse e-mail ou mot de passe incorrect.', 401));
   }
 
-  // 3) Vérifier si le compte est actif
   if (!user.isActive) {
-    logger.warn(`Tentative de connexion pour un compte désactivé: ${email}`);
+    logger.warn(`Tentative de connexion pour un compte désactivé: ${user._id} - ${email}`);
     return next(new AppError('Votre compte a été désactivé. Veuillez contacter le support.', 403));
   }
 
-  // 4) Vérifier si l'email est vérifié (optionnel, peut être une simple alerte côté client)
-  if (!user.emailVerified) {
-    logger.info(`Connexion réussie pour ${email}, mais l'email n'est pas encore vérifié.`);
-    // On pourrait envoyer un statut spécial ou un message pour que le frontend le gère.
-    // Pour l'instant, on autorise la connexion mais le frontend devrait afficher un avertissement.
-    // Ou bloquer ici :
-    // return next(new AppError('Veuillez d\'abord vérifier votre adresse e-mail. Un nouveau lien de validation peut être demandé.', 403));
+  // Gestion de la vérification d'e-mail
+  if (!user.emailVerified && process.env.REQUIRE_EMAIL_VERIFICATION_FOR_LOGIN === 'true') {
+    logger.info(`Connexion bloquée pour ${user._id} - ${email}: e-mail non vérifié.`);
+    return next(new AppError('Veuillez d\'abord vérifier votre adresse e-mail. Vous pouvez demander un nouveau lien de validation.', 403));
+  } else if (!user.emailVerified) {
+    logger.info(`Connexion réussie pour ${user._id} - ${email}, mais l'e-mail n'est pas encore vérifié.`);
+    // Le client peut être informé via un champ spécial dans la réponse utilisateur pour afficher un bandeau.
   }
 
-  // 5) Si tout est OK, envoyer le token au client
-  createSendToken(user, 200, req, res);
+  // Envoi du token et des informations utilisateur (sans le mot de passe)
+  // createSendToken est la version corrigée qui n'altère pas l'instance `user` pour le save suivant.
+  createSendToken(user, 200, res);
 
-  // Mettre à jour les informations de dernière connexion (sans attendre la fin pour ne pas bloquer la réponse)
-  user.lastLoginAt = Date.now();
-  user.lastLoginIp = req.ip || req.socket.remoteAddress;
-  // user.loginHistory.push({ timestamp: Date.now(), ip: req.ip, success: true }); // Si historique détaillé
-  user.save({ validateBeforeSave: false }).catch(err => logger.error('Erreur sauvegarde lastLogin:', err));
+  // Mise à jour des informations de dernière connexion (asynchrone et "best-effort")
+  try {
+    user.lastLoginAt = Date.now();
+    user.lastLoginIp = req.ip || req.socket?.remoteAddress || 'N/A'; // req.socket peut être undefined dans certains contextes de test
+    await user.save({ validateBeforeSave: false }); // Sauvegarde uniquement les champs modifiés sans revalider tout le document
+    logger.info(`Informations de dernière connexion mises à jour pour l'utilisateur: ${user._id}`);
+  } catch (saveError) {
+    logger.error(`Erreur lors de la sauvegarde des informations de dernière connexion pour l'utilisateur ${user._id}: ${saveError.message}`, { error: saveError, stack: saveError.stack });
+    // Pas besoin de `next(saveError)` ici car la réponse principale a déjà été envoyée.
+  }
 });
 
 /**
- * Déconnexion de l'utilisateur.
+ * Déconnexion de l'utilisateur (principalement gérée côté client pour JWT stateless).
  * POST /api/auth/logout
  */
 exports.logout = (req, res) => {
-  // Pour une authentification JWT stateless, la déconnexion est principalement gérée côté client
-  // en supprimant le token.
-  // Si vous utilisez des cookies pour le JWT:
-  // res.cookie('jwt', 'loggedout', {
-  //   expires: new Date(Date.now() + 10 * 1000), // expire dans 10s
-  //   httpOnly: true,
-  // });
-  // Vous pouvez ajouter ici une logique serveur si nécessaire (ex: logger l'événement).
-  logger.info(`Utilisateur ${req.user ? req.user.id : 'inconnu'} déconnecté.`);
+  // Invalider le cookie JWT
+  res.cookie('jwt', 'loggedout', {
+    expires: new Date(Date.now() + 5 * 1000), // Expire dans 5 secondes
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  });
+
+  // Optionnel: si vous avez une liste de tokens actifs côté serveur (pour une invalidation plus robuste),
+  // vous pourriez ajouter le token actuel à une liste noire ici.
+
+  logger.info(`Utilisateur ${req.user ? req.user.id : '(via cookie seulement)'} déconnecté.`);
   res.status(200).json({ success: true, message: 'Déconnexion réussie.' });
 };
 
-
 /**
- * Gère la demande de réinitialisation de mot de passe.
+ * Demande de réinitialisation de mot de passe.
  * POST /api/auth/forgot-password
  */
 exports.forgotPassword = asyncHandler(async (req, res, next) => {
-  // 1) Récupérer l'utilisateur basé sur l'email POSTé
-  const user = await User.findOne({ email: req.body.email });
+  const { email } = req.body;
+  if (!email) {
+    return next(new AppError('Veuillez fournir une adresse e-mail.', 400));
+  }
+
+  const user = await User.findOne({ email });
+
+  // Répondre de manière identique que l'utilisateur existe ou non pour des raisons de sécurité.
   if (!user) {
-    logger.warn(`Demande de réinitialisation de mot de passe pour un email non trouvé: ${req.body.email}`);
-    // Ne pas révéler si l'utilisateur existe ou non pour des raisons de sécurité
-    return next(
-      new AppError('Si cette adresse e-mail est dans notre base de données, vous recevrez un lien de réinitialisation.', 200)
-    );
+    logger.warn(`Demande de réinitialisation de mot de passe pour un e-mail non trouvé: ${email}`);
+    // Pas d'erreur ici, juste un message informatif.
+  } else {
+    const resetToken = user.createPasswordResetToken();
+    await user.save({ validateBeforeSave: false }); // Sauvegarde le token hashé et la date d'expiration.
+
+    const resetURL = `${process.env.APP_URL}/reset-password/${resetToken}`; // Token non hashé dans l'URL
+
+    try {
+      // TODO: Implémenter la logique d'envoi d'e-mail
+      /*
+      await sendEmail({
+        to: user.email,
+        subject: 'Réinitialisation de votre mot de passe [Nom de votre Application]',
+        template: 'passwordReset',
+        context: { name: user.name, resetURL },
+      });
+      */
+      logger.info(`E-mail de réinitialisation de mot de passe (simulation) envoyé à ${user.email}. URL: ${resetURL}`);
+    } catch (emailError) {
+      logger.error(`Échec de l'envoi de l'e-mail de réinitialisation à ${user.email}: ${emailError.message}`, { error: emailError, stack: emailError.stack });
+      // Annuler la génération du token si l'e-mail ne part pas ?
+      // Pour l'instant, on ne le fait pas pour permettre au système de fonctionner même si l'emailing est temporairement bas.
+      // L'utilisateur peut redemander.
+      // On continue pour envoyer la réponse standard au client.
+    }
   }
-
-  // 2) Générer le token de réinitialisation aléatoire
-  const resetToken = user.createPasswordResetToken();
-  await user.save({ validateBeforeSave: false }); // Sauvegarder le token hashé et l'expiration
-
-  // 3) Envoyer le token à l'email de l'utilisateur
-  const resetURL = `${process.env.APP_URL}/reset-password?token=${resetToken}`; // URL frontend
-  try {
-    // await sendEmail({
-    //   to: user.email,
-    //   subject: 'Votre lien de réinitialisation de mot de passe MapMarket (valide 10 min)',
-    //   html: `<p>Vous avez demandé une réinitialisation de mot de passe. Cliquez sur ce lien pour continuer : <a href="${resetURL}">${resetURL}</a>. Si vous n'avez pas fait cette demande, veuillez ignorer cet e-mail.</p>`,
-    //   text: `Vous avez demandé une réinitialisation de mot de passe. Copiez et collez ce lien dans votre navigateur : ${resetURL}. Si vous n'avez pas fait cette demande, veuillez ignorer cet e-mail.`
-    // });
-    logger.info(`Email de réinitialisation de mot de passe (simulé) envoyé à ${user.email}. URL: ${resetURL}`);
-
-    res.status(200).json({
-      success: true,
-      message: 'Un lien de réinitialisation de mot de passe a été envoyé à votre adresse e-mail (s\'il existe un compte associé).',
-    });
-  } catch (err) {
-    logger.error('Erreur lors de l\'envoi de l\'email de réinitialisation:', err);
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-    await user.save({ validateBeforeSave: false });
-    return next(new AppError('Erreur lors de l\'envoi de l\'e-mail. Veuillez réessayer plus tard.', 500));
-  }
+  // Message générique indiquant que si l'e-mail est dans la base, un lien sera envoyé.
+  res.status(200).json({
+    success: true,
+    message: 'Si cette adresse e-mail est enregistrée dans notre système, vous recevrez un lien pour réinitialiser votre mot de passe.',
+  });
 });
 
 /**
- * Réinitialise le mot de passe de l'utilisateur.
+ * Réinitialise le mot de passe de l'utilisateur avec un token.
  * PATCH /api/auth/reset-password/:token
  */
 exports.resetPassword = asyncHandler(async (req, res, next) => {
-  // 1) Récupérer l'utilisateur basé sur le token (le token dans l'URL est celui non hashé)
-  const hashedToken = crypto
-    .createHash('sha256')
-    .update(req.params.token)
-    .digest('hex');
+  const { token } = req.params;
+  const { password, passwordConfirm } = req.body;
+
+  if (!password || !passwordConfirm) {
+    return next(new AppError('Veuillez fournir un nouveau mot de passe et sa confirmation.', 400));
+  }
+
+  // Hasher le token reçu de l'URL pour le comparer à celui en base de données.
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
   const user = await User.findOne({
     passwordResetToken: hashedToken,
-    passwordResetExpires: { $gt: Date.now() }, // Vérifier que le token n'a pas expiré
-  }).select('+password'); // On a besoin de select('+password') car il est false par défaut
+    passwordResetExpires: { $gt: Date.now() }, // Vérifie que le token n'a pas expiré.
+  });
 
-  // 2) Si le token n'est pas valide ou a expiré, retourner une erreur
   if (!user) {
-    return next(new AppError('Le token de réinitialisation est invalide ou a expiré.', 400));
+    return next(new AppError('Le token de réinitialisation est invalide ou a expiré. Veuillez refaire une demande.', 400));
   }
 
-  // 3) Définir le nouveau mot de passe (le hook pre-save s'occupera du hachage)
-  user.password = req.body.password;
-  user.passwordConfirm = req.body.passwordConfirm;
-  user.passwordResetToken = undefined; // Nettoyer le token
-  user.passwordResetExpires = undefined; // Nettoyer l'expiration
-  // passwordChangedAt sera mis à jour par le hook pre-save
+  // Définir le nouveau mot de passe. Le hook pre-save s'occupera du hachage.
+  user.password = password;
+  user.passwordConfirm = passwordConfirm;
+  user.passwordResetToken = undefined; // Invalider le token après utilisation.
+  user.passwordResetExpires = undefined;
+  // user.passwordChangedAt sera mis à jour par le hook pre-save.
 
-  await user.save(); // Déclenche les validateurs, y compris passwordConfirm
+  await user.save(); // Valide et sauvegarde le nouveau mot de passe.
 
-  // 4) Optionnel: connecter l'utilisateur et envoyer un nouveau JWT
-  createSendToken(user, 200, req, res);
-  logger.info(`Mot de passe réinitialisé avec succès pour l'utilisateur: ${user.email}`);
+  // Connecter l'utilisateur automatiquement après la réinitialisation du mot de passe.
+  createSendToken(user, 200, res);
+  logger.info(`Mot de passe réinitialisé et connexion réussie pour l'utilisateur: ${user._id}`);
 });
 
-
 /**
- * Valide l'adresse e-mail de l'utilisateur.
- * GET /api/auth/validate-email/:token
+ * Valide l'adresse e-mail de l'utilisateur avec un token.
+ * GET /api/auth/validate-email/:token  (Note: Le frontend redirigera vers cette URL)
+ * Alternativement: POST /api/auth/validate-email avec le token dans le body
  */
 exports.validateEmail = asyncHandler(async (req, res, next) => {
-    const hashedToken = crypto
-        .createHash('sha256')
-        .update(req.params.token)
-        .digest('hex');
+  const { token } = req.params; // Ou req.body.token si c'est un POST
 
-    const user = await User.findOne({
-        emailVerificationToken: hashedToken,
-        emailVerificationExpires: { $gt: Date.now() },
-    });
+  if (!token) {
+      return next(new AppError('Token de validation manquant.', 400));
+  }
 
-    if (!user) {
-        // Le frontend devrait gérer l'affichage d'une page d'erreur
-        return next(new AppError('Token de validation invalide ou expiré. Veuillez demander un nouveau lien.', 400));
-    }
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-    user.emailVerified = true;
-    user.emailVerificationToken = undefined;
-    user.emailVerificationExpires = undefined;
-    await user.save({ validateBeforeSave: false });
+  const user = await User.findOne({
+    emailVerificationToken: hashedToken,
+    emailVerificationExpires: { $gt: Date.now() },
+  });
 
-    logger.info(`Email validé pour l'utilisateur: ${user.email}`);
-    // Optionnel: connecter l'utilisateur directement ici
-    // createSendToken(user, 200, req, res);
-    // Ou rediriger vers une page de succès sur le frontend
-    res.status(200).json({
-        success: true,
-        message: 'Votre adresse e-mail a été validée avec succès ! Vous pouvez maintenant vous connecter.',
-    });
+  if (!user) {
+    return next(new AppError('Token de validation invalide, expiré, ou déjà utilisé. Veuillez demander un nouveau lien si nécessaire.', 400));
+  }
+
+  user.emailVerified = true;
+  user.emailVerificationToken = undefined; // Invalider le token après utilisation.
+  user.emailVerificationExpires = undefined;
+  await user.save({ validateBeforeSave: false });
+
+  logger.info(`E-mail validé avec succès pour l'utilisateur: ${user._id}`);
+
+  // Optionnel : Connecter l'utilisateur directement ou rediriger.
+  // createSendToken(user, 200, res);
+  // Ou rediriger vers une page de succès/connexion du frontend :
+  // res.redirect(`${process.env.APP_URL}/login?emailVerified=true`);
+
+  res.status(200).json({
+    success: true,
+    message: 'Votre adresse e-mail a été validée avec succès ! Vous pouvez maintenant vous connecter.',
+  });
 });
 
-
 /**
- * Renvoie un nouvel email de validation.
+ * Renvoie un nouvel e-mail de validation.
+ * Doit être une route protégée, accessible uniquement par un utilisateur connecté non vérifié.
  * POST /api/auth/resend-validation-email
  */
 exports.resendValidationEmail = asyncHandler(async (req, res, next) => {
-    const user = req.user; // Utilisateur attaché par le middleware `protect`
+  const user = await User.findById(req.user.id); // req.user est défini par un middleware d'authentification (protect)
 
-    if (user.emailVerified) {
-        return next(new AppError('Votre e-mail est déjà vérifié.', 400));
-    }
+  if (!user) { // Sécurité : ne devrait pas arriver si protect est bien en place.
+      return next(new AppError('Utilisateur non trouvé.', 404));
+  }
 
-    const verificationToken = user.createEmailVerificationToken();
-    await user.save({ validateBeforeSave: false });
+  if (user.emailVerified) {
+    return next(new AppError('Votre adresse e-mail est déjà vérifiée.', 400));
+  }
 
-    const verificationURL = `${process.env.APP_URL}/verify-email?token=${verificationToken}`;
-    try {
-        // await sendEmail({ /* ... */ });
-        logger.info(`Nouvel email de validation (simulé) envoyé à ${user.email}. URL: ${verificationURL}`);
-        res.status(200).json({
-            success: true,
-            message: 'Un nouveau lien de validation a été envoyé à votre adresse e-mail.',
-        });
-    } catch (err) {
-        logger.error('Erreur lors du renvoi de l\'email de validation:', err);
-        user.emailVerificationToken = undefined;
-        user.emailVerificationExpires = undefined;
-        await user.save({ validateBeforeSave: false });
-        return next(new AppError('Erreur lors de l\'envoi de l\'e-mail. Veuillez réessayer.', 500));
-    }
+  // Vérifier si un token a été envoyé récemment pour éviter le spam
+  // Exemple: ne pas autoriser plus d'un renvoi toutes les 5 minutes.
+  // if (user.emailVerificationExpires && user.emailVerificationExpires > Date.now() - (4 * 60 * 1000)) { // Moins de 4min avant expiration du précédent
+  //    return next(new AppError('Un e-mail de validation a déjà été envoyé récemment. Veuillez vérifier votre boîte de réception ou attendre quelques minutes.', 429));
+  // }
+
+
+  const verificationToken = user.createEmailVerificationToken();
+  await user.save({ validateBeforeSave: false });
+
+  const verificationURL = `${process.env.APP_URL}/verify-email?token=${verificationToken}`;
+  try {
+    // TODO: Implémenter la logique d'envoi d'e-mail
+    /*
+    await sendEmail({
+      to: user.email,
+      subject: 'Validez à nouveau votre adresse e-mail pour [Nom de votre Application]',
+      template: 'emailVerification',
+      context: { name: user.name, verificationURL },
+    });
+    */
+    logger.info(`Nouvel e-mail de validation (simulation) envoyé à ${user.email}. URL: ${verificationURL}`);
+    res.status(200).json({
+      success: true,
+      message: 'Un nouveau lien de validation a été envoyé à votre adresse e-mail.',
+    });
+  } catch (emailError) {
+    logger.error(`Échec du renvoi de l'e-mail de validation à ${user.email}: ${emailError.message}`, { error: emailError, stack: emailError.stack });
+    // Ne pas invalider le token ici, l'erreur est dans l'envoi.
+    return next(new AppError('Erreur lors du renvoi de l\'e-mail de validation. Veuillez réessayer plus tard.', 502));
+  }
 });
-
 
 /**
  * Récupère les informations de l'utilisateur actuellement connecté.
- * GET /api/auth/me (protégé)
+ * GET /api/users/me (ou /api/auth/me) - Route protégée.
  */
 exports.getMe = asyncHandler(async (req, res, next) => {
-    // req.user est déjà défini par le middleware `protect`
-    // On peut vouloir sélectionner des champs spécifiques ou populer des références
-    const user = await User.findById(req.user.id).populate('favorites'); // Exemple de population des favoris
+  // req.user.id est injecté par le middleware d'authentification (protect).
+  // Sélectionner les champs à retourner, exclure les champs sensibles si nécessaire.
+  const user = await User.findById(req.user.id).populate('favorites'); // Exemple
 
-    if (!user) {
-        return next(new AppError('Utilisateur non trouvé.', 404));
-    }
+  if (!user) {
+    // Cela ne devrait pas arriver si le token JWT est valide et que l'utilisateur existe.
+    logger.error(`Utilisateur non trouvé pour l'ID ${req.user.id} dans getMe, bien que le token soit valide.`);
+    return next(new AppError('Utilisateur associé à ce token non trouvé.', 404));
+  }
 
-    res.status(200).json({
-        success: true,
-        data: {
-            user,
-        },
-    });
+  res.status(200).json({
+    success: true,
+    data: {
+      // Pas besoin de user.toObject() et delete password ici si createSendToken ne l'a pas fait,
+      // car le user est directement sérialisé. Assurez-vous que les champs sensibles sont `select:false`
+      // ou utilisez une transformation toJSON dans le modèle.
+      user,
+    },
+  });
 });
+
+// Ajoutez d'autres fonctions si nécessaire (updatePassword, updateMe, deleteMe, etc.)
+// en suivant une structure et des principes similaires.

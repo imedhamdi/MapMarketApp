@@ -161,7 +161,7 @@ export function switchAuthView(viewId) {
             switchToLoginBtn.classList.add('hidden');
         }
     }
-     // Focus sur le premier champ du formulaire visible
+    // Focus sur le premier champ du formulaire visible
     const currentForm = views[viewId];
     if (currentForm && typeof currentForm.querySelector === 'function') {
         const firstInput = currentForm.querySelector('input:not([type="hidden"]), select, textarea');
@@ -269,26 +269,52 @@ async function handleSignup(event) {
     const name = signupNameField.value.trim();
     const email = signupEmailField.value.trim();
     const password = signupPasswordField.value;
+    const passwordConfirm = signupPasswordConfirmField.value;
+
+    toggleGlobalLoader(true, "Inscription en cours...");
 
     try {
         const response = await secureFetch(`${API_BASE_URL}/signup`, {
             method: 'POST',
-            body: { name, email, password }
-        });
+            body: {
+                name,
+                email,
+                password,
+                passwordConfirm
+            }
+        }, false); // Le dernier `false` est pour que secureFetch ne gère pas son propre loader
 
-        if (response && response.message && response.user) { // Succès de l'inscription
-            showToast(response.message, 'success');
-            // Afficher l'écran de validation d'e-mail
-            showEmailValidationScreen(response.user.email);
+        toggleGlobalLoader(false);
+
+        if (response && response.success && response.data && response.data.userId) {
+            // 1. Afficher le toast de succès (peut durer plus longtemps)
+            // Le message du serveur est: "Inscription réussie ! Un e-mail de validation a été envoyé..."
+            showToast(response.message, 'success', 7000); // Toast de 7 secondes
+
+            // 2. Afficher la vue de validation d'e-mail dans la modale
+            // Cette vue devrait contenir un message clair, par exemple :
+            // "Veuillez consulter votre boîte de réception à l'adresse [email] pour valider votre compte.
+            // Cette fenêtre se fermera automatiquement."
+            showEmailValidationScreen(email);
+
+            // 3. Attendre 1.5 secondes avant de fermer la modale et de réinitialiser le formulaire
+            setTimeout(() => {
+                // Ferme la modale d'authentification
+                document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'auth-modal' } }));
+
+                // Réinitialise le formulaire d'inscription (bonne pratique)
+                signupForm.reset();
+            }, 1500); // Délai de 1500 millisecondes (1.5 secondes)
+
+        } else if (response && response.message) {
+            showToast(response.message, 'error');
         } else {
-            showToast(response.message || 'Erreur lors de l\'inscription.', 'error');
+            showToast('Erreur lors de l\'inscription. Réponse inattendue du serveur.', 'error');
         }
     } catch (error) {
-        console.error('Erreur lors de l\'inscription:', error);
-        // secureFetch gère le toast, mais on pourrait vouloir un message plus spécifique
-        // if (error.data && error.data.message) {
-        //     showToast(error.data.message, 'error');
-        // }
+        toggleGlobalLoader(false);
+        console.error('Erreur détaillée lors de l\'inscription (capturée dans handleSignup):', error);
+        showToast(error.message || 'Une erreur de communication est survenue durant l\'inscription.', 'error');
     }
 }
 
@@ -500,7 +526,7 @@ async function checkInitialAuthState() {
                     const authModalIsOpen = authModal && authModal.getAttribute('aria-hidden') === 'false';
                     const currentAuthView = authModal?.dataset.currentView;
                     if (!(authModalIsOpen && currentAuthView === 'validate-email')) {
-                         // Ouvre la modale d'authentification sur l'écran de validation
+                        // Ouvre la modale d'authentification sur l'écran de validation
                         document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' } }));
                         showEmailValidationScreen(userData.email);
                         showToast("Veuillez valider votre adresse e-mail.", "warning", 5000);
