@@ -381,8 +381,8 @@ function populateAdFormCategories() {
 
         categories.forEach(cat => {
             const option = document.createElement('option');
-            option.value = cat._id; // Utiliser l'ID de la catégorie
-            option.textContent = sanitizeHTML(cat.name);
+            option.value = cat.id; // Utiliser l'ID de la catégorie
+            option.textContent = cat.name;
             if (cat.icon) option.dataset.icon = cat.icon; // Stocker l'icône si disponible
             adCategoryField.appendChild(option);
         });

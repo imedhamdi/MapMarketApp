@@ -115,7 +115,7 @@ function populateFilterCategories() {
         categories.forEach(cat => {
             const option = document.createElement('option');
             option.value = cat.id;
-            option.textContent = sanitizeHTML(cat.name);
+            option.textContent = cat.name;
             filterCategoryField.appendChild(option);
         });
         filterCategoryField.value = currentValue; // Restaurer la valeur si possible
