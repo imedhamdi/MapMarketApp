@@ -93,7 +93,8 @@ body {
     background-color: var(--body-bg);
     color: var(--text-color-base);
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    /* The following property is Firefox-specific and not widely supported */
+    /* -moz-osx-font-smoothing: grayscale; */
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -369,8 +370,9 @@ h4 {
 
 .notification-badge {
     position: absolute;
-    top: -var(--spacing-xs);
-    right: -var(--spacing-xs);
+    /* negative offsets require calc for CSS variables */
+    top: calc(-1 * var(--spacing-xs));
+    right: calc(-1 * var(--spacing-xs));
     min-width: 20px;
     height: 20px;
     font-size: 0.7rem;
