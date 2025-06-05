@@ -41,6 +41,7 @@ export function initMap(containerId = 'map-view', initialCoords = { lat: 48.8566
 
     mapInstance = L.map(mapViewNode, { zoomControl: false, attributionControl: false });
     mapInstance.setView([initialCoords.lat, initialCoords.lng], initialZoom);
+    window.addEventListener('resize', debounceMapInvalidateSize);
 
     L.control.zoom({ position: 'topright', zoomInTitle: 'Zoomer', zoomOutTitle: 'Dézoomer' }).addTo(mapInstance);
     updateTileLayer();
@@ -359,9 +360,14 @@ function createIcon(type, ad) {
   return L.divIcon({ html: '<i class="fa-solid fa-map-pin"></i>', className: 'custom-leaflet-div-icon', iconSize: [30, 42], iconAnchor: [15, 42] });
 }
 
+const _debouncedInvalidate = Utils.debounce(() => {
+  if (mapInstance) {
+    mapInstance.invalidateSize();
+  }
+}, 200);
+
 function debounceMapInvalidateSize() {
-  if (!mapInstance) return;
-  mapInstance.invalidateSize();
+  _debouncedInvalidate();
 }
 
 /**
