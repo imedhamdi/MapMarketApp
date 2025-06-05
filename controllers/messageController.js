@@ -3,6 +3,7 @@ const Thread = require('../models/threadModel');
 const Message = require('../models/messageModel');
 const User = require('../models/userModel');
 const Ad = require('../models/adModel');
+const Report = require('../models/reportModel');
 const { AppError } = require('../middlewares/errorHandler');
 const { logger } = require('../config/winston');
 const APIFeatures = require('../utils/apiFeatures');
@@ -410,8 +411,14 @@ exports.reportMessage = asyncHandler(async (req, res, next) => {
     await message.save({ validateBeforeSave: false });
 
     logger.info(`Message ${messageId} signalé par l'utilisateur ${reporterId}. Raison: ${reason || 'Non spécifiée'}`);
-    // TODO: Créer une entrée dans une collection 'Reports'
-     Report.create({ messageId, reportedBy: reporterId, reason, threadId: message.threadId, content: message.text });
+    // Enregistrer le signalement dans la collection Reports
+    await Report.create({
+        messageId,
+        reportedBy: reporterId,
+        reason,
+        threadId: message.threadId,
+        content: message.text
+    });
 
     res.status(200).json({
         success: true,
