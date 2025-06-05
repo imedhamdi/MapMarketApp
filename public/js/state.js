@@ -65,12 +65,9 @@ const initialState = {
     },
     onboardingCompleted: false,
     categories: [], // Sera initialisé avec HARDCODED_CATEGORIES
+    // Préférences utilisateur persistées éventuellement dans localStorage
     appSettings: {
         pushNotificationsEnabled: true,
-        emailNotificationsEnabled: true,
-    },
-    appSettings: { // Nouvel objet pour les préférences
-        pushNotificationsEnabled: true, // Peut être géré par localStorage aussi
         emailNotificationsEnabled: true,
     }
 };
