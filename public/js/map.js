@@ -13,7 +13,8 @@ import {
     toggleGlobalLoader,
     sanitizeHTML,
     getQueryParam,
-    debounce
+    debounce,
+    formatPrice
 } from './utils.js';
 
 let mapInstance = null; // Instance de la carte Leaflet
@@ -518,9 +519,31 @@ export function displayAdsOnMap(ads) {
     }
     ads.forEach(ad => {
         if (ad.latitude != null && ad.longitude != null) {
-            const marker = L.marker([ad.latitude, ad.longitude], { icon: adIconConfig(ad), alt: sanitizeHTML(ad.title) });
-            marker.bindPopup(`...`); // Contenu de la popup comme avant
-            marker.on('popupopen', (e) => { /* ... comme avant ... */ });
+            const marker = L.marker([ad.latitude, ad.longitude], {
+                icon: adIconConfig(ad),
+                alt: sanitizeHTML(ad.title)
+            });
+            marker._adId = ad.id;
+            marker.bindPopup(
+                `<div class="map-popup-content">` +
+                `<h4>${sanitizeHTML(ad.title)}</h4>` +
+                `<p class="price">${ad.price != null ? sanitizeHTML(formatPrice(ad.price)) : 'N/A'}</p>` +
+                `<p class="category">${sanitizeHTML(ad.categoryLabel || ad.category)}</p>` +
+                `<button class="btn btn-sm btn-primary view-ad-detail-btn" data-ad-id="${ad.id}" aria-label="Voir les détails de ${sanitizeHTML(ad.title)}">Voir détails</button>` +
+                `</div>`
+            );
+            marker.on('popupopen', (e) => {
+                const popupNode = e.popup.getElement();
+                const viewDetailBtn = popupNode.querySelector(`.view-ad-detail-btn[data-ad-id="${ad.id}"]`);
+                if (viewDetailBtn) {
+                    const btnClone = viewDetailBtn.cloneNode(true);
+                    viewDetailBtn.replaceWith(btnClone);
+                    btnClone.addEventListener('click', () => {
+                        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'ad-detail-modal' } }));
+                        document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: ad.id } }));
+                    });
+                }
+            });
             adMarkersLayer.addLayer(marker);
         } else {
             console.warn(`Annonce "${ad.title}" (ID: ${ad.id}) n'a pas de coordonnées valides.`);
@@ -532,67 +555,51 @@ export function displayAlertsOnMap(alerts) {
     if (!mapInstance || !alertMarkersLayer) return;
     alertMarkersLayer.clearLayers();
     if (!alerts || alerts.length === 0) return;
-    alerts.forEach(alertItem => { /* ... comme avant ... */ });
+    alerts.forEach(alertItem => {
+        if (alertItem.latitude != null && alertItem.longitude != null) {
+            const marker = L.marker([alertItem.latitude, alertItem.longitude], {
+                icon: alertIconConfig(alertItem),
+                alt: `Alerte: ${sanitizeHTML(alertItem.keywords)}`
+            });
+            marker.bindPopup(
+                `<div class="map-popup-content">` +
+                `<h5>Alerte: ${sanitizeHTML(alertItem.keywords)}</h5>` +
+                `<p>Rayon: ${alertItem.radius || 'N/A'} km</p>` +
+                `<p>Catégorie: ${sanitizeHTML(alertItem.categoryLabel || alertItem.category || 'Toutes')}</p>` +
+                `</div>`
+            );
+            alertMarkersLayer.addLayer(marker);
+            if (alertItem.radius) {
+                const circle = L.circle([alertItem.latitude, alertItem.longitude], {
+                    radius: alertItem.radius * 1000,
+                    color: 'var(--accent-color)',
+                    fillOpacity: 0.1
+                });
+                alertMarkersLayer.addLayer(circle);
+            }
+        }
+    });
 }
 
 export function focusOnAd(adId) {
     if (!mapInstance || !adMarkersLayer) return;
     const ads = state.get('ads');
     if (!ads || ads.length === 0) return; // Ajout d'une vérification si ads est vide
+    let targetMarker = null;
+    adMarkersLayer.eachLayer(marker => {
+        if (marker._adId === adId) targetMarker = marker;
+    });
+    if (targetMarker) {
+        mapInstance.flyTo(targetMarker.getLatLng(), Math.max(mapInstance.getZoom(), 16));
+        targetMarker.openPopup();
+        return;
+    }
     const ad = ads.find(a => a.id === adId);
-    // ... (reste de la logique comme avant, avec vérifications supplémentaires si ad est trouvé) ...
     if (ad && ad.latitude != null && ad.longitude != null) {
-        // ... (logique de flyTo et openPopup)
+        mapInstance.flyTo([ad.latitude, ad.longitude], Math.max(mapInstance.getZoom(), 16));
     } else {
         showToast("Impossible de localiser cette annonce sur la carte ou annonce non trouvée.", "warning");
     }
 }
 
-// Contenu des popups et gestionnaires d'événements pour displayAdsOnMap
-// (omis pour la concision, mais ils sont dans la version précédente et doivent être conservés)
-// Assurez-vous de remettre la logique complète pour marker.bindPopup et marker.on('popupopen', ...)
-// dans displayAdsOnMap, et pour displayAlertsOnMap.
-
-// Rétablissement du contenu détaillé pour bindPopup dans displayAdsOnMap:
-// Réinsérer cette partie dans la fonction displayAdsOnMap
-// ads.forEach(ad => {
-//     if (ad.latitude != null && ad.longitude != null) {
-//         const marker = L.marker([ad.latitude, ad.longitude], { icon: adIconConfig(ad), alt: sanitizeHTML(ad.title) });
-//         marker.bindPopup(`
-//             <div class="map-popup-content">
-//                 <h4>${sanitizeHTML(ad.title)}</h4>
-//                 <p class="price">${ad.price != null ? sanitizeHTML(state.getLanguage() === 'fr' ? ad.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : ad.price.toLocaleString('en-US', { style: 'currency', currency: 'USD' })) : 'Prix non spécifié'}</p>
-//                 <p class="category">${sanitizeHTML(ad.categoryLabel || ad.category)}</p>
-//                 <button class="btn btn-sm btn-primary view-ad-detail-btn" data-ad-id="${ad.id}" aria-label="Voir les détails de ${sanitizeHTML(ad.title)}">Voir détails</button>
-//             </div>
-//         `);
-//         marker.on('popupopen', (e) => {
-//             const popupNode = e.popup.getElement();
-//             const viewDetailBtn = popupNode.querySelector(`.view-ad-detail-btn[data-ad-id="${ad.id}"]`);
-//             if (viewDetailBtn) {
-//                 viewDetailBtn.replaceWith(viewDetailBtn.cloneNode(true));
-//                 popupNode.querySelector(`.view-ad-detail-btn[data-ad-id="${ad.id}"]`).addEventListener('click', () => {
-//                     document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'ad-detail-modal' } }));
-//                     document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: ad.id } }));
-//                 });
-//             }
-//         });
-//         adMarkersLayer.addLayer(marker);
-//     } // ...
-// });
-// Et pour displayAlertsOnMap
-// alerts.forEach(alertItem => {
-//     if (alertItem.latitude != null && alertItem.longitude != null) {
-//         const marker = L.marker([alertItem.latitude, alertItem.longitude], { icon: alertIconConfig(alertItem), alt: `Alerte: ${sanitizeHTML(alertItem.keywords)}`});
-//         marker.bindPopup(`
-//             <div class="map-popup-content">
-//                 <h5>Alerte: ${sanitizeHTML(alertItem.keywords)}</h5>
-//                 <p>Rayon: ${alertItem.radius || 'N/A'} km</p>
-//                 <p>Catégorie: ${sanitizeHTML(alertItem.categoryLabel || alertItem.category || 'Toutes')}</p>
-//             </div>
-//         `);
-//         alertMarkersLayer.addLayer(marker);
-//         // ... (cercle)
-//     }
-// });
 
