@@ -169,7 +169,7 @@ app.use('/api/settings', settingRoutes);
 app.get('/favicon.ico', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
 });
-app.use('/avatars', express.static(path.join(__dirname, '/uploads/avatars')));
+app.use('/avatars', express.static(path.join(__dirname, 'uploads', 'avatars')));
 // Catch-all SPA (doit être après toutes les routes API et fichiers statiques)
 
 

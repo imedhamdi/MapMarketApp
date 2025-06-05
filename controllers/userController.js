@@ -45,14 +45,15 @@ exports.getMe = asyncHandler(async (req, res, next) => {
   const userProfileData = user.toObject();
 
   // --- MODIFICATION POUR CONSTRUIRE L'URL COMPLÈTE DE L'AVATAR ---
-  if (userProfileData.avatarUrl &&
-      !userProfileData.avatarUrl.startsWith('http') && // Si ce n'est pas déjà une URL complète
-      userProfileData.avatarUrl !== 'avatar-default.svg') { // Et si ce n'est pas la chaîne du défaut
-    // Construit l'URL complète en incluant /uploads/
+  if (
+    userProfileData.avatarUrl &&
+    !userProfileData.avatarUrl.startsWith('http') &&
+    userProfileData.avatarUrl !== 'avatar-default.svg'
+  ) {
     // userProfileData.avatarUrl depuis la BDD est, par exemple, 'avatars/monimage.jpg'
     // process.env.API_URL est, par exemple, 'http://localhost:5001'
-    // Résultat: 'http://localhost:5001/uploads/avatars/monimage.jpg'
-    userProfileData.avatarUrl = `${process.env.API_URL}/uploads/${userProfileData.avatarUrl}`;
+    // Résultat: 'http://localhost:5001/avatars/monimage.jpg'
+    userProfileData.avatarUrl = `${process.env.API_URL}/${userProfileData.avatarUrl}`;
   } else if (userProfileData.avatarUrl === 'avatar-default.svg') {
     // Pour l'image par défaut, il est généralement mieux que le client gère son propre chemin statique.
     // Cependant, si vous voulez absolument une URL complète servie par le backend :
