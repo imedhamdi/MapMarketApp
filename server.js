@@ -134,7 +134,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Ajoutez ce middleware pour gérer les pré-vols OPTIONS
-app.options('*', cors(corsOptions));;
+app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(mongoSanitize());
@@ -174,7 +174,7 @@ app.use('/avatars', express.static(path.join(__dirname, '/uploads/avatars')));
 
 
 // Sert le dossier 'uploads' (qui contient 'avatars') sous la route '/uploads'
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// (statique déjà défini plus haut)
 app.get('*', (req, res, next) => {
   if (
     req.originalUrl.startsWith('/api') ||
