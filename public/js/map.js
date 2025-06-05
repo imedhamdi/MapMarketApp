@@ -1,598 +1,388 @@
-// js/map.js
-
+// ===== public/js/map.js =====
 /**
- * @file map.js
- * @description Gestion de la carte interactive avec Leaflet.js.
- * Affiche les annonces, gère la géolocalisation (avec tentative de centrage auto au démarrage),
- * les marqueurs, le clustering, et l'interaction avec la carte.
+ * map.js – Gestion de la carte Leaflet et affichage des marqueurs d'annonces/alertes.
  */
 
-import * as state from './state.js';
-import {
-    showToast,
-    toggleGlobalLoader,
-    sanitizeHTML,
-    getQueryParam,
-    debounce
-} from './utils.js';
+import * as State from './state.js';
+import * as Utils from './utils.js';
 
-let mapInstance = null; // Instance de la carte Leaflet
-let userMarker = null; // Marqueur pour la position de l'utilisateur
-let tempMarker = null; // Marqueur temporaire pour la création d'annonce/alerte
-let adMarkersLayer = null; // Layer group pour les marqueurs d'annonces (pour clustering)
-let alertMarkersLayer = null; // Layer group pour les marqueurs/zones d'alertes
+let mapInstance = null;
+let adMarkersLayer = null;
+let alertLayerGroup = null;
+let userMarker = null;
+let tempMarker = null;
+const adMarkerMap = new Map();
 
-// Configuration des icônes
-const pulsingIconConfig = {
-    className: 'pulsing-marker-wrapper', // Classe CSS pour le conteneur externe
-    html: '<div class="pulsing-marker-visuals"></div>', // HTML pour l'icône animée (CSS requis)
-    iconSize: [24, 24], // Taille de l'icône
-    iconAnchor: [12, 12], // Point d'ancrage de l'icône (centre)
-    popupAnchor: [0, -14] // Point d'ancrage de la popup par rapport à l'icône
-};
+let mapViewNode = null;
+let geolocateBtn = null;
+let zoomLevelDisplay = null;
+let locationStatusDisplay = null;
+let mapLoaderElement = null;
 
-const adIconConfig = (ad) => {
-    const categories = state.getCategories ? state.getCategories() : [];
-    const category = categories.find(cat => cat.id === ad.category);
-    const iconClass = category ? category.icon : 'fa-solid fa-map-pin'; // Icône par défaut
-    const color = category ? category.color : 'var(--primary-color)'; // Couleur par défaut
-    return L.divIcon({
-        html: `<div class="map-marker-custom" style="--marker-color: ${color};"><i class="${iconClass}"></i></div>`,
-        className: 'custom-leaflet-div-icon',
-        iconSize: [30, 42],
-        iconAnchor: [15, 42],
-        popupAnchor: [0, -42]
-    });
-};
-
-const alertIconConfig = (alertItem) => {
-    return L.divIcon({
-        html: `<div class="map-marker-custom map-marker-alert" style="--marker-color: var(--accent-color);"><i class="fa-solid fa-bell"></i></div>`,
-        className: 'custom-leaflet-div-icon',
-        iconSize: [30, 42],
-        iconAnchor: [15, 42],
-        popupAnchor: [0, -42]
-    });
-};
-
-
-// Éléments du DOM
-let mapViewNode, mapLoaderNode;
-let geolocateBtn;
-let mapZoomLevelDisplay, mapLocationFeedbackDisplay;
+let placementMode = null; // 'ad' | 'alert' | null
 
 /**
- * Initialise la carte Leaflet et les éléments associés.
+ * Initialise la carte dans le conteneur spécifié.
+ * @param {string} containerId - ID de la balise <div> où monter la carte.
+ * @param {{ lat: number, lng: number }} initialCoords - Coordonnées initiales.
+ * @param {number} initialZoom - Niveau de zoom initial.
  */
-export function init() {
-    if (mapInstance) {
-        console.warn("MapCtrl.init: Tentative de ré-initialisation de la carte. Annulation.");
-        return;
+export function initMap(containerId = 'map-view', initialCoords = { lat: 48.8566, lng: 2.3522 }, initialZoom = 13) {
+  if (mapInstance) return;
+
+  try {
+    mapViewNode = document.getElementById(containerId);
+    if (!mapViewNode || typeof L === 'undefined') {
+      throw new Error('Leaflet non chargé ou conteneur manquant');
     }
 
-    mapViewNode = document.getElementById('map-view');
-    mapLoaderNode = document.querySelector('#map-view .map-loader');
+    mapLoaderElement = mapViewNode.querySelector('.map-loader');
+
+    zoomLevelDisplay = document.getElementById('map-zoom-level');
+    locationStatusDisplay = document.getElementById('map-current-location-feedback');
     geolocateBtn = document.getElementById('map-geolocate-btn');
-    mapZoomLevelDisplay = document.getElementById('map-zoom-level');
-    mapLocationFeedbackDisplay = document.getElementById('map-current-location-feedback');
 
-    if (!mapViewNode) {
-        console.error("Élément #map-view non trouvé. La carte ne peut pas être initialisée.");
-        if (mapLoaderNode) mapLoaderNode.innerHTML = '<p style="color:red;">Erreur: Conteneur de carte manquant.</p>';
-        return;
+    mapInstance = L.map(mapViewNode, { zoomControl: false, attributionControl: false });
+    mapInstance.setView([initialCoords.lat, initialCoords.lng], initialZoom);
+
+    L.control.zoom({ position: 'topright', zoomInTitle: 'Zoomer', zoomOutTitle: 'Dézoomer' }).addTo(mapInstance);
+    updateTileLayer();
+
+    adMarkersLayer = L.layerGroup().addTo(mapInstance);
+    alertLayerGroup = L.layerGroup().addTo(mapInstance);
+
+    mapInstance.on('moveend zoomend', handleMapMoveEnd);
+    mapInstance.on('click', handleMapClick);
+
+    if (geolocateBtn) {
+      geolocateBtn.addEventListener('click', () => geolocateUser(true));
     }
 
-    if (typeof L === 'undefined') {
-        console.error("Leaflet n'est pas chargé. La carte ne peut pas être initialisée.");
-        if (mapLoaderNode) mapLoaderNode.innerHTML = '<p style="color:red;">Erreur: Librairie de carte manquante.</p>';
-        return;
-    }
+    geolocateUser(false);
 
-    if (mapViewNode._leaflet_id) {
-        console.warn("MapCtrl.init: Le conteneur #map-view semble déjà géré par Leaflet (_leaflet_id existe). Annulation.");
-        return;
-    }
-
-    const latParam = getQueryParam('lat');
-    const lngParam = getQueryParam('lng');
-    const zoomParam = getQueryParam('zoom');
-    const persistedMapState = state.getMapState(); // Peut contenir .center, .zoom, .userPosition
-    let initialViewDeterminedByUrl = false;
-    let viewToSet;
-
-    if (latParam && lngParam) {
-        const targetLat = parseFloat(latParam);
-        const targetLng = parseFloat(lngParam);
-        const targetZoom = zoomParam ? parseInt(zoomParam) : (persistedMapState?.zoom || 15); // Zoom plus élevé si URL
-        if (!isNaN(targetLat) && !isNaN(targetLng)) {
-            viewToSet = { coords: [targetLat, targetLng], zoom: targetZoom };
-            initialViewDeterminedByUrl = true;
-            console.log("Vue initiale déterminée par les paramètres d'URL:", viewToSet);
-        }
-    }
-
-    if (!viewToSet && persistedMapState && persistedMapState.center) {
-        viewToSet = { coords: [persistedMapState.center.lat, persistedMapState.center.lng], zoom: persistedMapState.zoom || 13 };
-        console.log("Vue initiale déterminée par l'état persisté de la carte:", viewToSet);
-    }
-
-    if (!viewToSet) {
-        viewToSet = { coords: [48.8566, 2.3522], zoom: 13 }; // Paris par défaut
-        console.log("Vue initiale par défaut (Paris):", viewToSet);
-    }
-
-    try {
-        mapInstance = L.map(mapViewNode, {
-            zoomControl: false,
-            preferCanvas: true,
-            attributionControl: false,
-        }).setView(viewToSet.coords, viewToSet.zoom);
-
-        L.control.zoom({ position: 'topright' }).addTo(mapInstance);
-        L.control.attribution({ prefix: '<a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> | Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(mapInstance);
-
-        updateTileLayer();
-        if (mapLoaderNode) mapLoaderNode.classList.add('hidden');
-
-        mapInstance.on('moveend', handleMapChange);
-        mapInstance.on('zoomend', handleMapChange);
-        mapInstance.on('click', handleMapClick);
-
-        if (typeof L.markerClusterGroup === 'function') {
-            adMarkersLayer = L.markerClusterGroup({
-                spiderfyOnMaxZoom: true,
-                showCoverageOnHover: false,
-                zoomToBoundsOnClick: true,
-                iconCreateFunction: function(cluster) {
-                    const count = cluster.getChildCount();
-                    let c = ' marker-cluster-';
-                    if (count < 10) c += 'small';
-                    else if (count < 100) c += 'medium';
-                    else c += 'large';
-                    return new L.DivIcon({ html: '<div><span>' + count + '</span></div>', className: 'marker-cluster' + c, iconSize: new L.Point(40, 40) });
-                }
-            });
-        } else {
-            console.warn("Leaflet.markercluster n'est pas chargé. Le clustering sera désactivé.");
-            adMarkersLayer = L.layerGroup();
-        }
-        if (mapInstance && adMarkersLayer) mapInstance.addLayer(adMarkersLayer);
-
-        alertMarkersLayer = L.layerGroup();
-        if (mapInstance && alertMarkersLayer) mapInstance.addLayer(alertMarkersLayer);
-
-        if (geolocateBtn) geolocateBtn.addEventListener('click', () => geolocateUser(true)); // Clic manuel centre toujours
-
-        updateMapInfoBar(); // Met à jour le zoom initial
-        window.addEventListener('resize', debounceMapInvalidateSize);
-        const observer = new MutationObserver(() => {
-            if (mapViewNode.offsetParent !== null && mapInstance) {
-                debounceMapInvalidateSize();
-            }
-        });
-        observer.observe(mapViewNode, { attributes: true, childList: true, subtree: true });
-
-        // Logique de géolocalisation au démarrage
-        const adIdParamForFocus = getQueryParam('ad_id');
-        if (!initialViewDeterminedByUrl) {
-            // Si la vue N'A PAS été définie par l'URL, on tente la géolocalisation automatique ET le centrage.
-            console.log("Tentative de géolocalisation automatique avec centrage.");
-            geolocateUser(true); // TRUE pour centrer sur la position actuelle
-        } else if (persistedMapState && persistedMapState.userPosition) {
-            // La vue a été définie par l'URL, mais on a une position utilisateur sauvegardée.
-            console.log("Vue définie par URL, affichage du marqueur utilisateur sauvegardé sans recentrage.");
-            updateUserMarker(persistedMapState.userPosition.lat, persistedMapState.userPosition.lng, persistedMapState.userPosition.accuracy, false);
-        } else {
-            // La vue a été définie par l'URL, et pas de position utilisateur sauvegardée.
-            console.log("Vue définie par URL, tentative de géolocalisation sans recentrage pour afficher le marqueur.");
-            geolocateUser(false); // Tente de géolocaliser pour placer le marqueur, mais ne recentre pas.
-        }
-
-        if (adIdParamForFocus && initialViewDeterminedByUrl) { // Uniquement si URL a aussi défini la position
-            state.set('ui.map.focusAdIdOnLoad', adIdParamForFocus, true);
-        }
-        // Dispatcher un événement pour indiquer que la carte est prête pour d'autres modules
-        document.dispatchEvent(new CustomEvent('mapMarket:mapReady', { detail: { mapInstance }}));
-
-    } catch (error) {
-        console.error("Erreur lors de l'initialisation de Leaflet:", error);
-        if (mapLoaderNode && (!mapInstance || !mapViewNode._leaflet_id)) {
-            mapLoaderNode.innerHTML = `<p style="color:red;">Erreur d'initialisation de la carte: ${error.message}</p>`;
-        }
-        mapInstance = null;
-        return;
-    }
-
-    state.subscribe('ui.darkModeChanged', updateTileLayer);
-    state.subscribe('adsChanged', (adsData) => {
-        const ads = adsData.ads || adsData; // adsData peut être l'objet complet ou juste le tableau
-        displayAdsOnMap(ads);
-        const focusAdId = state.get('ui.map.focusAdIdOnLoad');
-        if (focusAdId && ads.length > 0) { // S'assurer que les annonces sont chargées avant de focus
-            focusOnAd(focusAdId);
-            state.set('ui.map.focusAdIdOnLoad', null, true);
-        }
+    State.subscribe('adsChanged', () => {
+      try {
+        displayAdsOnMap(State.get('ads') || []);
+      } catch (e) {
+        console.warn('Erreur affichage annonces:', e);
+      }
     });
-    state.subscribe('alertsChanged', (alerts) => displayAlertsOnMap(alerts));
-
-    console.log('Module Map initialisé.');
-}
-
-const debounceMapInvalidateSize = debounce(invalidateMapSize, 250);
-
-function invalidateMapSize() {
-    if (mapInstance) {
-        mapInstance.invalidateSize({ animate: true, duration: 0.5 });
-    }
-}
-
-function updateTileLayer() {
-    if (!mapInstance) return;
-    const isDark = state.isDarkMode();
-    mapInstance.eachLayer((layer) => {
-        if (layer instanceof L.TileLayer) {
-            mapInstance.removeLayer(layer);
-        }
+    State.subscribe('alertsChanged', () => {
+      try {
+        displayAlertsOnMap(State.get('alerts') || []);
+      } catch (e) {
+        console.warn('Erreur affichage alertes:', e);
+      }
     });
-    let tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-    let tileOptions = {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    };
+    State.subscribe('ui.darkModeChanged', updateTileLayer);
 
-    if (isDark) {
-        // tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'; // Exemple tuiles sombres
-        // tileOptions.subdomains = 'abcd';
-        // tileOptions.attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
-        if (mapViewNode) mapViewNode.classList.add('map-dark-mode');
-    } else {
-        if (mapViewNode) mapViewNode.classList.remove('map-dark-mode');
-    }
-    L.tileLayer(tileUrl, tileOptions).addTo(mapInstance);
-}
+    document.addEventListener('mapMarket:enableAdPlacement', () => { placementMode = 'ad'; });
+    document.addEventListener('mapMarket:enableAlertPlacement', () => { placementMode = 'alert'; });
+    document.addEventListener('mapMarket:disablePlacement', () => { placementMode = null; removeTempMarker(); });
 
-function handleMapChange() {
-    if (!mapInstance) return;
-    const center = mapInstance.getCenter();
-    const zoom = mapInstance.getZoom();
-    state.setMapState({ center: { lat: center.lat.toFixed(5), lng: center.lng.toFixed(5) }, zoom: zoom });
     updateMapInfoBar();
+    if (mapLoaderElement) mapLoaderElement.classList.add('hidden');
+    document.dispatchEvent(new CustomEvent('mapMarket:mapReady'));
+  } catch (err) {
+    console.error('Erreur initMap :', err);
+    Utils.showToast("Impossible d'initialiser la carte", 'error');
+  }
 }
 
-function updateMapInfoBar() {
-    if (mapInstance && mapZoomLevelDisplay) {
-        mapZoomLevelDisplay.textContent = `Zoom: ${mapInstance.getZoom()}`;
-        mapZoomLevelDisplay.dataset.zoomValue = mapInstance.getZoom();
-    }
-    const userPos = state.getMapState()?.userPosition;
-    if (mapLocationFeedbackDisplay) {
-        if (userPos) {
-            mapLocationFeedbackDisplay.textContent = `Localisation: Précise (approx. ${userPos.accuracy?.toFixed(0)}m)`;
-        } else if (mapLocationFeedbackDisplay.textContent === 'Recherche...') {
-            // Conserver "Recherche..."
-        } else {
-            mapLocationFeedbackDisplay.textContent = 'Localisation: Inconnue';
-        }
-    }
-}
-
-export async function geolocateUser(centerMap = true) {
-    if (!navigator.geolocation) {
-        showToast('La géolocalisation n\'est pas supportée par votre navigateur.', 'warning');
-        if (mapLocationFeedbackDisplay) mapLocationFeedbackDisplay.textContent = 'Géoloc. non supportée';
-        return;
-    }
-
-    if (mapLocationFeedbackDisplay) mapLocationFeedbackDisplay.textContent = 'Recherche...';
-    if (geolocateBtn) geolocateBtn.disabled = true;
-    const geolocateIcon = geolocateBtn ? geolocateBtn.querySelector('i') : null;
-    if (geolocateIcon) geolocateIcon.classList.add('fa-spin');
-
-    try {
-        const position = await new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 60000
-            });
-        });
-        const { latitude, longitude, accuracy } = position.coords;
-        state.setMapState({ userPosition: { lat: latitude, lng: longitude, accuracy: accuracy } });
-
-        if (mapInstance) { // S'assurer que mapInstance est défini
-            updateUserMarker(latitude, longitude, accuracy, centerMap);
-        } else {
-            console.warn("Tentative de mise à jour du marqueur utilisateur avant l'initialisation de la carte.");
-            // Stocker pour une application ultérieure si la carte n'est pas prête
-            state.set('ui.map.pendingGeolocation', { lat: latitude, lng: longitude, accuracy: accuracy, centerMap: centerMap }, true);
-        }
-
-        if (mapLocationFeedbackDisplay) mapLocationFeedbackDisplay.textContent = `Localisation: Précise (approx. ${accuracy.toFixed(0)}m)`;
-        if(centerMap) showToast('Position trouvée et carte centrée !', 'success', 2000);
-        else showToast('Position trouvée !', 'success', 2000);
-
-
-    } catch (error) {
-        let message = 'Impossible d\'obtenir votre position.';
-        if (error.code === error.PERMISSION_DENIED) message = 'Vous avez refusé la géolocalisation.';
-        else if (error.code === error.POSITION_UNAVAILABLE) message = 'Votre position est actuellement indisponible.';
-        else if (error.code === error.TIMEOUT) message = 'La demande de géolocalisation a expiré.';
-        showToast(message, 'error');
-        if (mapLocationFeedbackDisplay) mapLocationFeedbackDisplay.textContent = 'Erreur géoloc.';
-        console.warn('Erreur de géolocalisation:', error);
-    } finally {
-        if (geolocateBtn) geolocateBtn.disabled = false;
-        if (geolocateIcon) geolocateIcon.classList.remove('fa-spin');
-    }
-}
-
-function updateUserMarker(lat, lng, accuracy, centerMap = true) {
-    if (!mapInstance) return;
-    const userLatLng = L.latLng(lat, lng);
-    if (!userMarker) {
-        const icon = L.divIcon(pulsingIconConfig);
-        userMarker = L.marker(userLatLng, {
-                icon: icon,
-                zIndexOffset: 1000,
-                alt: 'Votre position'
-            })
-            .addTo(mapInstance)
-            .bindPopup(`<b>Vous êtes ici</b><br/>(Précision: ~${accuracy.toFixed(0)}m)`);
-    } else {
-        userMarker.setLatLng(userLatLng);
-        userMarker.getPopup().setContent(`<b>Vous êtes ici</b><br/>(Précision: ~${accuracy.toFixed(0)}m)`);
-    }
-    if (centerMap) {
-        mapInstance.flyTo(userLatLng, Math.max(mapInstance.getZoom() || 13, 15)); // Assurer un zoom minimum de 13
-    }
-}
-
-// NOUVELLE FONCTION À AJOUTER ET EXPORTER
 /**
- * Initialise une mini-carte Leaflet dans un conteneur spécifié.
- * Utilisée typiquement pour des formulaires où une localisation doit être choisie.
- * @param {string} containerId - L'ID de l'élément HTML qui contiendra la mini-carte.
- * @param {function} onMarkerPlacedCallback - Fonction appelée avec les latlng lorsque le marqueur est placé/déplacé.
- * @param {object|null} initialCoords - Coordonnées initiales {lat, lng} pour centrer la carte et placer un marqueur.
- * @param {number} initialZoom - Zoom initial si initialCoords n'est pas fourni (défaut 12).
- * @param {number} markerZoom - Zoom appliqué après le placement d'un marqueur (défaut 15).
- * @returns {L.Map|null} L'instance de la mini-carte Leaflet, ou null en cas d'erreur.
+ * Met à jour la couche de tuiles en fonction du mode sombre.
  */
-export function initMiniMap(containerId, onMarkerPlacedCallback, initialCoords = null, initialZoom = 12, markerZoom = 15) {
-    const mapContainer = document.getElementById(containerId);
-    if (!mapContainer) {
-        console.error(`MiniMap Error: Container element #${containerId} not found.`);
-        showToast(`Erreur : conteneur de mini-carte #${containerId} introuvable.`, 'error');
-        return null;
-    }
+function updateTileLayer() {
+  if (!mapInstance) return;
 
-    if (typeof L === 'undefined') {
-        console.error("MiniMap Error: Leaflet (L) is not defined.");
-        showToast("Erreur : Librairie de carte (Leaflet) non chargée.", 'error');
-        return null;
-    }
+  mapInstance.eachLayer(layer => {
+    if (layer instanceof L.TileLayer) mapInstance.removeLayer(layer);
+  });
 
-    // Si une carte Leaflet existe déjà dans ce conteneur, la supprimer avant de réinitialiser.
-    // Cela est crucial car adFormMiniMap.remove() est appelé dans ads.js,
-    // mais cette vérification interne rend initMiniMap plus robuste.
-    if (mapContainer._leaflet_id) {
-        // Tenter de récupérer l'instance existante et la supprimer proprement.
-        // Leaflet ne stocke pas l'instance directement sur l'élément de manière accessible facilement.
-        // Le plus simple est de vider le conteneur et de laisser la logique appelante (ads.js) gérer
-        // la suppression de l'ancienne instance (adFormMiniMap.remove()).
-        // Ici, on assume que si _leaflet_id existe, ads.js devrait avoir appelé .remove() dessus.
-        // Pour éviter les conflits, on peut vider le conteneur.
-        mapContainer.innerHTML = ''; // Vide le contenu pour s'assurer qu'une ancienne carte ne persiste pas visuellement.
-        delete mapContainer._leaflet_id; // Supprime la référence pour permettre une nouvelle initialisation.
-         console.warn(`MiniMap: Container #${containerId} was already initialized. Cleaned up for re-initialization.`);
-    }
+  const isDark = State.get('ui.darkMode');
+  const tileUrl = isDark
+    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' + (isDark ? ' &copy; <a href="https://carto.com/attributions">CARTO</a>' : '');
 
-
-    const viewCenter = initialCoords ? [initialCoords.lat, initialCoords.lng] : [48.8566, 2.3522]; // Paris par défaut
-    const zoomLevel = initialCoords ? markerZoom : initialZoom;
-
-    try {
-        const miniMapInstance = L.map(containerId, {
-            zoomControl: true,
-            preferCanvas: true,
-            attributionControl: false, // Pas d'attribution pour une mini-carte pour garder l'UI simple
-        }).setView(viewCenter, zoomLevel);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            // attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>' // Attribution courte si besoin
-        }).addTo(miniMapInstance);
-
-        let currentMarker = null;
-
-        const updateMarkerAndCallback = (latlng) => {
-            if (!currentMarker) {
-                currentMarker = L.marker(latlng, { draggable: true }).addTo(miniMapInstance);
-                currentMarker.on('dragend', function(event) {
-                    const newLatLng = event.target.getLatLng();
-                    miniMapInstance.panTo(newLatLng);
-                    if (onMarkerPlacedCallback) {
-                        onMarkerPlacedCallback(newLatLng);
-                    }
-                });
-            } else {
-                currentMarker.setLatLng(latlng);
-            }
-            miniMapInstance.panTo(latlng);
-            if (onMarkerPlacedCallback) {
-                onMarkerPlacedCallback(latlng);
-            }
-        };
-
-        if (initialCoords) {
-            updateMarkerAndCallback(L.latLng(initialCoords.lat, initialCoords.lng));
-        }
-
-        miniMapInstance.on('click', function(e) {
-            updateMarkerAndCallback(e.latlng);
-            miniMapInstance.setView(e.latlng, Math.max(miniMapInstance.getZoom(), markerZoom));
-        });
-
-        // S'assurer que la taille de la carte est correcte après son affichage (ex: dans une modale)
-        // Un léger délai peut aider si la modale a des transitions CSS.
-        setTimeout(() => {
-            miniMapInstance.invalidateSize();
-            if (currentMarker) { // Recentrer sur le marqueur si existant
-                 miniMapInstance.setView(currentMarker.getLatLng(), Math.max(miniMapInstance.getZoom(), markerZoom));
-            } else if (initialCoords) { // Ou sur les coords initiales
-                miniMapInstance.setView([initialCoords.lat, initialCoords.lng], markerZoom);
-            }
-        }, 200); // Augmenté pour être sûr
-
-        return miniMapInstance;
-
-    } catch (error) {
-        console.error(`Error initializing mini-map in #${containerId}:`, error);
-        showToast(`Erreur d'initialisation de la mini-carte: ${error.message}`, 'error');
-        if (mapContainer && !mapContainer._leaflet_id) { // Si l'initialisation a échoué avant que Leaflet ne s'attache
-            mapContainer.innerHTML = `<p style="color:red;">Erreur d'init. mini-carte: ${error.message}</p>`;
-        }
-        return null;
-    }
+  const tileLayer = L.tileLayer(tileUrl, { maxZoom: 19, subdomains: isDark ? 'abcd' : 'abc', attribution });
+  tileLayer.on('tileerror', () => {
+    Utils.showToast('Problème de chargement des tuiles cartographiques', 'error');
+  });
+  tileLayer.addTo(mapInstance);
 }
 
-
-// ... Votre fonction export function init() pour la carte principale ...
-
-
-function handleMapClick(event) {
-    if (!mapInstance) return;
-    const isPlacingAdMarker = state.get('ui.map.isPlacingAdMarker');
-    const isPlacingAlertMarker = state.get('ui.map.isPlacingAlertMarker');
-    if (isPlacingAdMarker || isPlacingAlertMarker) {
-        const latlng = event.latlng;
-        updateTempMarker(latlng.lat, latlng.lng, isPlacingAdMarker ? 'ad' : 'alert');
-        state.setMapState({ tempMarkerPosition: { lat: latlng.lat, lng: latlng.lng } });
-        const eventName = isPlacingAdMarker ? 'mapMarket:adMarkerPlaced' : 'mapMarket:alertMarkerPlaced';
-        document.dispatchEvent(new CustomEvent(eventName, { detail: { latlng } }));
-    }
+function handleMapMoveEnd() {
+  if (!mapInstance) return;
+  const center = mapInstance.getCenter();
+  const zoom = mapInstance.getZoom();
+  State.setMapState({ center: { lat: Number(center.lat.toFixed(6)), lng: Number(center.lng.toFixed(6)) }, zoom });
+  updateMapInfoBar();
 }
 
+function handleMapClick(e) {
+  if (!mapInstance || !placementMode) return;
+  const { lat, lng } = e.latlng;
+  updateTempMarker(lat, lng, placementMode);
+  const eventName = placementMode === 'ad' ? 'mapMarket:adMarkerPlaced' : 'mapMarket:alertMarkerPlaced';
+  document.dispatchEvent(new CustomEvent(eventName, { detail: { latlng: e.latlng } }));
+}
+
+/**
+ * Affiche les informations de zoom et de localisation.
+ */
+function updateMapInfoBar() {
+  if (mapInstance && zoomLevelDisplay) {
+    const z = mapInstance.getZoom();
+    zoomLevelDisplay.textContent = `Zoom: ${z}`;
+    zoomLevelDisplay.dataset.zoomValue = String(z);
+  }
+  const userPos = State.get('ui.map.userPosition');
+  if (locationStatusDisplay) {
+    if (userPos) {
+      locationStatusDisplay.textContent = `Localisation: Précise (±${Math.round(userPos.accuracy)}m)`;
+    } else {
+      locationStatusDisplay.textContent = 'Localisation: Inconnue';
+    }
+  }
+}
+
+/**
+ * Tente de géolocaliser l'utilisateur.
+ * @param {boolean} centerMap - Centre la carte sur la position si true.
+ */
+export async function geolocateUser(centerMap = false) {
+  if (!navigator.geolocation) {
+    Utils.showToast("Impossible d'accéder à la géolocalisation", 'error');
+    return null;
+  }
+  try {
+    const position = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
+    });
+    const { latitude, longitude, accuracy } = position.coords;
+    State.setMapState({ userPosition: { lat: latitude, lng: longitude, accuracy } });
+    updateUserMarker(latitude, longitude, accuracy, centerMap);
+    return { lat: latitude, lng: longitude };
+  } catch (err) {
+    Utils.showToast("Impossible d'accéder à la géolocalisation", 'error');
+    return null;
+  }
+}
+
+function updateUserMarker(lat, lng, accuracy, centerMap) {
+  if (!mapInstance) return;
+  const latlng = [lat, lng];
+  const icon = L.divIcon({
+    className: 'pulsing-marker-wrapper',
+    html: '<div class="pulsing-marker-visuals"></div>',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -12]
+  });
+  if (!userMarker) {
+    userMarker = L.marker(latlng, { icon, alt: 'Votre position' }).addTo(mapInstance);
+  } else {
+    userMarker.setLatLng(latlng);
+  }
+  userMarker.bindPopup(`<p>Vous êtes ici<br>(±${Math.round(accuracy)}m)</p>`);
+  if (centerMap) {
+    mapInstance.flyTo(latlng, Math.max(mapInstance.getZoom(), 15));
+  }
+  updateMapInfoBar();
+}
+
+/**
+ * Met à jour ou crée un marqueur temporaire.
+ * @param {number} lat - Latitude.
+ * @param {number} lng - Longitude.
+ * @param {string} type - 'ad' ou 'alert'.
+ */
 export function updateTempMarker(lat, lng, type = 'default') {
-    if (!mapInstance) return;
-    const latlng = L.latLng(lat, lng);
-    let iconHtml = '<i class="fa-solid fa-location-pin fa-2x" style="color: var(--primary-color);"></i>';
-    if (type === 'ad') iconHtml = '<i class="fa-solid fa-tag fa-2x" style="color: var(--success-color);"></i>';
-    else if (type === 'alert') iconHtml = '<i class="fa-solid fa-bullseye fa-2x" style="color: var(--accent-color);"></i>';
+  if (!mapInstance) return;
+  const latlng = [lat, lng];
+  let iconHtml = '<i class="fa-solid fa-location-pin"></i>';
+  if (type === 'ad') iconHtml = '<i class="fa-solid fa-tag"></i>';
+  else if (type === 'alert') iconHtml = '<i class="fa-solid fa-bell"></i>';
 
-    const tempIcon = L.divIcon({
-        html: `<div class="map-marker-temporary" role="img" aria-label="Marqueur temporaire">${iconHtml}</div>`,
-        className: 'custom-leaflet-div-icon temporary-marker-icon',
-        iconSize: [30, 42],
-        iconAnchor: [15, 42]
+  const tempIcon = L.divIcon({
+    html: `<div class="map-marker-temporary">${iconHtml}</div>`,
+    className: 'custom-leaflet-div-icon',
+    iconSize: [30, 42],
+    iconAnchor: [15, 42],
+    popupAnchor: [0, -42]
+  });
+
+  if (!tempMarker) {
+    tempMarker = L.marker(latlng, { draggable: true, icon: tempIcon, zIndexOffset: 900 }).addTo(mapInstance);
+    tempMarker.on('dragend', ev => {
+      const newLatLng = ev.target.getLatLng();
+      State.setMapState({ tempMarkerPosition: { lat: newLatLng.lat, lng: newLatLng.lng } });
+      const eventName = placementMode === 'ad' ? 'mapMarket:adMarkerPlaced' : 'mapMarket:alertMarkerPlaced';
+      document.dispatchEvent(new CustomEvent(eventName, { detail: { latlng: newLatLng } }));
     });
-    if (!tempMarker) {
-        tempMarker = L.marker(latlng, { icon: tempIcon, draggable: true, zIndexOffset: 900, alt: 'Marqueur déplaçable' }).addTo(mapInstance);
-        tempMarker.on('dragend', function(event) {
-            const newLatLng = event.target.getLatLng();
-            state.setMapState({ tempMarkerPosition: { lat: newLatLng.lat, lng: newLatLng.lng } });
-            const currentMode = state.get('ui.map.isPlacingAdMarker') ? 'ad' : (state.get('ui.map.isPlacingAlertMarker') ? 'alert' : 'default');
-            const eventName = currentMode === 'ad' ? 'mapMarket:adMarkerPlaced' : (currentMode === 'alert' ? 'mapMarket:alertMarkerPlaced' : '');
-            if (eventName) document.dispatchEvent(new CustomEvent(eventName, { detail: { latlng: newLatLng } }));
-        });
-    } else {
-        tempMarker.setLatLng(latlng).setIcon(tempIcon);
-    }
-    mapInstance.panTo(latlng);
+  } else {
+    tempMarker.setLatLng(latlng).setIcon(tempIcon);
+  }
+  State.setMapState({ tempMarkerPosition: { lat, lng } });
+  mapInstance.panTo(latlng);
 }
 
+/**
+ * Supprime le marqueur temporaire actuel.
+ */
 export function removeTempMarker() {
-    if (mapInstance && tempMarker) {
-        mapInstance.removeLayer(tempMarker);
-        tempMarker = null;
-    }
-    state.setMapState({ tempMarkerPosition: null });
+  if (mapInstance && tempMarker) {
+    mapInstance.removeLayer(tempMarker);
+    tempMarker = null;
+  }
+  State.setMapState({ tempMarkerPosition: null });
 }
 
-export function displayAdsOnMap(ads) {
-    if (!mapInstance || !adMarkersLayer) return;
-    adMarkersLayer.clearLayers();
-    if (!ads || ads.length === 0) {
-        // console.log("Aucune annonce à afficher sur la carte pour le moment.");
-        return;
-    }
-    ads.forEach(ad => {
-        if (ad.latitude != null && ad.longitude != null) {
-            const marker = L.marker([ad.latitude, ad.longitude], { icon: adIconConfig(ad), alt: sanitizeHTML(ad.title) });
-            marker.bindPopup(`...`); // Contenu de la popup comme avant
-            marker.on('popupopen', (e) => { /* ... comme avant ... */ });
-            adMarkersLayer.addLayer(marker);
-        } else {
-            console.warn(`Annonce "${ad.title}" (ID: ${ad.id}) n'a pas de coordonnées valides.`);
+/**
+ * Affiche les annonces sur la carte.
+ * @param {Array<object>} adsArray - Tableau d'annonces.
+ */
+export function displayAdsOnMap(adsArray) {
+  if (!mapInstance || !adMarkersLayer) return;
+  adMarkersLayer.clearLayers();
+  adMarkerMap.clear();
+  if (!Array.isArray(adsArray)) return;
+
+  const categories = State.getCategories ? State.getCategories() : [];
+
+  adsArray.forEach(ad => {
+    try {
+      const { location } = ad;
+      if (!location || typeof location.lat !== 'number' || typeof location.lng !== 'number') return;
+      const catLabel = categories.find(c => c.id === ad.category)?.name || ad.category;
+      const marker = L.marker([location.lat, location.lng], { icon: createIcon('ad', ad), alt: Utils.sanitizeHTML(ad.title) });
+      const popupContent = `\n        <div class="ad-popup">\n          <strong>${Utils.sanitizeHTML(ad.title)}</strong><br>\n          <p>${Utils.sanitizeHTML(catLabel)}</p>\n          <p>${Utils.formatPrice(ad.price)}</p>\n          <button class="btn-view-details" data-ad-id="${ad._id}">Voir détails</button>\n        </div>`;
+      marker.bindPopup(popupContent);
+      marker.on('popupopen', ev => {
+        const btn = ev.popup.getElement().querySelector('.btn-view-details');
+        if (btn) {
+          btn.addEventListener('click', () => {
+            document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: ad._id } }));
+          }, { once: true });
         }
-    });
-}
-
-export function displayAlertsOnMap(alerts) {
-    if (!mapInstance || !alertMarkersLayer) return;
-    alertMarkersLayer.clearLayers();
-    if (!alerts || alerts.length === 0) return;
-    alerts.forEach(alertItem => { /* ... comme avant ... */ });
-}
-
-export function focusOnAd(adId) {
-    if (!mapInstance || !adMarkersLayer) return;
-    const ads = state.get('ads');
-    if (!ads || ads.length === 0) return; // Ajout d'une vérification si ads est vide
-    const ad = ads.find(a => a.id === adId);
-    // ... (reste de la logique comme avant, avec vérifications supplémentaires si ad est trouvé) ...
-    if (ad && ad.latitude != null && ad.longitude != null) {
-        // ... (logique de flyTo et openPopup)
-    } else {
-        showToast("Impossible de localiser cette annonce sur la carte ou annonce non trouvée.", "warning");
+      });
+      adMarkersLayer.addLayer(marker);
+      adMarkerMap.set(ad._id, marker);
+    } catch (err) {
+      console.warn('Erreur création marqueur annonce:', err);
     }
+  });
 }
 
-// Contenu des popups et gestionnaires d'événements pour displayAdsOnMap
-// (omis pour la concision, mais ils sont dans la version précédente et doivent être conservés)
-// Assurez-vous de remettre la logique complète pour marker.bindPopup et marker.on('popupopen', ...)
-// dans displayAdsOnMap, et pour displayAlertsOnMap.
+/**
+ * Affiche les zones d'alerte sur la carte.
+ * @param {Array<object>} alertsArray - Tableau d'alertes.
+ */
+export function displayAlertsOnMap(alertsArray) {
+  if (!mapInstance || !alertLayerGroup) return;
+  alertLayerGroup.clearLayers();
+  if (!Array.isArray(alertsArray)) return;
 
-// Rétablissement du contenu détaillé pour bindPopup dans displayAdsOnMap:
-// Réinsérer cette partie dans la fonction displayAdsOnMap
-// ads.forEach(ad => {
-//     if (ad.latitude != null && ad.longitude != null) {
-//         const marker = L.marker([ad.latitude, ad.longitude], { icon: adIconConfig(ad), alt: sanitizeHTML(ad.title) });
-//         marker.bindPopup(`
-//             <div class="map-popup-content">
-//                 <h4>${sanitizeHTML(ad.title)}</h4>
-//                 <p class="price">${ad.price != null ? sanitizeHTML(state.getLanguage() === 'fr' ? ad.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : ad.price.toLocaleString('en-US', { style: 'currency', currency: 'USD' })) : 'Prix non spécifié'}</p>
-//                 <p class="category">${sanitizeHTML(ad.categoryLabel || ad.category)}</p>
-//                 <button class="btn btn-sm btn-primary view-ad-detail-btn" data-ad-id="${ad.id}" aria-label="Voir les détails de ${sanitizeHTML(ad.title)}">Voir détails</button>
-//             </div>
-//         `);
-//         marker.on('popupopen', (e) => {
-//             const popupNode = e.popup.getElement();
-//             const viewDetailBtn = popupNode.querySelector(`.view-ad-detail-btn[data-ad-id="${ad.id}"]`);
-//             if (viewDetailBtn) {
-//                 viewDetailBtn.replaceWith(viewDetailBtn.cloneNode(true));
-//                 popupNode.querySelector(`.view-ad-detail-btn[data-ad-id="${ad.id}"]`).addEventListener('click', () => {
-//                     document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'ad-detail-modal' } }));
-//                     document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: ad.id } }));
-//                 });
-//             }
-//         });
-//         adMarkersLayer.addLayer(marker);
-//     } // ...
-// });
-// Et pour displayAlertsOnMap
-// alerts.forEach(alertItem => {
-//     if (alertItem.latitude != null && alertItem.longitude != null) {
-//         const marker = L.marker([alertItem.latitude, alertItem.longitude], { icon: alertIconConfig(alertItem), alt: `Alerte: ${sanitizeHTML(alertItem.keywords)}`});
-//         marker.bindPopup(`
-//             <div class="map-popup-content">
-//                 <h5>Alerte: ${sanitizeHTML(alertItem.keywords)}</h5>
-//                 <p>Rayon: ${alertItem.radius || 'N/A'} km</p>
-//                 <p>Catégorie: ${sanitizeHTML(alertItem.categoryLabel || alertItem.category || 'Toutes')}</p>
-//             </div>
-//         `);
-//         alertMarkersLayer.addLayer(marker);
-//         // ... (cercle)
-//     }
-// });
+  alertsArray.forEach(alertItem => {
+    try {
+      if (typeof alertItem.latitude !== 'number' || typeof alertItem.longitude !== 'number') return;
+      const center = [alertItem.latitude, alertItem.longitude];
+      const circle = L.circle(center, { radius: (alertItem.radius || 1) * 1000, color: 'var(--accent-color)', fillOpacity: 0.1 });
+      const popup = `<p><strong>${Utils.sanitizeHTML(alertItem.keywords || 'Alerte')}</strong></p><p>Rayon: ${alertItem.radius || 1} km</p>`;
+      circle.bindPopup(popup);
+      alertLayerGroup.addLayer(circle);
+    } catch (err) {
+      console.warn('Erreur création zone alerte:', err);
+    }
+  });
+}
 
+/**
+ * Centre la carte sur l'annonce et ouvre sa popup.
+ * @param {string} adId - ID de l'annonce.
+ */
+export function focusOnAdMarker(adId) {
+  if (!mapInstance || !adMarkersLayer) return;
+  const marker = adMarkerMap.get(adId);
+  if (marker) {
+    const latlng = marker.getLatLng();
+    mapInstance.flyTo(latlng, Math.max(mapInstance.getZoom(), 15));
+    marker.openPopup();
+  }
+}
+
+/**
+ * Initialise une mini carte pour le formulaire d'annonce.
+ * @param {string} containerId - ID du conteneur.
+ * @param {Function} callbackOnClick - Callback appelé avec latlng lors du clic.
+ * @param {{lat:number, lng:number}} [initialCoords] - Coordonnées initiales.
+ * @returns {L.Map|null} Instance de la mini carte.
+ */
+export function initMiniMap(containerId, callbackOnClick, initialCoords) {
+  const container = document.getElementById(containerId);
+  if (!container || typeof L === 'undefined') return null;
+  const map = L.map(container, { zoomControl: true, attributionControl: false });
+  const center = initialCoords ? [initialCoords.lat, initialCoords.lng] : [48.8566, 2.3522];
+  map.setView(center, initialCoords ? 15 : 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+  let marker = null;
+  const placeMarker = (latlng) => {
+    if (!marker) {
+      marker = L.marker(latlng, { draggable: true }).addTo(map);
+      marker.on('dragend', e => {
+        callbackOnClick?.(e.target.getLatLng());
+      });
+    } else {
+      marker.setLatLng(latlng);
+    }
+    callbackOnClick?.(latlng);
+  };
+  map.on('click', e => placeMarker(e.latlng));
+
+  setTimeout(() => { container.focus(); }, 200);
+
+  return map;
+}
+
+function createIcon(type, ad) {
+  if (type === 'ad') {
+    const categories = State.getCategories ? State.getCategories() : [];
+    const cat = categories.find(c => c.id === ad.category);
+    const color = cat?.color || 'var(--primary-color)';
+    const iconClass = cat?.icon || 'fa-solid fa-tag';
+    return L.divIcon({
+      html: `<div class="map-marker-custom" style="--marker-color:${color}"><i class="${iconClass}"></i></div>`,
+      className: 'custom-leaflet-div-icon',
+      iconSize: [30, 42],
+      iconAnchor: [15, 42],
+      popupAnchor: [0, -42]
+    });
+  }
+  return L.divIcon({ html: '<i class="fa-solid fa-map-pin"></i>', className: 'custom-leaflet-div-icon', iconSize: [30, 42], iconAnchor: [15, 42] });
+}
+
+function debounceMapInvalidateSize() {
+  if (!mapInstance) return;
+  mapInstance.invalidateSize();
+}
+
+/**
+ * Retourne l'instance de la carte principale.
+ * @returns {L.Map|null} La carte Leaflet ou null si non initialisée.
+ */
+export function getMapInstance() {
+  return mapInstance;
+}
+
+/**
+ * Efface tous les marqueurs d'annonces actuellement affichés.
+ */
+export function clearAdsOnMap() {
+  if (adMarkersLayer) adMarkersLayer.clearLayers();
+  adMarkerMap.clear();
+}
+
+// Alias pour compatibilité avec l'ancien appel MapCtrl.init()
+export const init = initMap;
