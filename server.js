@@ -43,7 +43,8 @@ app.use(
           "https://cdn.jsdelivr.net",
           "https://cdnjs.cloudflare.com",
           "https://cdn.lordicon.com",
-          "https://cdn.socket.io"
+          "https://cdn.socket.io",
+          "https://*.basemaps.cartocdn.com" // Tuiles pour le mode sombre
         ],
         styleSrc: [
           "'self'",
@@ -65,7 +66,8 @@ app.use(
           "https://*.tile.openstreetmap.org", // Ajouté pour les tuiles OSM
           "https://a.tile.openstreetmap.org",
           "https://b.tile.openstreetmap.org",
-          "https://c.tile.openstreetmap.org"
+          "https://c.tile.openstreetmap.org",
+          "https://*.basemaps.cartocdn.com"
         ],
         fontSrc: [
           "'self'",
@@ -83,7 +85,8 @@ app.use(
           "https://unpkg.com",
           "https://cdn.jsdelivr.net",
           "https://cdnjs.cloudflare.com",
-          "https://cdn.socket.io"
+          "https://cdn.socket.io",
+          "https://*.basemaps.cartocdn.com" // Tuiles CARTO (mode sombre)
         ],
         frameSrc: ["'self'"],
         objectSrc: ["'none'"],
