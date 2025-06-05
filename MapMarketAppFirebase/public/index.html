@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MapMarket - Marketplace Géolocalisée</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        xintegrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/style-modern.css">
+    <link rel="manifest" href="/manifest.json">
+</head>
+
+<body>
+    <div id="app-root" class="app-container" data-app-version="1.0.5">
+        <header id="main-header" class="sticky-header" role="banner" aria-label="En-tête principal">
+            <div class="header-content">
+                <div class="logo-container">
+                    <a href="#" id="header-logo-link" aria-label="MapMarket Accueil">
+                        <div class="logo" id="homeBtn">
+                            <span class="logo-icon" aria-hidden="true">📍</span>
+                            <span itemprop="name">MapMarket</span>
+                        </div>
+                    </a>
+                </div>
+
+                <div class="header-actions">
+                    <button id="header-show-search-btn" class="header-action-btn" type="button"
+                        aria-label="Afficher la recherche" aria-expanded="false"
+                        aria-controls="header-search-bar-wrapper">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                    <button id="header-filter-btn" class="header-action-btn" type="button"
+                        aria-label="Ouvrir les filtres de recherche" aria-controls="filters-modal"
+                        aria-expanded="false">
+                        <i class="fa-solid fa-sliders"></i>
+                    </button>
+
+                    <button id="header-notifications-btn" class="header-action-btn" type="button"
+                        aria-label="Afficher les notifications" aria-controls="notifications-panel"
+                        aria-expanded="false">
+                        <i class="fa-solid fa-bell"></i>
+                        <span id="notifications-badge" class="badge notification-badge" aria-hidden="true"
+                            data-count="0">0</span>
+                    </button>
+
+                    <button id="header-profile-btn" class="header-action-btn" type="button"
+                        aria-label="Ouvrir le menu utilisateur" aria-expanded="false" data-user-logged-in="false">
+                        <img id="header-profile-avatar" src="avatar-default.svg" alt="Avatar utilisateur"
+                            class="profile-avatar-icon"
+                            onerror="this.src='https://placehold.co/32x32/e0e0e0/757575?text=User'; this.alt='Avatar par défaut';">
+                    </button>
+                </div>
+            </div>
+
+            <div id="header-search-bar-wrapper" class="search-bar-wrapper hidden" aria-hidden="true">
+                <div id="header-search-bar" class="search-bar-container expanded" role="search">
+                    <input type="search" id="main-search-input" class="search-input"
+                        placeholder="Rechercher des annonces..." aria-label="Rechercher des annonces, services, etc.">
+                    <button id="main-search-button" class="search-button" type="button"
+                        aria-label="Lancer la recherche">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                    <button id="close-search-bar-btn" class="btn btn-icon search-bar-close-btn" type="button"
+                        aria-label="Fermer la recherche">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
+                <div id="search-suggestions-container" class="search-suggestions" role="listbox" aria-live="polite"
+                    aria-hidden="true">
+                </div>
+            </div>
+        </header>
+
+
+        <main id="main-content" role="main">
+            <section id="map-section" aria-labelledby="map-section-title">
+                <h2 id="map-section-title" class="visually-hidden" data-i18n="map.sectionTitle">Carte interactive des
+                    annonces</h2>
+                <div id="map-view-container" class="map-view-wrapper" data-drag-drop-area="true"
+                    aria-label="Carte des annonces">
+                    <div id="map-view" class="map-leaflet-instance">
+                        <div class="map-loader skeleton-map-loader" role="status" aria-live="polite">
+                            <p data-i18n="map.loading">Chargement de la carte...</p>
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="map-info-bar" class="map-info-controls">
+                    <span id="map-zoom-level" aria-live="polite" data-i18n="map.zoomLevel" data-zoom-value="">Zoom:
+                        N/A</span>
+                    <span id="map-current-location-feedback" aria-live="polite"
+                        data-i18n="map.locationStatus">Localisation: Inconnue</span>
+                    <button id="map-geolocate-btn" type="button" class="map-control-btn" aria-label="Me géolocaliser">
+                        <i class="fa-solid fa-location-crosshairs"></i>
+                    </button>
+                    <button id="map-add-alert-area-btn" type="button" class="map-control-btn"
+                        aria-label="Définir une zone d'alerte sur la carte">
+                        <i class="fa-solid fa-bell-plus"></i> </button>
+                </div>
+            </section>
+        </main>
+
+        <nav id="bottom-navigation" class="mobile-nav" role="navigation" aria-label="Navigation principale mobile">
+            <button class="nav-btn active" id="nav-explore-btn" type="button" aria-label="Explorer la carte"
+                aria-current="page">
+                <i class="fa-solid fa-location-dot"></i> <span class="nav-text" data-i18n="nav.explore">Explorer</span>
+            </button>
+            <button class="nav-btn" id="nav-favorites-btn" type="button" aria-label="Favoris"
+                aria-controls="favorites-modal">
+                <i class="fa-solid fa-heart"></i>
+                <span class="nav-text" data-i18n="nav.favorites">Favoris</span>
+                <span id="favorites-nav-badge" class="badge nav-badge" aria-hidden="true" data-count="0">0</span>
+            </button>
+            <button class="nav-btn publish-btn" id="nav-publish-ad-btn" type="button" aria-label="Publier une annonce"
+                aria-controls="ad-form-modal">
+                <i class="fa-solid fa-plus-circle"></i>
+                <span class="nav-text" data-i18n="nav.publish">Publier</span>
+            </button>
+            <button class="nav-btn" id="nav-messages-btn" type="button" aria-label="Messages"
+                aria-controls="messages-modal">
+                <i class="fa-solid fa-comments"></i>
+                <span class="nav-text" data-i18n="nav.messages">Messages</span>
+                <span id="messages-nav-badge" class="badge nav-badge" aria-hidden="true" data-count="0">0</span>
+            </button>
+            <button class="nav-btn" id="nav-more-btn" type="button" aria-label="Plus d'options"
+                aria-controls="more-options-modal">
+                <i class="fa-solid fa-ellipsis-h"></i>
+                <span class="nav-text" data-i18n="nav.more">Plus</span>
+            </button>
+        </nav>
+
+        <div id="modals-container" aria-live="polite">
+            <div id="auth-modal" class="modal-overlay center-modal" role="dialog" aria-modal="true"
+                aria-labelledby="auth-modal-title-login" aria-hidden="true" tabindex="-1" data-current-view="login">
+                <div class="modal-content auth-modal-content">
+                    <div class="modal-header">
+                        <h2 id="auth-modal-title-login" class="modal-title" data-i18n="auth.loginTitle">Connexion</h2>
+                        <h2 id="auth-modal-title-signup" class="modal-title hidden" data-i18n="auth.signupTitle">
+                            Inscription</h2>
+                        <h2 id="auth-modal-title-reset" class="modal-title hidden" data-i18n="auth.resetPasswordTitle">
+                            Mot de passe oublié</h2>
+                        <h2 id="auth-modal-title-validate-email" class="modal-title hidden"
+                            data-i18n="auth.validateEmailTitle">Validation de l'e-mail</h2>
+                        <button class="modal-close-btn" data-dismiss-modal="auth-modal" type="button"
+                            aria-label="Fermer la modale d'authentification">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="login-form" class="auth-form" novalidate data-firebase-auth-form="login">
+                            <div class="form-group">
+                                <label for="login-email" data-i18n="form.email">Email</label>
+                                <input type="email" id="login-email" class="form-control" required autocomplete="email"
+                                    aria-describedby="login-email-error">
+                                <small id="login-email-error" class="form-error-message" role="alert"></small>
+                            </div>
+                            <div class="form-group">
+                                <label for="login-password" data-i18n="form.password">Mot de passe</label>
+                                <input type="password" id="login-password" class="form-control" required
+                                    autocomplete="current-password" aria-describedby="login-password-error">
+                                <small id="login-password-error" class="form-error-message" role="alert"></small>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block auth-submit-btn">
+                                <i class="fa-solid fa-right-to-bracket"></i> <span data-i18n="auth.loginButton">Se
+                                    connecter</span>
+                            </button>
+                            <p class="auth-link text-center">
+                                <a href="#" id="show-reset-password-link" data-auth-view-target="reset"
+                                    data-i18n="auth.forgotPassword">Mot de passe oublié ?</a>
+                            </p>
+                        </form>
+
+                        <form id="signup-form" class="auth-form hidden" novalidate data-firebase-auth-form="signup">
+                            <div class="form-group">
+                                <label for="signup-name" data-i18n="form.username">Nom d'utilisateur</label>
+                                <input type="text" id="signup-name" class="form-control" required
+                                    autocomplete="username" minlength="3" aria-describedby="signup-name-error">
+                                <small id="signup-name-error" class="form-error-message" role="alert"></small>
+                            </div>
+                            <div class="form-group">
+                                <label for="signup-email" data-i18n="form.email">Email</label>
+                                <input type="email" id="signup-email" class="form-control" required autocomplete="email"
+                                    aria-describedby="signup-email-error">
+                                <small id="signup-email-error" class="form-error-message" role="alert"></small>
+                            </div>
+                            <div class="form-group">
+                                <label for="signup-password" data-i18n="form.password">Mot de passe</label>
+                                <input type="password" id="signup-password" class="form-control" required
+                                    autocomplete="new-password" minlength="6" aria-describedby="signup-password-error">
+                                <small id="signup-password-error" class="form-error-message" role="alert"></small>
+                            </div>
+                            <div class="form-group">
+                                <label for="signup-password-confirm" data-i18n="form.passwordConfirm">Confirmer le mot
+                                    de passe</label>
+                                <input type="password" id="signup-password-confirm" name="passwordConfirm"
+                                    class="form-control" required autocomplete="new-password" minlength="6"
+                                    aria-describedby="signup-password-confirm-error">
+                                <small id="signup-password-confirm-error" class="form-error-message"
+                                    role="alert"></small>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block auth-submit-btn">
+                                <i class="fa-solid fa-user-plus"></i> <span
+                                    data-i18n="auth.signupButton">S'inscrire</span>
+                            </button>
+                        </form>
+
+                        <form id="reset-password-form" class="auth-form hidden" novalidate
+                            data-firebase-auth-form="resetPassword">
+                            <p data-i18n="auth.resetPasswordInstructions">Entrez votre email pour recevoir un lien de
+                                réinitialisation.</p>
+                            <div class="form-group">
+                                <label for="reset-email" data-i18n="form.email">Email</label>
+                                <input type="email" id="reset-email" class="form-control" required autocomplete="email"
+                                    aria-describedby="reset-email-error">
+                                <small id="reset-email-error" class="form-error-message" role="alert"></small>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block auth-submit-btn">
+                                <i class="fa-solid fa-paper-plane"></i> <span data-i18n="auth.sendResetLink">Envoyer
+                                    lien</span>
+                            </button>
+                        </form>
+
+                        <div id="email-validation-view" class="auth-view hidden text-center">
+                            <i class="fa-solid fa-envelope-circle-check fa-3x text-success"
+                                style="margin-bottom: var(--spacing-md); color: var(--success-color);"></i>
+                            <p id="email-validation-message" data-i18n="auth.emailValidationSent">Un email de validation
+                                a été envoyé à <strong id="validation-email-address" class="text-primary"></strong>.
+                                Veuillez vérifier votre
+                                boîte de réception.</p>
+                            <button id="resend-validation-email-btn" type="button" class="btn btn-secondary btn-sm"
+                                data-i18n="auth.resendValidationEmail">Renvoyer l'email</button>
+                            <p class="auth-link"><a href="#" data-auth-view-target="login"
+                                    data-i18n="auth.backToLogin">Retour à la
+                                    connexion</a></p>
+                        </div>
+                    </div>
+                    <div class="modal-footer auth-modal-footer">
+                        <button id="auth-switch-to-signup-btn" type="button" class="btn btn-link auth-switch-link"
+                            data-auth-view-target="signup" data-i18n="auth.switchToSignup">Pas de compte ?
+                            S'inscrire</button>
+                        <button id="auth-switch-to-login-btn" type="button" class="btn btn-link auth-switch-link hidden"
+                            data-auth-view-target="login" data-i18n="auth.switchToLogin">Déjà un compte ? Se
+                            connecter</button>
+                    </div>
+                </div>
+            </div>
+            <div id="notifications-panel" class="modal-overlay" aria-hidden="true" tabindex="-1">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 class="modal-title">Notifications</h2>
+                        <button type="button" class="modal-close-btn" data-dismiss-modal="notifications-panel"
+                            aria-label="Fermer">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Contenu des notifications ici -->
+                        <p>Aucune notification pour le moment.</p>
+                    </div>
+                </div>
+            </div>
+            <div id="my-ads-modal" class="modal-overlay" role="dialog" aria-modal="true"
+                aria-labelledby="my-ads-modal-title" aria-hidden="true" tabindex="-1">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="my-ads-modal-title" class="modal-title"><i class="fa-solid fa-rectangle-list"></i> <span
+                                data-i18n="myAds.title">Mes Annonces</span></h2>
+                        <button class="modal-close-btn" data-dismiss-modal="my-ads-modal" type="button"
+                            aria-label="Fermer Mes Annonces">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body" id="my-ads-list-container">
+                        <div id="my-ads-loader" class="loader-container hidden" role="status">
+                            <p data-i18n="myAds.loading">Chargement de vos annonces...</p>
+                            <div class="spinner"></div>
+                        </div>
+                        <div id="no-my-ads-placeholder" class="placeholder-message hidden">
+                            <i class="fa-regular fa-folder-open fa-3x"></i>
+                            <p data-i18n="myAds.noAds">Vous n'avez publié aucune annonce pour le moment.</p>
+                            <button id="my-ads-publish-new-btn" type="button" class="btn btn-primary"
+                                style="margin-top: var(--spacing-md);">
+                                <i class="fa-solid fa-plus-circle"></i> <span data-i18n="myAds.publishFirstAd">Publier
+                                    ma première annonce</span>
+                            </button>
+                        </div>
+                        <ul id="my-ads-list" class="item-list">
+                        </ul>
+                        <template id="my-ad-item-template">
+                            <li class="my-ad-item list-item-card" data-ad-id="">
+                                <img src="https://placehold.co/80x80/e0e0e0/757575?text=Ad" alt="Image de l'annonce"
+                                    class="item-image" loading="lazy"
+                                    onerror="this.src='https://placehold.co/80x80/e0e0e0/757575?text=Ad';">
+                                <div class="item-info">
+                                    <h4 class="item-title">Titre de l'annonce</h4>
+                                    <p class="item-price">€€€</p>
+                                    <p class="item-status"><span class="status-badge status-active"
+                                            data-i18n="myAds.status.active">Active</span></p>
+                                    <p class="item-date"><small>Publiée le: JJ/MM/AAAA</small></p>
+                                </div>
+                                <div class="item-actions my-ad-actions">
+                                    <button type="button" class="btn btn-sm btn-icon btn-secondary view-my-ad-btn"
+                                        aria-label="Voir l'annonce">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-icon btn-info edit-my-ad-btn"
+                                        aria-label="Modifier l'annonce">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-icon btn-danger delete-my-ad-btn"
+                                        aria-label="Supprimer l'annonce">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </div>
+                            </li>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            <div id="profile-modal" class="modal-overlay" role="dialog" aria-modal="true"
+                aria-labelledby="profile-modal-title" aria-hidden="true" tabindex="-1">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="profile-modal-title" class="modal-title" data-i18n="profile.title"><i
+                                class="fa-solid fa-user-circle"></i>Mon Profil</h2>
+                        <button class="modal-close-btn" data-dismiss-modal="profile-modal" type="button"
+                            aria-label="Fermer le profil">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="profile-avatar-section">
+                            <div id="avatar-preview-container" class="avatar-preview" role="button" tabindex="0"
+                                aria-label="Changer l'avatar">
+                                <img id="profile-avatar-img" src="avatar-default.svg" alt="Avatar utilisateur"
+                                    class="profile-avatar-large"
+                                    onerror="this.src='https://placehold.co/100x100/e0e0e0/757575?text=User';">
+                                <div class="avatar-upload-overlay">
+                                    <i class="fa-solid fa-camera"></i>
+                                </div>
+                            </div>
+                            <input type="file" id="avatar-upload-input" class="visually-hidden" accept="image/*"
+                                aria-label="Télécharger un nouvel avatar">
+                            <div style="display:flex; gap: var(--spacing-sm);">
+                                <button id="change-avatar-btn" type="button" class="btn btn-sm btn-secondary"
+                                    aria-controls="avatar-upload-input" data-i18n="profile.changeAvatar">Changer
+                                    d'avatar</button>
+                                <button id="remove-avatar-btn" type="button"
+                                    class="btn btn-sm btn-danger-outline hidden"
+                                    data-i18n="profile.removeAvatar">Supprimer</button>
+                            </div>
+                        </div>
+
+                        <form id="profile-form" novalidate data-firebase-user-profile>
+                            <div class="form-group">
+                                <label for="profile-name" data-i18n="form.username">Nom d'utilisateur</label>
+                                <input type="text" id="profile-name" class="form-control" required minlength="3"
+                                    aria-describedby="profile-name-error" readonly>
+                                <small id="profile-name-error" class="form-error-message" role="alert"></small>
+                            </div>
+                            <div class="form-group">
+                                <label for="profile-email" data-i18n="form.email">Email</label>
+                                <input type="email" id="profile-email" class="form-control" readonly
+                                    aria-label="Adresse e-mail (non modifiable)">
+                            </div>
+                            <div id="profile-edit-actions" class="hidden">
+                                <div class="form-group">
+                                    <label for="profile-new-password" data-i18n="form.newPassword">Nouveau mot de passe
+                                        (optionnel)</label>
+                                    <input type="password" id="profile-new-password" name="newPassword"
+                                        class="form-control" autocomplete="new-password" minlength="6"
+                                        aria-describedby="profile-new-password-error">
+                                    <small id="profile-new-password-error" class="form-error-message"
+                                        role="alert"></small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="profile-confirm-password" data-i18n="form.confirmNewPassword">Confirmer
+                                        nouveau mot de passe</label>
+                                    <input type="password" id="profile-confirm-password" name="confirmPassword"
+                                        class="form-control" autocomplete="new-password" minlength="6"
+                                        aria-describedby="profile-confirm-password-error">
+                                    <small id="profile-confirm-password-error" class="form-error-message"
+                                        role="alert"></small>
+                                </div>
+                                <button type="submit" id="save-profile-btn" class="btn btn-primary btn-block"><i
+                                        class="fa-solid fa-save"></i> <span
+                                        data-i18n="profile.saveButton">Sauvegarder</span></button>
+                                <button type="button" id="cancel-edit-profile-btn" class="btn btn-secondary btn-block"
+                                    data-i18n="form.cancel">Annuler</button>
+                            </div>
+                            <button type="button" id="edit-profile-btn" class="btn btn-secondary btn-block"><i
+                                    class="fa-solid fa-pen-to-square"></i> <span data-i18n="profile.editButton">Modifier
+                                    le profil</span></button>
+                        </form>
+
+                        <div class="profile-stats-section">
+                            <h3 data-i18n="profile.stats.title">Statistiques</h3>
+                            <div class="profile-stats">
+                                <div class="stat-item" aria-label="Nombre d'annonces publiées">
+                                    <div id="stats-ads-published" class="count">0</div>
+                                    <div class="label" data-i18n="profile.stats.ads">Annonces</div>
+                                </div>
+                                <div class="stat-item" aria-label="Note moyenne reçue">
+                                    <div id="stats-avg-rating" class="count">N/A</div>
+                                    <div class="label" data-i18n="profile.stats.rating">Note Moy.</div>
+                                </div>
+                                <div class="stat-item" aria-label="Nombre de favoris">
+                                    <div id="stats-favorites-count" class="count">0</div>
+                                    <div class="label" data-i18n="profile.stats.favorites">Favoris</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="profile-danger-zone">
+                            <button id="logout-btn" type="button" class="btn btn-warning btn-block"
+                                data-firebase-auth-action="logout"><i class="fa-solid fa-right-from-bracket"></i> <span
+                                    data-i18n="profile.logoutButton">Déconnexion</span></button>
+                            <button id="delete-account-trigger-btn" type="button"
+                                class="btn btn-danger-outline btn-block"
+                                aria-controls="delete-account-confirmation-section"
+                                data-i18n="profile.deleteAccount.trigger">Supprimer mon compte</button>
+                            <div id="delete-account-confirmation-section" class="hidden" role="alertdialog"
+                                aria-labelledby="delete-account-confirm-title"
+                                aria-describedby="delete-account-confirm-desc">
+                                <h4 id="delete-account-confirm-title" data-i18n="profile.deleteAccount.confirmTitle">
+                                    Êtes-vous sûr ?</h4>
+                                <p id="delete-account-confirm-desc" data-i18n="profile.deleteAccount.confirmMessage">
+                                    Cette action est irréversible. Toutes vos données seront supprimées.</p>
+                                <div
+                                    style="display: flex; align-items: center; gap: var(--spacing-sm); margin: var(--spacing-sm) 0;">
+                                    <input type="checkbox" id="delete-account-confirm-checkbox"
+                                        aria-label="Confirmer la suppression du compte">
+                                    <label for="delete-account-confirm-checkbox"
+                                        data-i18n="profile.deleteAccount.confirmCheckbox">Je confirme vouloir supprimer
+                                        mon
+                                        compte.</label>
+                                </div>
+                                <div style="display:flex; gap: var(--spacing-sm);">
+                                    <button id="confirm-delete-account-btn" type="button" class="btn btn-danger"
+                                        disabled data-i18n="profile.deleteAccount.confirmButton">Supprimer
+                                        définitivement</button>
+                                    <button id="cancel-delete-account-btn" type="button" class="btn btn-secondary"
+                                        data-i18n="form.cancel">Annuler</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="settings-modal" class="modal-overlay" role="dialog" aria-modal="true"
+                aria-labelledby="settings-modal-title" aria-hidden="true" tabindex="-1">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="settings-modal-title" class="modal-title" data-i18n="settings.title"><i
+                                class="fa-solid fa-cog"></i> Paramètres</h2>
+                        <button class="modal-close-btn" data-dismiss-modal="settings-modal" type="button"
+                            aria-label="Fermer les paramètres">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="settings-section">
+                            <h3 data-i18n="settings.display.title">Affichage</h3>
+                            <div class="form-group setting-item">
+                                <label for="dark-mode-toggle-setting" data-i18n="settings.display.darkMode">Mode
+                                    Sombre</label>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="dark-mode-toggle-setting"
+                                        aria-label="Activer le mode sombre">
+                                    <span></span>
+                                </div>
+                            </div>
+                            <div class="form-group setting-item">
+                                <label for="language-select-setting"
+                                    data-i18n="settings.display.language">Langue</label>
+                                <select id="language-select-setting" class="form-control" style="max-width: 150px;">
+                                    <option value="fr" data-i18n="language.fr">Français</option>
+                                    <option value="en" data-i18n="language.en">English</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="settings-section">
+                            <h3 data-i18n="settings.notifications.title">Notifications</h3>
+                            <div class="form-group setting-item">
+                                <label for="push-notifications-toggle"
+                                    data-i18n="settings.notifications.pushEnabled">Notifications Push</label>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="push-notifications-toggle" checked
+                                        aria-label="Activer les notifications push">
+                                    <span></span>
+                                </div>
+                            </div>
+                            <div class="form-group setting-item">
+                                <label for="email-notifications-toggle"
+                                    data-i18n="settings.notifications.emailEnabled">Notifications par Email</label>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="email-notifications-toggle" checked
+                                        aria-label="Activer les notifications par email">
+                                    <span></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="settings-section">
+                            <h3 data-i18n="settings.account.title">Compte</h3>
+                            <button id="settings-logout-btn" type="button" class="btn btn-warning btn-block"
+                                data-firebase-auth-action="logout"><i class="fa-solid fa-right-from-bracket"></i> <span
+                                    data-i18n="profile.logoutButton">Déconnexion</span></button>
+                            <button id="settings-delete-account-btn" type="button"
+                                class="btn btn-danger-outline btn-block"
+                                aria-controls="delete-account-confirmation-section"
+                                data-i18n="profile.deleteAccount.trigger">Supprimer mon compte</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ad-form-modal" class="modal-overlay" role="dialog" aria-modal="true"
+                aria-labelledby="ad-form-modal-title" aria-hidden="true" tabindex="-1">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="ad-form-modal-title" class="modal-title" data-i18n="adForm.createTitle"><i
+                                class="fa-solid fa-plus-circle"></i>Publier une Annonce</h2>
+                        <button class="modal-close-btn" data-dismiss-modal="ad-form-modal" type="button"
+                            aria-label="Fermer le formulaire d'annonce">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="ad-form" novalidate data-firestore-collection="ads">
+                            <input type="hidden" id="ad-id" name="adId">
+                            <div class="form-group">
+                                <label for="ad-title" data-i18n="adForm.title">Titre de l'annonce</label>
+                                <input type="text" id="ad-title" name="title" class="form-control" required
+                                    minlength="5" maxlength="100" aria-describedby="ad-title-error">
+                                <small id="ad-title-error" class="form-error-message" role="alert"></small>
+                            </div>
+                            <div class="form-group">
+                                <label for="ad-description" data-i18n="adForm.description">Description</label>
+                                <textarea id="ad-description" name="description" class="form-control" required
+                                    minlength="10" maxlength="1000" rows="5"
+                                    aria-describedby="ad-description-error"></textarea>
+                                <small id="ad-description-error" class="form-error-message" role="alert"></small>
+                            </div>
+                            <div class="form-group">
+                                <label for="ad-category" data-i18n="adForm.category">Catégorie</label>
+                                <select id="ad-category" name="category" class="form-control" required
+                                    aria-describedby="ad-category-error">
+                                    <option value="" disabled selected data-i18n="adForm.selectCategory">Choisir une
+                                        catégorie...</option>
+                                </select>
+                                <small id="ad-category-error" class="form-error-message" role="alert"></small>
+                            </div>
+                            <div class="form-group">
+                                <label for="ad-price" data-i18n="adForm.price">Prix (€)</label>
+                                <input type="number" id="ad-price" name="price" class="form-control" required min="0"
+                                    step="0.01" placeholder="Ex: 150.50" aria-describedby="ad-price-error">
+                                <small id="ad-price-error" class="form-error-message" role="alert"></small>
+                            </div>
+                            <div class="form-group">
+                                <label for="ad-location-address" data-i18n="adForm.location">Localisation
+                                    (adresse)</label>
+                                <input type="text" id="ad-location-address" name="locationAddress" class="form-control"
+                                    placeholder="Ex: 1 Rue de la Paix, Paris" required
+                                    aria-describedby="ad-location-error">
+                                <input type="hidden" id="ad-lat" name="latitude">
+                                <input type="hidden" id="ad-lng" name="longitude">
+                                <button type="button" id="ad-form-use-current-location-btn"
+                                    class="btn btn-secondary btn-sm" style="margin-top: var(--spacing-sm);"><i
+                                        class="fa-solid fa-location-crosshairs"></i>
+                                    <span data-i18n="adForm.useMyPosition">Utiliser ma position actuelle</span></button>
+                                <small id="ad-location-error" class="form-error-message" role="alert"></small>
+                                <div id="ad-form-map-preview" class="map-preview-container"
+                                    aria-label="Aperçu de la localisation sur la carte"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="ad-images-input" data-i18n="adForm.images">Images (max 5)</label>
+                                <input type="file" id="ad-images-input" name="images" class="form-control" multiple
+                                    accept="image/jpeg, image/png, image/webp" aria-describedby="ad-images-error"
+                                    data-max-files="5">
+                                <div id="ad-image-previews-container" class="image-previews-grid">
+                                </div>
+                                <small id="ad-images-error" class="form-error-message" role="alert"></small>
+                            </div>
+                            <button type="submit" id="submit-ad-form-btn" class="btn btn-primary btn-block">
+                                <i class="fa-solid fa-paper-plane"></i> <span data-i18n="adForm.publishButton">Publier
+                                    l'annonce</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ad-detail-modal" class="modal-overlay" role="dialog" aria-modal="true"
+                aria-labelledby="ad-detail-modal-title-content" aria-hidden="true" tabindex="-1" data-ad-id="">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="ad-detail-modal-title-content" class="modal-title">Détail de l'annonce</h2>
+                        <button class="modal-close-btn" data-dismiss-modal="ad-detail-modal" type="button"
+                            aria-label="Fermer le détail de l'annonce">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body" id="ad-detail-body-content">
+                        <div id="ad-detail-loader" class="loader-container" role="status">
+                            <p data-i18n="adDetail.loading">Chargement de l'annonce...</p>
+                            <div class="spinner"></div>
+                        </div>
+
+                        <article id="ad-detail-content" class="hidden">
+                            <section id="ad-detail-carousel-container" class="carousel-container"
+                                aria-label="Images de l'annonce">
+                                <div id="ad-detail-carousel-track" class="carousel-track">
+                                </div>
+                                <button id="ad-detail-carousel-prev-btn" type="button"
+                                    class="carousel-nav carousel-prev hidden" aria-label="Image précédente"><i
+                                        class="fa-solid fa-chevron-left"></i></button>
+                                <button id="ad-detail-carousel-next-btn" type="button"
+                                    class="carousel-nav carousel-next hidden" aria-label="Image suivante"><i
+                                        class="fa-solid fa-chevron-right"></i></button>
+                                <div id="ad-detail-carousel-dots" class="carousel-dots hidden" role="tablist"
+                                    aria-label="Navigation des images">
+                                </div>
+                            </section>
+
+                            <h3 id="ad-detail-item-title" class="ad-title"></h3>
+                            <p id="ad-detail-price" class="ad-price"></p>
+                            <p id="ad-detail-category-location" class="ad-meta-info">
+                                <span id="ad-detail-category"><i class="fa-solid fa-tag"></i> </span>
+                                <span id="ad-detail-location"><i class="fa-solid fa-map-marker-alt"></i> </span>
+                                <span id="ad-detail-date"><i class="fa-solid fa-calendar-days"></i> </span>
+                            </p>
+
+                            <section aria-labelledby="ad-detail-description-title">
+                                <h4 id="ad-detail-description-title" data-i18n="adDetail.description">Description</h4>
+                                <p id="ad-detail-description-text" class="ad-description"></p>
+                            </section>
+
+                            <section id="ad-detail-seller-info-section" aria-labelledby="ad-detail-seller-title">
+                                <h4 id="ad-detail-seller-title" data-i18n="adDetail.sellerInfo">Informations sur le
+                                    vendeur</h4>
+                                <div id="ad-detail-seller-info" class="seller-card" data-seller-id="">
+                                    <img id="ad-detail-seller-avatar" src="avatar-default.svg" alt="Avatar du vendeur"
+                                        class="seller-avatar"
+                                        onerror="this.src='https://placehold.co/48x48/e0e0e0/757575?text=Seller';">
+                                    <div>
+                                        <span id="ad-detail-seller-name" class="seller-name font-semibold"></span>
+                                        <div id="ad-detail-seller-rating" class="star-rating-display"
+                                            aria-label="Note moyenne du vendeur">
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section id="ad-detail-rating-section" aria-labelledby="ad-detail-rating-title">
+                                <h4 id="ad-detail-rating-title" data-i18n="adDetail.ratingTitle">Évaluation de l'annonce
+                                </h4>
+                                <div id="ad-average-rating-display" class="star-rating-display"
+                                    aria-label="Note moyenne de l'annonce" style="margin-bottom: var(--spacing-sm);">
+                                </div>
+                                <button id="rate-ad-btn" type="button" class="btn btn-secondary btn-sm"
+                                    aria-controls="review-form-modal" data-i18n="adDetail.rateThisAd">Évaluer cette
+                                    annonce</button>
+                                <div id="ad-reviews-list" style="margin-top: var(--spacing-md);">
+                                </div>
+                            </section>
+
+                            <div id="ad-detail-actions-container" class="actions-toolbar">
+                                <button data-favorite-btn data-ad-id="" id="ad-detail-favorite-btn" type="button"
+                                    class="btn btn-icon action-btn" aria-pressed="false"
+                                    aria-label="Ajouter aux favoris">
+                                    <i class="fa-regular fa-heart"></i>
+                                </button>
+                                <button id="ad-detail-contact-seller-btn" type="button"
+                                    class="btn btn-primary action-btn" data-i18n="adDetail.contactSeller"><i
+                                        class="fa-solid fa-comments"></i> Contacter</button>
+                                <button id="ad-detail-report-btn" type="button"
+                                    class="btn btn-danger-outline action-btn" aria-controls="report-form-modal"
+                                    data-i18n="adDetail.reportAd"><i class="fa-solid fa-flag"></i> Signaler</button>
+                            </div>
+
+                            <div id="ad-detail-owner-actions" class="owner-actions-toolbar hidden">
+                                <button id="ad-detail-edit-ad-btn" type="button" class="btn btn-secondary action-btn"
+                                    aria-controls="ad-form-modal" data-i18n="adDetail.editButton"><i
+                                        class="fa-solid fa-pen"></i> Éditer</button>
+                                <button id="ad-detail-delete-ad-btn" type="button" class="btn btn-danger action-btn"
+                                    aria-controls="confirmation-modal" data-i18n="adDetail.deleteButton"><i
+                                        class="fa-solid fa-trash"></i> Supprimer</button>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </div>
+
+            <div id="favorites-modal" class="modal-overlay" role="dialog" aria-modal="true"
+                aria-labelledby="favorites-modal-title" aria-hidden="true" tabindex="-1">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="favorites-modal-title" class="modal-title"><i class="fa-solid fa-heart text-danger"
+                                style="color: var(--danger-color);"></i> <span data-i18n="favorites.title">Mes
+                                Favoris</span></h2>
+                        <button class="modal-close-btn" data-dismiss-modal="favorites-modal" type="button"
+                            aria-label="Fermer les favoris">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body" id="favorites-list-container"
+                        data-firestore-collection="users/{userId}/favorites">
+                        <div id="no-favorites-placeholder" class="placeholder-message hidden">
+                            <i class="fa-regular fa-heart fa-3x"></i>
+                            <p data-i18n="favorites.noFavorites">Vous n'avez pas encore de favoris.</p>
+                            <p><small data-i18n="favorites.howToAdd">Cliquez sur <i class="fa-solid fa-heart"></i> sur
+                                    une annonce pour l'ajouter.</small></p>
+                        </div>
+                        <ul id="favorites-list" class="item-list">
+                            <template id="favorite-item-template">
+                                <li class="favorite-item list-item-card" data-ad-id="">
+                                    <img src="https://placehold.co/60x60/e0e0e0/757575?text=Ad" alt="Image de l'annonce"
+                                        class="item-image" loading="lazy"
+                                        onerror="this.src='https://placehold.co/60x60/e0e0e0/757575?text=Ad';">
+                                    <div class="item-info">
+                                        <h4 class="item-title"></h4>
+                                        <p class="item-price"></p>
+                                        <p class="item-category"></p>
+                                    </div>
+                                    <button type="button" class="btn btn-icon btn-sm remove-favorite-btn"
+                                        aria-label="Retirer des favoris">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div id="nav-history-modal" class="modal-overlay" role="dialog" aria-modal="true"
+                aria-labelledby="nav-history-modal-title" aria-hidden="true" tabindex="-1">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="nav-history-modal-title" class="modal-title"><i class="fa-solid fa-history"></i> <span
+                                data-i18n="navHistory.title">Historique de navigation</span></h2>
+                        <button class="modal-close-btn" data-dismiss-modal="nav-history-modal" type="button"
+                            aria-label="Fermer l'historique">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body" id="nav-history-list-container" data-localstorage-key="navigationHistory">
+                        <div id="no-history-placeholder" class="placeholder-message hidden">
+                            <i class="fa-regular fa-eye-slash fa-3x"></i>
+                            <p data-i18n="navHistory.noHistory">Aucun historique pour le moment.</p>
+                        </div>
+                        <ul id="nav-history-list" class="item-list">
+                            <template id="nav-history-item-template">
+                                <li class="history-item list-item-card" data-ad-id="">
+                                    <img src="https://placehold.co/60x60/e0e0e0/757575?text=Ad" alt="Image de l'annonce"
+                                        class="item-image" loading="lazy"
+                                        onerror="this.src='https://placehold.co/60x60/e0e0e0/757575?text=Ad';">
+                                    <div class="item-info">
+                                        <h4 class="item-title"></h4>
+                                        <p class="item-view-date"></p>
+                                    </div>
+                                    <button type="button" class="btn btn-icon btn-sm remove-history-item-btn"
+                                        aria-label="Supprimer de l'historique">
+                                        <i class="fa-solid fa-times-circle"></i>
+                                    </button>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="clear-history-btn" type="button" class="btn btn-danger"
+                            data-i18n="navHistory.clearHistory">Effacer tout l'historique</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="alerts-modal" class="modal-overlay" role="dialog" aria-modal="true"
+                aria-labelledby="alerts-modal-title" aria-hidden="true" tabindex="-1">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="alerts-modal-title" class="modal-title"><i class="fa-solid fa-bell text-accent"
+                                style="color:var(--accent-color);"></i> <span data-i18n="alerts.title">Mes
+                                Alertes</span></h2>
+                        <button class="modal-close-btn" data-dismiss-modal="alerts-modal" type="button"
+                            aria-label="Fermer les alertes">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <button id="show-create-alert-form-btn" type="button" class="btn btn-primary btn-block"
+                            aria-controls="create-alert-form-section" aria-expanded="false"
+                            style="margin-bottom: var(--spacing-md);">
+                            <i class="fa-solid fa-plus-circle"></i> <span data-i18n="alerts.createButton">Créer une
+                                nouvelle alerte</span>
+                        </button>
+
+                        <section id="create-alert-form-section" class="hidden form-section"
+                            aria-labelledby="create-alert-form-title"
+                            style="padding: var(--spacing-md); border: 1px solid var(--border-color-light); border-radius: var(--border-radius-md); margin-bottom: var(--spacing-md);">
+                            <h3 id="create-alert-form-title" data-i18n="alerts.newAlertTitle" style="margin-top:0;">
+                                Nouvelle Alerte</h3>
+                            <form id="create-alert-form" novalidate data-firestore-collection="users/{userId}/alerts">
+                                <input type="hidden" id="alert-id" name="alertId">
+                                <div class="form-group">
+                                    <label for="alert-keywords" data-i18n="alerts.keywords">Mots-clés (séparés par
+                                        virgule)</label>
+                                    <input type="text" id="alert-keywords" name="keywords" class="form-control"
+                                        placeholder="Ex: iPhone 13, table basse vintage" required
+                                        aria-describedby="alert-keywords-error">
+                                    <small id="alert-keywords-error" class="form-error-message" role="alert"></small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="alert-category" data-i18n="alerts.category">Catégorie</label>
+                                    <select id="alert-category" name="category" class="form-control">
+                                        <option value="" data-i18n="alerts.allCategories">Toutes les catégories</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="alert-radius" data-i18n="alerts.radius">Rayon de recherche (km)</label>
+                                    <input type="number" id="alert-radius" name="radius" class="form-control"
+                                        placeholder="Ex: 10" value="10" min="1" max="200" required
+                                        aria-describedby="alert-radius-error">
+                                    <small data-i18n="alerts.radiusHelp"
+                                        style="font-size: 0.8rem; color: var(--text-color-muted);">Autour de votre
+                                        position actuelle ou d'une zone
+                                        définie sur la carte.</small>
+                                    <small id="alert-radius-error" class="form-error-message" role="alert"></small>
+                                </div>
+                                <div style="display:flex; gap: var(--spacing-sm);">
+                                    <button type="submit" class="btn btn-success"><i class="fa-solid fa-save"></i>
+                                        <span data-i18n="alerts.saveButton">Enregistrer</span></button>
+                                    <button type="button" id="cancel-create-alert-btn" class="btn btn-secondary"
+                                        data-i18n="form.cancel">Annuler</button>
+                                </div>
+                            </form>
+                        </section>
+
+                        <hr style="margin: var(--spacing-md) 0;">
+                        <h3 data-i18n="alerts.currentAlerts" style="margin-bottom: var(--spacing-sm);">Alertes Actives
+                        </h3>
+                        <div id="alert-list-container" data-firestore-collection="users/{userId}/alerts">
+                            <div id="no-alerts-placeholder" class="placeholder-message hidden">
+                                <i class="fa-solid fa-bell-slash fa-2x"></i>
+                                <p data-i18n="alerts.noAlerts">Aucune alerte configurée pour le moment.</p>
+                            </div>
+                            <ul id="alert-list" class="item-list">
+                                <template id="alert-item-template">
+                                    <li class="alert-item list-item-card" data-alert-id="">
+                                        <div class="item-info">
+                                            <p class="alert-keywords"><strong>Mots-clés:</strong> <span></span></p>
+                                            <p class="alert-category"><strong>Catégorie:</strong> <span></span></p>
+                                            <p class="alert-radius"><strong>Rayon:</strong> <span> km</span></p>
+                                        </div>
+                                        <div class="item-actions">
+                                            <button type="button"
+                                                class="btn btn-sm btn-icon btn-secondary edit-alert-btn"
+                                                aria-label="Modifier l'alerte"><i class="fa-solid fa-pen"></i></button>
+                                            <button type="button"
+                                                class="btn btn-sm btn-icon btn-danger delete-alert-btn"
+                                                aria-label="Supprimer l'alerte"><i
+                                                    class="fa-solid fa-trash"></i></button>
+                                        </div>
+                                    </li>
+                                </template>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="messages-modal" class="modal-overlay slide-from-right" role="dialog" aria-modal="true"
+                aria-labelledby="messages-modal-main-title" aria-hidden="true" tabindex="-1" data-current-chat-id="">
+                <div class="modal-content messages-modal-content">
+                    <div id="thread-list-view" class="messages-view active-view">
+                        <div class="modal-header">
+                            <h2 id="messages-modal-main-title" class="modal-title"><i class="fa-solid fa-comments"></i>
+                                <span data-i18n="messages.title">Mes Messages</span>
+                            </h2>
+                            <button id="start-new-thread-btn" type="button" class="btn btn-icon"
+                                aria-label="Démarrer une nouvelle discussion">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button class="modal-close-btn" data-dismiss-modal="messages-modal" type="button"
+                                aria-label="Fermer la messagerie">
+                                <i class="fa-solid fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="modal-body thread-list-body">
+                            <div class="pull-to-refresh-container" aria-hidden="true">
+                                <div class="pull-to-refresh-loader"><i class="fa-solid fa-spinner fa-spin"></i> <span
+                                        data-i18n="messages.pullToRefresh">Tirer pour rafraîchir</span></div>
+                            </div>
+                            <div id="no-threads-placeholder" class="placeholder-message hidden">
+                                <i class="fa-solid fa-comment-slash fa-3x"></i>
+                                <p data-i18n="messages.noThreads">Aucune discussion pour le moment.</p>
+                            </div>
+                            <ul id="thread-list" class="item-list" data-firestore-collection="users/{userId}/chats">
+                                <template id="thread-item-template">
+                                    <li class="thread-item list-item-card" tabindex="0" role="button" data-thread-id=""
+                                        data-recipient-id="">
+                                        <img src="avatar-default.svg" alt="Avatar de l'interlocuteur"
+                                            class="thread-avatar item-image"
+                                            onerror="this.src='https://placehold.co/48x48/e0e0e0/757575?text=User';">
+                                        <div class="thread-info item-info">
+                                            <span class="thread-user item-title"></span>
+                                            <p class="thread-preview"></p>
+                                        </div>
+                                        <div class="thread-meta">
+                                            <time class="thread-time"></time>
+                                            <span class="unread-badge hidden" aria-label="Messages non lus">0</span>
+                                        </div>
+                                    </li>
+                                </template>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div id="chat-view" class="messages-view hidden">
+                        <div class="modal-header chat-header">
+                            <button id="back-to-threads-btn" type="button" class="btn btn-icon"
+                                aria-label="Retour aux discussions">
+                                <i class="fa-solid fa-arrow-left"></i>
+                            </button>
+                            <img id="chat-recipient-avatar" src="avatar-default.svg" alt="Avatar de l'interlocuteur"
+                                class="chat-recipient-avatar"
+                                onerror="this.src='https://placehold.co/36x36/e0e0e0/757575?text=User';">
+                            <h2 id="chat-recipient-name" class="modal-title chat-title"></h2>
+                            <button id="chat-options-btn" type="button" class="btn btn-icon"
+                                aria-label="Options du chat" aria-haspopup="true" aria-expanded="false">
+                                <i class="fa-solid fa-ellipsis-v"></i>
+                            </button>
+                            <div id="chat-options-menu" class="dropdown-menu hidden" role="menu">
+                                <button role="menuitem" id="archive-chat-btn" data-i18n="chat.archive">Archiver</button>
+                                <button role="menuitem" id="delete-chat-btn" data-i18n="chat.delete">Supprimer</button>
+                                <button role="menuitem" id="block-user-chat-btn" data-i18n="chat.blockUser">Bloquer
+                                    utilisateur</button>
+                            </div>
+                        </div>
+                        <div id="chat-messages-container" class="modal-body chat-messages-body" role="log"
+                            aria-live="polite" data-firestore-collection="chats/{chatId}/messages">
+                            <template id="chat-message-template">
+                                <div class="chat-message" data-sender-id="" data-message-id="">
+                                    <p class="message-text"></p>
+                                    <time class="message-time"></time>
+                                </div>
+                            </template>
+                            <div id="chat-history-loader" class="loader-container hidden" role="status">
+                                <div class="spinner"></div> <span data-i18n="chat.loadingHistory">Chargement des
+                                    messages précédents...</span>
+                            </div>
+                        </div>
+                        <div id="chat-typing-indicator" class="typing-indicator hidden" aria-live="polite">
+                            <span data-i18n="chat.typingIndicator">Quelqu'un écrit</span><span
+                                class="dots"><span>.</span><span>.</span><span>.</span></span>
+                        </div>
+                        <div id="quick-reply-container" class="quick-reply-bar">
+                        </div>
+                        <div id="chat-input-area" class="chat-input-footer">
+                            <button id="emoji-picker-btn" type="button" class="btn btn-icon"
+                                aria-label="Ouvrir le sélecteur d'emojis" aria-controls="emoji-palette-container">
+                                <i class="fa-regular fa-face-smile"></i>
+                            </button>
+                            <div id="emoji-palette-container" class="emoji-palette hidden" role="dialog"
+                                aria-label="Sélecteur d'emojis">
+                            </div>
+                            <textarea id="chat-message-input" class="form-control message-input"
+                                placeholder="Écrire un message..." aria-label="Votre message" rows="1"></textarea>
+                            <button id="send-chat-message-btn" type="button" class="btn btn-primary btn-icon send-btn"
+                                aria-label="Envoyer le message">
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="filters-modal" class="modal-overlay" role="dialog" aria-modal="true"
+                aria-labelledby="filters-modal-title" aria-hidden="true" tabindex="-1">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="filters-modal-title" class="modal-title"><i class="fa-solid fa-sliders"></i> <span
+                                data-i18n="filters.title">Filtrer les Annonces</span></h2>
+                        <button class="modal-close-btn" data-dismiss-modal="filters-modal" type="button"
+                            aria-label="Fermer les filtres">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="filters-form" novalidate>
+                            <div class="form-group">
+                                <label for="filter-keywords" data-i18n="filters.keywords">Mots-clés</label>
+                                <input type="text" id="filter-keywords" name="keywords" class="form-control"
+                                    placeholder="Ex: vélo électrique, canapé cuir">
+                            </div>
+                            <div class="form-group">
+                                <label for="filter-category" data-i18n="filters.category">Catégorie</label>
+                                <select id="filter-category" name="category" class="form-control">
+                                    <option value="" data-i18n="filters.allCategories">Toutes les catégories</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="filter-price-min" data-i18n="filters.minPrice">Prix Minimum (€)</label>
+                                <input type="number" id="filter-price-min" name="priceMin" class="form-control"
+                                    placeholder="Ex: 50" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="filter-price-max" data-i18n="filters.maxPrice">Prix Maximum (€)</label>
+                                <input type="number" id="filter-price-max" name="priceMax" class="form-control"
+                                    placeholder="Ex: 500" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="filter-distance" data-i18n="filters.distance">Distance maximale (km)</label>
+                                <input type="range" id="filter-distance" name="distance" class="form-control-range"
+                                    min="1" max="200" value="25" step="1"
+                                    aria-describedby="filter-distance-value-display">
+                                <output for="filter-distance" id="filter-distance-value-display"
+                                    class="range-value-display">25 km</output>
+                            </div>
+                            <div class="form-group">
+                                <label for="filter-sort-by" data-i18n="filters.sortBy">Trier par</label>
+                                <select id="filter-sort-by" name="sortBy" class="form-control">
+                                    <option value="createdAt_desc" data-i18n="filters.sort.recent">Plus récent</option>
+                                    <option value="price_asc" data-i18n="filters.sort.priceAsc">Prix croissant</option>
+                                    <option value="price_desc" data-i18n="filters.sort.priceDesc">Prix décroissant
+                                    </option>
+                                    <option value="distance_asc" data-i18n="filters.sort.distance">Le plus proche
+                                    </option>
+                                </select>
+                            </div>
+                            <div style="display:flex; gap: var(--spacing-sm); margin-top: var(--spacing-lg);">
+                                <button type="submit" class="btn btn-primary" style="flex-grow: 1;"><i
+                                        class="fa-solid fa-check"></i>
+                                    <span data-i18n="filters.applyButton">Appliquer</span></button>
+                                <button type="reset" id="reset-filters-btn" class="btn btn-secondary"
+                                    style="flex-grow: 1;"><i class="fa-solid fa-times-circle"></i> <span
+                                        data-i18n="filters.resetButton">Réinitialiser</span></button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div id="onboarding-modal" class="modal-overlay center-modal" role="dialog" aria-modal="true"
+                aria-labelledby="onboarding-modal-title" aria-hidden="true" tabindex="-1" data-current-slide="0">
+                <div class="modal-content onboarding-content">
+                    <div class="modal-header"
+                        style="flex-direction: column; border-bottom: none; padding-bottom: var(--spacing-sm);">
+                        <img src="https://placehold.co/60x60/4F46E5/FFFFFF?text=MM" alt="Logo MapMarket"
+                            class="onboarding-logo" onerror="this.style.display='none';">
+                        <h2 id="onboarding-modal-title" class="modal-title" data-i18n="onboarding.welcomeTitle"
+                            style="font-size: 1.5rem;">
+                            Bienvenue sur MapMarket !</h2>
+                    </div>
+                    <div class="modal-body onboarding-slides-container">
+                        <div id="onboarding-slide-1" class="onboarding-slide active" role="tabpanel"
+                            aria-labelledby="onboarding-tab-1">
+                            <div id="lottie-onboarding-animation-1" class="lottie-animation-container"
+                                aria-label="Animation découverte locale">Animation 1</div>
+                            <h3 data-i18n="onboarding.slide1Title">Découvrez localement</h3>
+                            <p data-i18n="onboarding.slide1Text">Trouvez des trésors, services et événements près de
+                                chez vous grâce à notre carte interactive.</p>
+                        </div>
+                        <div id="onboarding-slide-2" class="onboarding-slide" role="tabpanel"
+                            aria-labelledby="onboarding-tab-2" aria-hidden="true">
+                            <div id="lottie-onboarding-animation-2" class="lottie-animation-container"
+                                aria-label="Animation vente facile">Animation 2</div>
+                            <h3 data-i18n="onboarding.slide2Title">Vendez et proposez facilement</h3>
+                            <p data-i18n="onboarding.slide2Text">Publiez vos annonces ou proposez vos services en
+                                quelques clics et touchez votre voisinage.</p>
+                        </div>
+                        <div id="onboarding-slide-3" class="onboarding-slide" role="tabpanel"
+                            aria-labelledby="onboarding-tab-3" aria-hidden="true">
+                            <div id="lottie-onboarding-animation-3" class="lottie-animation-container"
+                                aria-label="Animation alertes personnalisées">Animation 3</div>
+                            <h3 data-i18n="onboarding.slide3Title">Restez Alerté(e)</h3>
+                            <p data-i18n="onboarding.slide3Text">Créez des alertes personnalisées pour ne manquer aucune
+                                opportunité correspondant à vos recherches.</p>
+                        </div>
+                    </div>
+                    <div class="modal-footer onboarding-footer">
+                        <div class="onboarding-dots-navigation" role="tablist"
+                            aria-label="Navigation des étapes d'introduction">
+                            <button id="onboarding-tab-1" role="tab" class="onboarding-dot active" aria-selected="true"
+                                aria-controls="onboarding-slide-1" data-slide-index="0" aria-label="Étape 1"></button>
+                            <button id="onboarding-tab-2" role="tab" class="onboarding-dot" aria-selected="false"
+                                aria-controls="onboarding-slide-2" data-slide-index="1" aria-label="Étape 2"></button>
+                            <button id="onboarding-tab-3" role="tab" class="onboarding-dot" aria-selected="false"
+                                aria-controls="onboarding-slide-3" data-slide-index="2" aria-label="Étape 3"></button>
+                        </div>
+                        <div style="display: flex; width: 100%; gap: var(--spacing-sm);">
+                            <button id="prev-onboarding-btn" type="button"
+                                class="btn btn-secondary onboarding-nav-btn hidden" style="flex-grow: 1;"><i
+                                    class="fa-solid fa-arrow-left"></i>
+                                <span data-i18n="onboarding.prevButton">Précédent</span></button>
+                            <button id="next-onboarding-btn" type="button" class="btn btn-primary onboarding-nav-btn"
+                                style="flex-grow: 1;"><span data-i18n="onboarding.nextButton">Suivant</span> <i
+                                    class="fa-solid fa-arrow-right"></i></button>
+                        </div>
+                        <button id="finish-onboarding-btn" type="button"
+                            class="btn btn-success onboarding-nav-btn hidden"><i class="fa-solid fa-check"></i> <span
+                                data-i18n="onboarding.startButton">Commencer l'aventure !</span></button>
+                        <button id="skip-onboarding-btn" type="button" class="btn btn-link onboarding-skip-btn"
+                            data-i18n="onboarding.skipButton">Passer</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="micro-tutorial-modal" class="modal-overlay center-modal" role="dialog" aria-modal="true"
+                aria-labelledby="micro-tutorial-title" aria-hidden="true" tabindex="-1" data-tutorial-id="">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="micro-tutorial-title" class="modal-title">Titre du Tutoriel</h2>
+                        <button class="modal-close-btn" data-dismiss-modal="micro-tutorial-modal" type="button"
+                            aria-label="Fermer le tutoriel">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <div id="micro-tutorial-body" class="modal-body text-center">
+                        <div id="lottie-micro-tutorial-animation" class="lottie-animation-container"
+                            style="margin: 0 auto var(--spacing-md);">Animation Tutoriel</div>
+                        <p id="micro-tutorial-text"></p>
+                    </div>
+                    <div class="modal-footer" style="flex-direction: column; align-items: stretch;">
+                        <button id="next-tutorial-step-btn" type="button" class="btn btn-primary"
+                            data-i18n="tutorial.next">Suivant</button>
+                        <button id="finish-tutorial-btn" type="button" class="btn btn-success hidden"
+                            data-i18n="tutorial.done">Compris !</button>
+                        <div style="margin-top: var(--spacing-sm); text-align: center;">
+                            <input type="checkbox" id="dont-show-tutorial-again-checkbox"
+                                style="vertical-align: middle;">
+                            <label for="dont-show-tutorial-again-checkbox" data-i18n="tutorial.dontShowAgain"
+                                style="font-size: 0.85rem; vertical-align: middle;">Ne plus
+                                afficher ce tutoriel</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="confirmation-modal" class="modal-overlay center-modal" role="alertdialog" aria-modal="true"
+                aria-labelledby="confirmation-modal-title" aria-describedby="confirmation-modal-message"
+                aria-hidden="true" tabindex="-1">
+                <div class="modal-content" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h2 id="confirmation-modal-title" class="modal-title">Confirmation Requise</h2>
+                    </div>
+                    <div class="modal-body">
+                        <p id="confirmation-modal-message">Êtes-vous sûr de vouloir effectuer cette action ?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="cancel-action-btn" type="button" class="btn btn-secondary"
+                            data-dismiss-modal="confirmation-modal" data-i18n="confirmation.cancel">Annuler</button>
+                        <button id="confirm-action-btn" type="button" class="btn btn-primary"
+                            data-i18n="confirmation.confirm">Confirmer</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="review-form-modal" class="modal-overlay" role="dialog" aria-modal="true"
+                aria-labelledby="review-form-modal-title" aria-hidden="true" tabindex="-1" data-target-type=""
+                data-target-id="">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="review-form-modal-title" class="modal-title" data-i18n="reviewForm.titleAd"><i
+                                class="fa-solid fa-star text-accent" style="color:var(--accent-color);"></i>Donner votre
+                            avis</h2>
+                        <button class="modal-close-btn" data-dismiss-modal="review-form-modal" type="button"
+                            aria-label="Fermer le formulaire d'avis">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="review-form" novalidate data-firestore-collection="reviews">
+                            <div class="form-group star-rating-input-group" role="radiogroup"
+                                aria-labelledby="review-rating-label">
+                                <span id="review-rating-label" data-i18n="reviewForm.ratingLabel">Votre note :</span>
+                                <div class="star-rating-input">
+                                    <input type="radio" name="rating" value="5" id="rate-5" aria-label="5 étoiles"
+                                        required><label for="rate-5"><i class="fa-solid fa-star"></i></label>
+                                    <input type="radio" name="rating" value="4" id="rate-4"
+                                        aria-label="4 étoiles"><label for="rate-4"><i
+                                            class="fa-solid fa-star"></i></label>
+                                    <input type="radio" name="rating" value="3" id="rate-3"
+                                        aria-label="3 étoiles"><label for="rate-3"><i
+                                            class="fa-solid fa-star"></i></label>
+                                    <input type="radio" name="rating" value="2" id="rate-2"
+                                        aria-label="2 étoiles"><label for="rate-2"><i
+                                            class="fa-solid fa-star"></i></label>
+                                    <input type="radio" name="rating" value="1" id="rate-1" aria-label="1 étoile"><label
+                                        for="rate-1"><i class="fa-solid fa-star"></i></label>
+                                </div>
+                                <small id="review-rating-error" class="form-error-message" role="alert"></small>
+                            </div>
+                            <div class="form-group">
+                                <label for="review-comment" data-i18n="reviewForm.commentLabel">Votre commentaire
+                                    (optionnel) :</label>
+                                <textarea id="review-comment" name="comment" class="form-control" rows="4"
+                                    maxlength="500" aria-describedby="review-comment-error"></textarea>
+                                <small id="review-comment-error" class="form-error-message" role="alert"></small>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block"
+                                data-i18n="reviewForm.submitButton">Envoyer l'avis</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div id="more-options-modal" class="modal-overlay" role="dialog" aria-modal="true"
+                aria-labelledby="more-options-modal-title" aria-hidden="true" tabindex="-1">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="more-options-modal-title" class="modal-title"><i class="fa-solid fa-ellipsis-h"></i>
+                            <span data-i18n="moreOptions.title">Plus d'options</span>
+                        </h2>
+                        <button class="modal-close-btn" data-dismiss-modal="more-options-modal" type="button"
+                            aria-label="Fermer le menu plus d'options">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body more-options-list">
+                        <button type="button" class="more-option-item" id="more-profile-btn"
+                            aria-controls="profile-modal">
+                            <i class="fa-solid fa-user-circle"></i> <span data-i18n="moreOptions.myProfile">Mon
+                                Profil</span>
+                        </button>
+                        <button type="button" class="more-option-item" id="more-my-ads-btn">
+                            <i class="fa-solid fa-rectangle-list"></i> <span data-i18n="moreOptions.myAds">Mes
+                                Annonces</span>
+                        </button>
+                        <button type="button" class="more-option-item" id="more-alerts-btn"
+                            aria-controls="alerts-modal">
+                            <i class="fa-solid fa-bell"></i> <span data-i18n="moreOptions.myAlerts">Mes Alertes</span>
+                        </button>
+                        <button type="button" class="more-option-item" id="more-nav-history-btn"
+                            aria-controls="nav-history-modal">
+                            <i class="fa-solid fa-history"></i> <span
+                                data-i18n="moreOptions.navHistory">Historique</span>
+                        </button>
+                        <button type="button" class="more-option-item" id="more-settings-btn"
+                            aria-controls="settings-modal">
+                            <i class="fa-solid fa-cog"></i> <span data-i18n="moreOptions.settings">Paramètres</span>
+                        </button>
+                        <button type="button" class="more-option-item" id="more-replay-onboarding-btn"
+                            aria-controls="onboarding-modal">
+                            <i class="fa-solid fa-graduation-cap"></i> <span
+                                data-i18n="moreOptions.replayOnboarding">Revoir l'introduction</span>
+                        </button>
+                        <button type="button" class="more-option-item" id="more-pwa-install-btn"
+                            aria-controls="pwa-install-prompt-container" data-i18n="moreOptions.installApp">
+                            <i class="fa-solid fa-download"></i> <span id="pwa-install-text-menu">Installer
+                                l'application</span>
+                        </button>
+                        <button type="button" class="more-option-item" id="more-logout-btn"
+                            data-firebase-auth-action="logout">
+                            <i class="fa-solid fa-right-from-bracket"></i> <span
+                                data-i18n="moreOptions.logout">Déconnexion</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div id="toast-notifications-container" role="status" aria-live="assertive" aria-relevant="additions">
+            <template id="toast-notification-template">
+                <div class="toast-notification" role="alert" data-toast-type="info"> <i class="toast-icon fa-solid"></i>
+                    <p class="toast-message"></p>
+                    <button type="button" class="toast-close-btn" aria-label="Fermer la notification"><i
+                            class="fa-solid fa-times"></i></button>
+                </div>
+            </template>
+        </div>
+
+        <div id="global-loader-container" class="global-loader hidden" role="alert" aria-busy="false"
+            aria-live="polite">
+            <div class="spinner"></div>
+            <p id="global-loader-message" data-i18n="loader.loadingGeneric">Chargement...</p>
+        </div>
+
+        <div id="offline-indicator-container" class="offline-indicator hidden" role="status" aria-live="polite">
+            <i class="fa-solid fa-wifi-slash"></i> <span data-i18n="offline.message">Vous êtes hors ligne. Certaines
+                fonctionnalités peuvent être limitées.</span>
+        </div>
+
+        <div id="pwa-install-prompt-container" class="pwa-install-banner hidden" role="dialog"
+            aria-labelledby="pwa-install-title">
+            <img src="https://placehold.co/48x48/4F46E5/FFFFFF?text=MM" alt="Icône MapMarket" class="pwa-install-icon"
+                onerror="this.style.display='none';">
+            <div class="pwa-install-text">
+                <h3 id="pwa-install-title" data-i18n="pwa.installPrompt.title">Installer MapMarket</h3>
+                <p data-i18n="pwa.installPrompt.description">Accédez rapidement à MapMarket depuis votre écran
+                    d'accueil.</p>
+            </div>
+            <button id="pwa-install-accept-btn" type="button" class="btn btn-primary"
+                data-i18n="pwa.installPrompt.installButton">Installer</button>
+            <button id="pwa-install-dismiss-btn" type="button" class="btn btn-icon"
+                aria-label="Fermer l'invite d'installation"><i class="fa-solid fa-times"></i></button>
+        </div>
+
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+        <script type="module" src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+        <script type="module" src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js"></script>
+        <script type="module" src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
+        <script type="module" src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js"></script>
+        <script type="module" src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging.js"></script>
+        <script type="module" src="/scripts/main.js"></script>
+
+</body>
+
+</html>
