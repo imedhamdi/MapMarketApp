@@ -1,0 +1,12 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "ads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "category", "order": "ASCENDING"},
+        {"fieldPath": "price", "order": "ASCENDING"}
+      ]
+    }
+  ]
+}
