@@ -7,6 +7,19 @@ const fs = require('fs');
 const path = require('path');
 // const sendEmail = require('../utils/email'); // À utiliser quand prêt
 
+const mapAvatarUrl = (req, userObj) => {
+  if (!userObj) return userObj;
+  const user = userObj.toObject ? userObj.toObject() : { ...userObj };
+  if (
+    user.avatarUrl &&
+    !user.avatarUrl.startsWith('http') &&
+    user.avatarUrl !== 'avatar-default.svg'
+  ) {
+    user.avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${user.avatarUrl}`;
+  }
+  return user;
+};
+
 /**
  * Utilitaire pour envelopper les fonctions de contrôleur asynchrones.
  */
@@ -42,23 +55,7 @@ exports.getMe = asyncHandler(async (req, res, next) => {
     return next(new AppError('Utilisateur non trouvé. Une erreur est survenue.', 404));
   }
 
-  const userProfileData = user.toObject();
-
-  // --- MODIFICATION POUR CONSTRUIRE L'URL COMPLÈTE DE L'AVATAR ---
-  if (userProfileData.avatarUrl &&
-      !userProfileData.avatarUrl.startsWith('http') && // Si ce n'est pas déjà une URL complète
-      userProfileData.avatarUrl !== 'avatar-default.svg') { // Et si ce n'est pas la chaîne du défaut
-    // Construit l'URL complète en incluant /uploads/
-    // userProfileData.avatarUrl depuis la BDD est, par exemple, 'avatars/monimage.jpg'
-    // process.env.API_URL est, par exemple, 'http://localhost:5001'
-    // Résultat: 'http://localhost:5001/uploads/avatars/monimage.jpg'
-    userProfileData.avatarUrl = `${process.env.API_URL}/uploads/${userProfileData.avatarUrl}`;
-  } else if (userProfileData.avatarUrl === 'avatar-default.svg') {
-    // Pour l'image par défaut, il est généralement mieux que le client gère son propre chemin statique.
-    // Cependant, si vous voulez absolument une URL complète servie par le backend :
-    // userProfileData.avatarUrl = `${process.env.API_URL}/img/avatar-default.svg`; // Assurez-vous que ce chemin est correct et servi
-  }
-  // --- FIN DE LA MODIFICATION ---
+  const userProfileData = mapAvatarUrl(req, user);
 
   const adsPublishedCount = await Ad.countDocuments({ userId: user._id, status: 'online' });
   const favoritesCount = user.favorites ? user.favorites.length : 0;
@@ -168,9 +165,8 @@ exports.updateMyAvatar = asyncHandler(async (req, res, next) => {
     success: true,
     message: 'Avatar mis à jour avec succès.',
     data: {
-      avatarUrl: `${process.env.API_URL}/${relativeAvatarPath}`, // Construire l'URL complète pour le client
-      // Ou si Cloudinary: avatarUrl: user.avatarUrl
-      user: user // Optionnel: renvoyer l'utilisateur mis à jour
+      avatarUrl: `${req.protocol}://${req.get('host')}/${relativeAvatarPath}`,
+      user: mapAvatarUrl(req, user) // Optionnel: renvoyer l'utilisateur mis à jour avec URL complète
     }
   });
 });
@@ -253,11 +249,10 @@ exports.getUser = asyncHandler(async (req, res, next) => {
       avgRating: 'N/A', // À implémenter
   };
 
-
   res.status(200).json({
     success: true,
     data: {
-      user: publicProfileData,
+      user: mapAvatarUrl(req, publicProfileData),
     },
   });
 });

@@ -183,55 +183,16 @@ exports.createAd = asyncHandler(async (req, res, next) => {
  * GET /api/ads
  */
 exports.getAllAds = asyncHandler(async (req, res, next) => {
-    // Construire le filtre de base pour ne montrer que les annonces 'online'
     const baseFilter = { status: 'online' };
-    
-    // TODO: Implémenter une logique de filtrage plus avancée basée sur req.query
-    // (catégorie, distance, prix, recherche texte)
-    // Exemple simple de filtre par catégorie
-    if (req.query.category) {
-        baseFilter.category = req.query.category;
-    }
-    // Exemple de filtre par prix
-    if (req.query.priceMin) {
-        baseFilter.price = { ...baseFilter.price, $gte: parseFloat(req.query.priceMin) };
-    }
-    if (req.query.priceMax) {
-        baseFilter.price = { ...baseFilter.price, $lte: parseFloat(req.query.priceMax) };
-    }
 
-    // Recherche géospatiale si des coordonnées et une distance sont fournies
-    if (req.query.lat && req.query.lng && req.query.distance) {
-        const lat = parseFloat(req.query.lat);
-        const lng = parseFloat(req.query.lng);
-        const distance = parseFloat(req.query.distance) * 1000; // Convertir km en mètres
-
-        baseFilter.location = {
-            $nearSphere: {
-                $geometry: {
-                    type: 'Point',
-                    coordinates: [lng, lat],
-                },
-                $maxDistance: distance,
-            },
-        };
-    }
-    
-    // Recherche textuelle
-    if (req.query.keywords) {
-        baseFilter.$text = { $search: req.query.keywords };
-    }
-
-
-    // Utilisation de la classe APIFeatures pour la pagination, le tri, la sélection de champs
     const features = new APIFeatures(Ad.find(baseFilter).populate('userId', 'name avatarUrl'), req.query)
-        .filter() // Applique les filtres génériques (autres que ceux déjà gérés ci-dessus)
+        .filter()
         .sort()
         .limitFields()
         .paginate();
 
     const ads = await features.query;
-    const totalAds = await Ad.countDocuments(features.getFilterQuery()); // Obtenir le total pour la pagination
+    const totalAds = await Ad.countDocuments({ ...baseFilter, ...features.getFilterQuery() });
 
     const adsWithFullImageUrls = ads.map(ad => mapImageUrls(req, ad.toObject()));
 
