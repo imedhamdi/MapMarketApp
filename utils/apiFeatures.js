@@ -6,18 +6,43 @@ class APIFeatures {
       this.filterQuery = {}; // Pour stocker le filtre final utilisé
     }
   
-    filter() {
+  filter() {
       const queryObj = { ...this.queryString };
       const excludedFields = ['page', 'sort', 'limit', 'fields'];
       excludedFields.forEach(el => delete queryObj[el]);
-  
-      // Filtrage avancé (gte, gt, lte, lt)
+
+      const filter = {};
+
+      if (queryObj.keywords) {
+        filter.$text = { $search: queryObj.keywords };
+        delete queryObj.keywords;
+      }
+
+      if (queryObj.lat && queryObj.lng && queryObj.distance) {
+        const lat = parseFloat(queryObj.lat);
+        const lng = parseFloat(queryObj.lng);
+        const dist = parseFloat(queryObj.distance);
+        if (!isNaN(lat) && !isNaN(lng) && !isNaN(dist)) {
+          filter.location = {
+            $nearSphere: {
+              $geometry: { type: 'Point', coordinates: [lng, lat] },
+              $maxDistance: dist * 1000
+            }
+          };
+        }
+        delete queryObj.lat;
+        delete queryObj.lng;
+        delete queryObj.distance;
+      }
+
       let queryStr = JSON.stringify(queryObj);
       queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, match => `$${match}`);
-      
-      this.filterQuery = JSON.parse(queryStr);
-      this.query = this.query.find(this.filterQuery);
-  
+
+      Object.assign(filter, JSON.parse(queryStr));
+
+      this.filterQuery = filter;
+      this.query = this.query.find(filter);
+
       return this;
     }
   

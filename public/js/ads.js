@@ -1012,51 +1012,37 @@ export async function fetchAllAdsAndRenderOnMap() {
     toggleGlobalLoader(true, "Chargement des annonces...");
     try {
         const filters = state.getFilters ? state.getFilters() : {};
-        const validFilters = {};
-
-        // Construire validFilters en s'assurant de ne pas envoyer "null" comme chaîne
-        for (const key in filters) {
-            // Vérifier si la valeur n'est pas null, undefined, ou une chaîne vide après trim
-            // Et spécifiquement, ne pas transformer le type null en chaîne "null" pour ces paramètres
-            if (key === 'priceMin' || key === 'priceMax' || key === 'latitude' || key === 'longitude' || key === 'distance') {
-                // Pour les champs numériques ou ceux qui peuvent être null de manière significative pour l'API
-                // On ne les ajoute que s'ils ont une valeur numérique valide ou une valeur que l'API attend explicitement.
-                // Si state.getFilters() retourne le type null pour priceMin, il deviendra "null" dans URLSearchParams.
-                // On veut éviter ça si l'API ne gère pas "null" comme chaîne pour les nombres.
-                const numValue = parseFloat(filters[key]);
-                if (!isNaN(numValue)) {
-                    validFilters[key] = numValue;
-                } else if (filters[key] !== null && filters[key] !== undefined && String(filters[key]).toLowerCase() !== 'null' && String(filters[key]).trim() !== '') {
-                    // Si ce n'est pas un nombre attendu, mais une autre valeur de filtre non vide
-                    // (ex: category, keywords, sortBy), on la garde.
-                    if (!(key === 'priceMin' || key === 'priceMax' || key === 'latitude' || key === 'longitude' || key === 'distance')) {
-                        validFilters[key] = filters[key];
-                    }
-                }
-                // Si c'est un champ numérique et que filters[key] est null, undefined, ou une chaîne non numérique, il ne sera pas ajouté.
-                // Cela empêche priceMin=null d'être envoyé.
-            } else if (filters[key] !== null && filters[key] !== undefined && String(filters[key]).trim() !== '') {
-                // Pour les autres types de filtres (chaînes comme keywords, category, sortBy)
-                validFilters[key] = String(filters[key]).trim();
+        const params = new URLSearchParams();
+        Object.keys(filters).forEach(key => {
+            const val = filters[key];
+            if (val !== null && val !== undefined && String(val).trim() !== '') {
+                params.append(key, val);
             }
-        }
+        });
 
-        // Assurer que les filtres par défaut qui sont toujours présents (ex: distance, sortBy)
-        // le sont même s'ils ne sont pas dans validFilters (s'ils ont des valeurs par défaut attendues par l'API)
-        // L'URL d'erreur montre distance=25 et sortBy=createdAt_desc. Si ce sont des défauts, l'API devrait les gérer.
-        // Ici, on se concentre sur le fait de ne pas envoyer priceMin=null ou priceMax=null.
-
-        const queryParams = new URLSearchParams(validFilters).toString();
-        const url = queryParams ? `${API_BASE_URL}?${queryParams}` : API_BASE_URL;
-        console.log("Appel de fetchAllAdsAndRenderOnMap avec URL :", url); // Pour débogage
+        const url = params.toString() ? `${API_BASE_URL}?${params.toString()}` : API_BASE_URL;
+        console.log("Appel de fetchAllAdsAndRenderOnMap avec URL :", url);
 
         const response = await secureFetch(url, {}, false);
-        // ... (reste de la fonction) ...
+        toggleGlobalLoader(false);
+
+        if (response && response.success && Array.isArray(response.data?.ads)) {
+            const ads = response.data.ads.map(ad => {
+                if (ad.location && Array.isArray(ad.location.coordinates)) {
+                    ad.latitude = ad.location.coordinates[1];
+                    ad.longitude = ad.location.coordinates[0];
+                }
+                return ad;
+            });
+            state.setAds(ads);
+        } else {
+            state.setAds([]);
+            showToast(response?.message || "Aucune annonce trouvée.", "info");
+        }
     } catch (error) {
         toggleGlobalLoader(false);
         state.setAds([]);
-        document.dispatchEvent(new CustomEvent('mapMarket:renderAdMarkers', { detail: { ads: [] } }));
-        console.error("Erreur lors de la récupération des annonces pour la carte:", error.message, error.response ? await error.response.text() : 'Pas de corps de réponse');
+        console.error("Erreur lors de la récupération des annonces pour la carte:", error.message);
         showToast(error.message || "Erreur de chargement des annonces.", "error");
     }
 }
