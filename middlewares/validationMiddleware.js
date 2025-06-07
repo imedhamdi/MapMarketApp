@@ -86,18 +86,51 @@ const resetPasswordSchema = Joi.object({
 });
 
 // Schémas pour les annonces
+// Schémas pour les annonces
 const createAdSchema = Joi.object({
-    title: Joi.string().trim().min(5).max(100).required(),
-    description: Joi.string().trim().min(10).max(2000).required(),
-    price: Joi.number().min(0).required(),
-    category: Joi.string().required(),
-    location: Joi.object({
-        coordinates: Joi.array().ordered(
-            Joi.number().min(-180).max(180).required(), // Longitude
-            Joi.number().min(-90).max(90).required()    // Latitude
-        ).length(2).required(),
-        address: Joi.string().trim().optional().allow('')
-    }).required(),
+    title: Joi.string().trim().min(5).max(100).required().messages({
+        'string.base': 'Le titre doit être une chaîne de caractères.',
+        'string.empty': 'Le titre ne peut pas être vide.',
+        'string.min': 'Le titre doit comporter au moins {#limit} caractères.',
+        'string.max': 'Le titre ne doit pas dépasser {#limit} caractères.',
+        'any.required': 'Le titre est requis.',
+    }),
+    description: Joi.string().trim().min(10).max(2000).required().messages({
+        'string.base': 'La description doit être une chaîne de caractères.',
+        'string.empty': 'La description ne peut pas être vide.',
+        'string.min': 'La description doit comporter au moins {#limit} caractères.',
+        'string.max': 'La description ne doit pas dépasser {#limit} caractères.',
+        'any.required': 'La description est requise.',
+    }),
+    price: Joi.number().min(0).required().messages({
+        'number.base': 'Le prix doit être un nombre.',
+        'number.min': 'Le prix doit être positif ou nul.',
+        'any.required': 'Le prix est requis.',
+    }),
+    category: Joi.string().required().messages({ // Assurez-vous que la valeur envoyée est l'ID de la catégorie
+        'string.base': 'La catégorie doit être une chaîne de caractères.',
+        'string.empty': 'La catégorie ne peut pas être vide.',
+        'any.required': 'La catégorie est requise.',
+    }),
+    // Champs de localisation plats attendus par le contrôleur
+    latitude: Joi.number().min(-90).max(90).required().messages({
+        'number.base': 'La latitude doit être un nombre.',
+        'number.min': 'La latitude doit être d\'au moins -90.',
+        'number.max': 'La latitude ne doit pas dépasser 90.',
+        'any.required': 'La latitude est requise pour la localisation.',
+    }),
+    longitude: Joi.number().min(-180).max(180).required().messages({
+        'number.base': 'La longitude doit être un nombre.',
+        'number.min': 'La longitude doit être d\'au moins -180.',
+        'number.max': 'La longitude ne doit pas dépasser 180.',
+        'any.required': 'La longitude est requise pour la localisation.',
+    }),
+    locationAddress: Joi.string().trim().optional().allow('').max(255).messages({ // L'adresse est optionnelle, mais si fournie, elle a une limite
+        'string.max': 'L\'adresse ne doit pas dépasser {#limit} caractères.',
+    }),
+    // `imageUrls` n'est pas directement dans req.body pour Joi lors de l'upload initial avec Multer.
+    // Multer place les fichiers dans `req.files`. La validation du nombre/type/taille des images
+    // est déjà gérée par `uploadMiddleware.js`.
 });
 
 const updateAdSchema = Joi.object({
@@ -105,16 +138,28 @@ const updateAdSchema = Joi.object({
     description: Joi.string().trim().min(10).max(2000).optional(),
     price: Joi.number().min(0).optional(),
     category: Joi.string().optional(),
-    location: Joi.object({
-        coordinates: Joi.array().ordered(
-            Joi.number().min(-180).max(180).required(),
-            Joi.number().min(-90).max(90).required()
-        ).length(2).optional(), // Coordonnées optionnelles, mais si fournies, les deux sont requises
-        address: Joi.string().trim().optional().allow('')
-    }).optional(),
+    // Champs de localisation plats optionnels pour la mise à jour
+    latitude: Joi.number().min(-90).max(90).optional(),
+    longitude: Joi.number().min(-180).max(180).optional(),
+    locationAddress: Joi.string().trim().optional().allow('').max(255),
     status: Joi.string().valid('online', 'pending_review', 'archived', 'sold', 'draft').optional(),
-    existingImageUrls: Joi.string().optional().allow(''), // Stringified array of URLs
-}).min(1); // Au moins un champ doit être fourni pour une mise à jour
+    existingImageUrls: Joi.string().optional().allow(''), // Pour gérer les images existantes à conserver
+}).min(1).messages({ // Au moins un champ doit être fourni pour une mise à jour
+    'object.min': 'Au moins un champ doit être fourni pour la mise à jour.',
+})
+.when(Joi.object({ latitude: Joi.exist(), longitude: Joi.exist() }).unknown(), { // Si latitude ET longitude sont fournies
+    then: Joi.object({
+        latitude: Joi.required(), // Les rendre requises ensemble
+        longitude: Joi.required()
+    })
+})
+.when(Joi.object({ latitude: Joi.exist() }).unknown(), { // Si latitude est fournie mais pas longitude
+    then: Joi.object({ longitude: Joi.required().messages({ 'any.required': 'La longitude est requise si la latitude est fournie.' }) })
+})
+.when(Joi.object({ longitude: Joi.exist() }).unknown(), { // Si longitude est fournie mais pas latitude
+    then: Joi.object({ latitude: Joi.required().messages({ 'any.required': 'La latitude est requise si la longitude est fournie.' }) })
+});
+
 
 // Schéma pour l'envoi de message texte
 const createMessageSchema = Joi.object({

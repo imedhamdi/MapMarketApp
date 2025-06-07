@@ -265,7 +265,7 @@ function populateAlertFormCategories() {
         categories.forEach(cat => {
             const option = document.createElement('option');
             option.value = cat.id;
-            option.textContent = sanitizeHTML(cat.name);
+            option.textContent = cat.name;
             alertCategoryFieldAlert.appendChild(option);
         });
         alertCategoryFieldAlert.value = currentValue;
