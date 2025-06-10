@@ -1005,24 +1005,21 @@ function goToAdDetailSlide(index, totalSlides) {
 
 
 /**
- * Récupère toutes les annonces et les affiche sur la carte.
+ * CORRIGÉ : Récupère toutes les annonces SANS FILTRE et les affiche sur la carte.
  * Cette fonction est appelée à l'initialisation et après des actions CRUD.
  */
 export async function fetchAllAdsAndRenderOnMap() {
+    // La correction est ici : nous créons un objet de filtres vide.
+    // Ainsi, aucun paramètre ne sera ajouté à l'URL.
+    const filters = {}; 
+    
+    const params = new URLSearchParams(filters);
+    const url = `${API_BASE_URL}?${params.toString()}`;
+    
+    console.log("Appel de fetchAllAdsAndRenderOnMap avec URL corrigée :", url); // Devrait maintenant afficher /api/ads?
+
     toggleGlobalLoader(true, "Chargement des annonces...");
     try {
-        const filters = state.getFilters ? state.getFilters() : {};
-        const params = new URLSearchParams();
-        Object.keys(filters).forEach(key => {
-            const val = filters[key];
-            if (val !== null && val !== undefined && String(val).trim() !== '') {
-                params.append(key, val);
-            }
-        });
-
-        const url = params.toString() ? `${API_BASE_URL}?${params.toString()}` : API_BASE_URL;
-        console.log("Appel de fetchAllAdsAndRenderOnMap avec URL :", url);
-
         const response = await secureFetch(url, {}, false);
         toggleGlobalLoader(false);
 
@@ -1044,51 +1041,6 @@ export async function fetchAllAdsAndRenderOnMap() {
         state.setAds([]);
         console.error("Erreur lors de la récupération des annonces pour la carte:", error.message);
         showToast(error.message || "Erreur de chargement des annonces.", "error");
-    }
-}
-
-
-
-
-// --- Fonctions pour "Mes Annonces" ---
-
-/**
- * Récupère et affiche les annonces de l'utilisateur connecté dans la modale "Mes Annonces".
- */
-export async function fetchAndRenderUserAds() {
-    const currentUser = state.getCurrentUser();
-    if (!currentUser) {
-        if (noMyAdsPlaceholder) noMyAdsPlaceholder.classList.remove('hidden');
-        if (myAdsLoader) myAdsLoader.classList.add('hidden');
-        const list = myAdsListContainer?.querySelector('#my-ads-list');
-        if (list) list.innerHTML = '';
-        console.warn("fetchAndRenderUserAds: Utilisateur non connecté.");
-        // Optionnel: rediriger vers la connexion si la modale est ouverte par un utilisateur non connecté
-        // document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'my-ads-modal' }}));
-        // document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal', view: 'login' }}));
-        return;
-    }
-
-    if (myAdsLoader) myAdsLoader.classList.remove('hidden');
-    if (noMyAdsPlaceholder) noMyAdsPlaceholder.classList.add('hidden');
-    const listElement = myAdsListContainer?.querySelector('#my-ads-list');
-    if (listElement) listElement.innerHTML = ''; // Vider la liste avant de charger
-
-    try {
-        const response = await secureFetch(`${API_BASE_URL}/my`, {}, false); // Le backend renvoie { success, data: { ads: [...] } }
-        if (myAdsLoader) myAdsLoader.classList.add('hidden');
-
-        if (response && response.success && response.data && Array.isArray(response.data.ads)) {
-            renderMyAdsList(response.data.ads);
-        } else {
-            showToast(response.message || "Impossible de charger vos annonces.", "error");
-            renderMyAdsList([]); // Afficher le placeholder
-        }
-    } catch (error) {
-        if (myAdsLoader) myAdsLoader.classList.add('hidden');
-        console.error("Erreur récupération annonces utilisateur:", error);
-        showToast(error.message || "Une erreur est survenue lors du chargement de vos annonces.", "error");
-        renderMyAdsList([]);
     }
 }
 

@@ -1,0 +1,6 @@
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-label="Image non disponible">
+  <rect width="100" height="100" fill="#E5E7EB" />
+
+  <path d="M88 16H12C8.69 16 6 18.69 6 22V78C6 81.31 8.69 84 12 84H88C91.31 84 94 81.31 94 78V22C94 18.69 91.31 16 88 16ZM34.5 44C31.46 44 29 41.54 29 38.5C29 35.46 31.46 33 34.5 33S40 35.46 40 38.5C40 41.54 37.54 44 34.5 44ZM88 74H12L32 49L44 64L68 34L88 74Z" fill="#9CA3AF" />
+  
+  </svg>
