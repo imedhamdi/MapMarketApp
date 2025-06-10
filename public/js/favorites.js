@@ -5,6 +5,7 @@
  * @description Gestion des annonces favorites de l'utilisateur.
  * Ajout, suppression, persistance en BDD et affichage dynamique.
  * Mise à jour du badge de favoris et des états des boutons.
+ * @version 1.2.0 - Corrigé et fiabilisé
  */
 
 import * as state from './state.js';
@@ -39,11 +40,9 @@ function initFavoritesUI() {
         return;
     }
 
-    // Gérer l'ouverture de la modale des favoris (peut aussi être géré par modals.js)
+    // Gérer l'ouverture de la modale des favoris
     if (navFavoritesBtn) {
         navFavoritesBtn.addEventListener('click', () => {
-            // S'assurer que les favoris sont chargés avant d'ouvrir la modale
-            // loadUserFavorites(); // Fait par le listener currentUserChanged ou à l'ouverture
             document.dispatchEvent(new CustomEvent('mapmarket:openModal', {
                 detail: {
                     modalId: 'favorites-modal'
@@ -51,21 +50,20 @@ function initFavoritesUI() {
             }));
         });
     }
+
     document.addEventListener('mapMarket:modalOpened', (event) => {
         if (event.detail.modalId === 'favorites-modal') {
-            // Charger ou rafraîchir les favoris lors de l'ouverture de la modale
             const currentUser = state.getCurrentUser();
             if (currentUser) {
                 loadUserFavorites();
             } else {
-                displayNoFavorites(); // Afficher l'état vide si pas connecté
-                updateFavoritesBadge(0); // S'assurer que le badge est à zéro
+                displayNoFavorites();
+                updateFavoritesBadge(0);
             }
         }
     });
 
-
-    // Écouteur pour l'événement de bascule de favori (dispatché par ads.js ou map.js)
+    // Écouteur pour l'événement de bascule de favori
     document.addEventListener('mapMarket:toggleFavorite', handleToggleFavoriteEvent);
 
     // Mettre à jour les favoris lorsque l'utilisateur change
@@ -74,228 +72,153 @@ function initFavoritesUI() {
             loadUserFavorites();
         } else {
             clearFavoritesDisplay();
-            updateFavoritesState([]); // Vider l'état des favoris
+            updateFavoritesState([]);
         }
     });
 
-    // Mettre à jour l'affichage lorsque l'état des favoris change
+    // Mettre à jour le badge lorsque l'état des favoris change
     state.subscribe('favoritesChanged', (favoriteIds) => {
         updateFavoritesBadge(favoriteIds.length);
-        // Si la modale des favoris est ouverte, la rafraîchir
-        if (favoritesModal && favoritesModal.getAttribute('aria-hidden') === 'false') {
-            renderFavoritesList(favoriteIds);
-        }
-        // Mettre à jour l'état des boutons favoris sur la page (ex: dans ad-detail-modal)
         updateFavoriteButtonsState(favoriteIds);
     });
 }
 
 /**
  * Charge les favoris de l'utilisateur connecté depuis le backend.
+ * C'est ici que se trouvait l'erreur principale.
  */
 async function loadUserFavorites() {
     const currentUser = state.getCurrentUser();
     if (!currentUser) {
-        updateFavoritesState([]); // Assure que l'état est vide si pas d'utilisateur
+        updateFavoritesState([]);
         return;
     }
 
     try {
-        // On ne montre pas de loader global pour cette action en arrière-plan
-        // sauf si c'est une action explicite de l'utilisateur.
-        const favoriteAds = await secureFetch(API_BASE_URL, {}, false);
-        if (favoriteAds && Array.isArray(favoriteAds)) {
-            // L'API retourne généralement la liste complète des objets annonces favoris.
-            // On stocke uniquement les IDs dans l'état `state.favorites` pour la simplicité
-            // et pour vérifier rapidement si une annonce est en favori.
-            // Les détails complets sont affichés dans la modale des favoris.
-            const favoriteIds = favoriteAds.map(ad => ad.id);
-            updateFavoritesState(favoriteIds, favoriteAds); // Passer aussi les données complètes pour le rendu
+        const response = await secureFetch(API_BASE_URL, {}, false);
+
+        // **CORRECTION :** On vérifie la structure de la réponse de l'API.
+        // La liste des favoris est dans `response.data.favorites`.
+        if (response && response.success && Array.isArray(response.data.favorites)) {
+            const favoriteAdsData = response.data.favorites;
+            const favoriteIds = favoriteAdsData.map(ad => ad._id); // Utiliser _id pour la cohérence
+            updateFavoritesState(favoriteIds, favoriteAdsData);
         } else {
+            // Si la réponse est invalide ou vide, on initialise un état vide.
             updateFavoritesState([]);
         }
     } catch (error) {
         console.error("Erreur lors du chargement des favoris:", error);
-        // Ne pas afficher de toast pour une erreur de chargement en arrière-plan,
-        // sauf si c'est une action initiée par l'utilisateur.
-        updateFavoritesState([]);
+        updateFavoritesState([]); // Vider en cas d'erreur réseau
     }
 }
 
 /**
- * Gère l'événement de bascule d'un favori.
+ * Gère l'événement de bascule d'un favori (ajout/suppression).
  * @param {CustomEvent} event - L'événement contenant adId et setFavorite (boolean).
  */
 async function handleToggleFavoriteEvent(event) {
-    const {
-        adId,
-        setFavorite,
-        sourceButton
-    } = event.detail;
+    const { adId, setFavorite, sourceButton } = event.detail;
     if (!adId) return;
 
     const currentUser = state.getCurrentUser();
     if (!currentUser) {
         showToast("Veuillez vous connecter pour gérer vos favoris.", "warning");
-        document.dispatchEvent(new CustomEvent('mapmarket:openModal', {
-            detail: {
-                modalId: 'auth-modal'
-            }
-        }));
+        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' } }));
         return;
     }
 
     const previousFavorites = state.get('favorites') || [];
     let optimisticFavorites;
+
     if (setFavorite) {
         optimisticFavorites = previousFavorites.includes(adId) ? previousFavorites : [...previousFavorites, adId];
     } else {
         optimisticFavorites = previousFavorites.filter(id => id !== adId);
     }
 
-    updateFavoritesState(optimisticFavorites);
+    // Mise à jour optimiste de l'UI
+    state.set('favorites', optimisticFavorites); // Utiliser state.set pour notifier les autres composants (badge, etc.)
     if (sourceButton) animateFavoriteButton(sourceButton, setFavorite);
 
+    // Appel API et restauration de l'état en cas d'échec
     const success = setFavorite ? await addFavorite(adId) : await removeFavorite(adId);
     if (!success) {
-        updateFavoritesState(previousFavorites);
+        showToast("L'opération a échoué, restauration de l'état précédent.", "error");
+        state.set('favorites', previousFavorites);
         if (sourceButton) animateFavoriteButton(sourceButton, !setFavorite);
     }
 }
 
 /**
- * Ajoute une annonce aux favoris.
+ * Ajoute une annonce aux favoris via l'API.
  * @param {string} adId - L'ID de l'annonce à ajouter.
- * @param {HTMLElement} [sourceButton=null] - Le bouton qui a déclenché l'action (pour feedback visuel).
+ * @returns {Promise<boolean>} - True si l'opération a réussi, false sinon.
  */
-async function addFavorite(adId, sourceButton = null) {
+async function addFavorite(adId) {
     try {
-        toggleGlobalLoader(true, "Ajout aux favoris...");
         const response = await secureFetch(API_BASE_URL, {
             method: 'POST',
             body: { adId }
         }, false);
-        toggleGlobalLoader(false);
 
         if (response && response.success) {
             showToast("Annonce ajoutée aux favoris !", "success");
-            const currentFavorites = state.get('favorites') || [];
-            if (!currentFavorites.includes(adId)) updateFavoritesState([...currentFavorites, adId]);
-            if (sourceButton) animateFavoriteButton(sourceButton, true);
+            // Recharger les favoris pour être sûr d'avoir les données à jour
+            loadUserFavorites();
             return true;
-        } else {
-            showToast(response.message || "Erreur lors de l'ajout aux favoris.", "error");
-            return false;
         }
+        return false;
     } catch (error) {
-        toggleGlobalLoader(false);
         console.error("Erreur d'ajout aux favoris:", error);
-        showToast(error.message || "Erreur lors de l'ajout aux favoris.", "error");
         return false;
     }
 }
 
 /**
- * Supprime une annonce des favoris.
+ * Supprime une annonce des favoris via l'API.
  * @param {string} adId - L'ID de l'annonce à supprimer.
- * @param {HTMLElement} [sourceButton=null] - Le bouton qui a déclenché l'action.
+ * @returns {Promise<boolean>} - True si l'opération a réussi, false sinon.
  */
-async function removeFavorite(adId, sourceButton = null) {
+async function removeFavorite(adId) {
     try {
-        toggleGlobalLoader(true, "Suppression des favoris...");
         const response = await secureFetch(`${API_BASE_URL}/${adId}`, {
             method: 'DELETE'
         }, false);
-        toggleGlobalLoader(false);
 
         if (response && response.success) {
             showToast("Annonce retirée des favoris.", "info");
-            const currentFavorites = state.get('favorites') || [];
-            updateFavoritesState(currentFavorites.filter(id => id !== adId));
-            if (sourceButton) animateFavoriteButton(sourceButton, false);
-
-            if (favoritesModal && favoritesModal.getAttribute('aria-hidden') === 'false') {
-                const itemToRemove = favoritesListContainer.querySelector(`.favorite-item[data-ad-id="${adId}"]`);
-                if (itemToRemove) {
-                    itemToRemove.remove();
-                    const remainingItems = favoritesListContainer.querySelectorAll('.favorite-item');
-                    if (remainingItems.length === 0) {
-                        displayNoFavorites();
-                    }
-                }
-            }
+            // Le changement d'état a déjà été fait de manière optimiste.
+            // On peut recharger pour confirmer la synchronisation.
+            loadUserFavorites();
             return true;
-        } else {
-            showToast(response.message || "Erreur lors de la suppression des favoris.", "error");
-            return false;
         }
+        return false;
     } catch (error) {
-        toggleGlobalLoader(false);
         console.error("Erreur de suppression des favoris:", error);
-        showToast(error.message || "Erreur lors de la suppression des favoris.", "error");
         return false;
     }
 }
 
 /**
- * Met à jour l'état local des favoris et notifie les listeners.
+ * Met à jour l'état local des favoris et affiche la liste si la modale est ouverte.
  * @param {Array<string>} favoriteIds - Tableau des IDs d'annonces favorites.
- * @param {Array<Object>} [fullFavoriteAdsData=null] - Optionnel, données complètes des annonces favorites pour le rendu.
+ * @param {Array<Object>} [fullFavoriteAdsData=null] - Données complètes pour le rendu.
  */
 function updateFavoritesState(favoriteIds, fullFavoriteAdsData = null) {
-    state.set('favorites', favoriteIds); // Déclenche 'favoritesChanged'
-    // Si la modale est ouverte, on la met à jour directement avec les données complètes si fournies
+    state.set('favorites', favoriteIds);
     if (fullFavoriteAdsData && favoritesModal && favoritesModal.getAttribute('aria-hidden') === 'false') {
         renderFavoritesListWithData(fullFavoriteAdsData);
     }
 }
 
-
-/**
- * Affiche la liste des annonces favorites dans la modale.
- * Cette fonction est appelée lorsque l'état 'favoritesChanged' est notifié
- * et que la modale est ouverte. Elle a besoin des données complètes des annonces.
- * @param {Array<string>} favoriteAdIds - Tableau des IDs d'annonces favorites.
- */
-async function renderFavoritesList(favoriteAdIds) {
-    if (!favoritesListContainer || !favoriteItemTemplate) return;
-
-    if (!favoriteAdIds || favoriteAdIds.length === 0) {
-        displayNoFavorites();
-        return;
-    }
-
-    // Pour afficher les détails, nous avons besoin des données complètes des annonces.
-    // Si `loadUserFavorites` a été appelé, il aurait pu stocker ces données temporairement
-    // ou nous devons les récupérer ici. Pour cet exemple, on suppose qu'on a besoin de les fetcher
-    // si on n'a que les IDs. C'est moins optimal que de les avoir déjà.
-    // Une meilleure approche serait que `state.favorites` contienne les objets Ad complets
-    // ou que `loadUserFavorites` mette à jour une liste séparée dans ce module.
-
-    // Pour l'instant, on va simuler la récupération des détails si on n'a que les IDs.
-    // Idéalement, `loadUserFavorites` devrait déjà fournir les données complètes à `updateFavoritesState`
-    // qui les passerait à `renderFavoritesListWithData`.
-
-    // On va donc modifier pour que `loadUserFavorites` appelle `renderFavoritesListWithData`
-    // et que `state.subscribe('favoritesChanged')` appelle `loadUserFavorites` si la modale est ouverte.
-    // C'est un peu circulaire. Simplifions:
-    // `loadUserFavorites` charge les IDs ET les données, met à jour l'état des IDs,
-    // et si la modale est ouverte, appelle `renderFavoritesListWithData`.
-
-    // Cette fonction sera donc appelée par `loadUserFavorites` avec les données complètes.
-    // Elle est renommée `renderFavoritesListWithData`
-    console.warn("renderFavoritesList (avec IDs seuls) est moins optimal. Utiliser renderFavoritesListWithData.");
-    displayNoFavorites(); // Par défaut, jusqu'à ce que la logique soit affinée.
-}
-
-
 /**
  * Affiche la liste des annonces favorites dans la modale avec les données complètes.
- * @param {Array<Object>} favoriteAdsData - Tableau des objets annonces favorites complets.
+ * @param {Array<Object>} favoriteAdsData - Tableau des objets annonces favorites.
  */
 function renderFavoritesListWithData(favoriteAdsData) {
     if (!favoritesListContainer || !favoriteItemTemplate) return;
-    favoritesListContainer.innerHTML = ''; // Vider la liste
+    favoritesListContainer.innerHTML = '';
 
     if (!favoriteAdsData || favoriteAdsData.length === 0) {
         displayNoFavorites();
@@ -313,40 +236,31 @@ function renderFavoritesListWithData(favoriteAdsData) {
         const img = listItem.querySelector('.item-image');
         const title = listItem.querySelector('.item-title');
         const price = listItem.querySelector('.item-price');
-        const category = listItem.querySelector('.item-category'); // Supposons qu'il y a un .item-category
+        const category = listItem.querySelector('.item-category');
         const removeBtn = listItem.querySelector('.remove-favorite-btn');
 
-        listItem.dataset.adId = ad.id;
+        // **CORRECTION :** Utiliser ad._id pour être cohérent avec la BDD.
+        listItem.dataset.adId = ad._id;
         if (img) {
             img.src = (ad.imageUrls && ad.imageUrls[0]) ? ad.imageUrls[0] : 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
             img.alt = `Image de ${sanitizeHTML(ad.title)}`;
         }
         if (title) title.textContent = sanitizeHTML(ad.title);
-        if (price) price.textContent = ad.price ? formatPrice(ad.price, state.getLanguage() === 'fr' ? 'EUR' : 'USD', state.getLanguage()) : 'N/A';
-
+        if (price) price.textContent = ad.price != null ? formatPrice(ad.price) : 'N/A';
         const categoryObj = state.getCategories().find(c => c.id === ad.category);
         if (category) category.textContent = categoryObj ? sanitizeHTML(categoryObj.name) : sanitizeHTML(ad.category);
 
-
         if (removeBtn) {
             removeBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); // Éviter de déclencher un clic sur l'item lui-même
-                removeFavorite(ad.id, removeBtn);
+                e.stopPropagation();
+                // **CORRECTION :** Utiliser ad._id ici aussi.
+                handleToggleFavoriteEvent({ detail: { adId: ad._id, setFavorite: false, sourceButton: removeBtn }});
             });
         }
 
-        // Ouvrir les détails de l'annonce au clic sur l'item
         listItem.addEventListener('click', () => {
-            document.dispatchEvent(new CustomEvent('mapmarket:closeModal', {
-                detail: {
-                    modalId: 'favorites-modal'
-                }
-            }));
-            document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', {
-                detail: {
-                    adId: ad.id
-                }
-            }));
+            document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'favorites-modal' } }));
+            document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: ad._id } }));
         });
 
         ul.appendChild(listItem);
@@ -354,12 +268,11 @@ function renderFavoritesListWithData(favoriteAdsData) {
     favoritesListContainer.appendChild(ul);
 }
 
-
 /**
  * Affiche le message "aucun favori".
  */
 function displayNoFavorites() {
-    if (favoritesListContainer) favoritesListContainer.innerHTML = ''; // Vider la liste
+    if (favoritesListContainer) favoritesListContainer.innerHTML = '';
     if (noFavoritesPlaceholder) noFavoritesPlaceholder.classList.remove('hidden');
 }
 
@@ -367,11 +280,9 @@ function displayNoFavorites() {
  * Efface l'affichage des favoris (utilisé lors de la déconnexion).
  */
 function clearFavoritesDisplay() {
-    if (favoritesListContainer) favoritesListContainer.innerHTML = '';
-    if (noFavoritesPlaceholder) noFavoritesPlaceholder.classList.add('hidden'); // Cacher le placeholder aussi
+    displayNoFavorites();
     updateFavoritesBadge(0);
 }
-
 
 /**
  * Met à jour le badge de notification des favoris.
@@ -395,7 +306,7 @@ function updateFavoriteButtonsState(favoriteAdIds) {
         const adId = button.dataset.adId || button.closest('[data-ad-id]')?.dataset.adId;
         if (adId) {
             const isFavorite = favoriteAdIds.includes(adId);
-            button.classList.toggle('active', isFavorite); // 'active' pour le style du bouton plein
+            button.classList.toggle('active', isFavorite);
             button.setAttribute('aria-pressed', isFavorite.toString());
             const icon = button.querySelector('i');
             if (icon) {
@@ -413,29 +324,17 @@ function updateFavoriteButtonsState(favoriteAdIds) {
 function animateFavoriteButton(button, isAdding) {
     if (button) {
         button.classList.add('favorite-animation');
-        // Changer l'icône immédiatement
-        const icon = button.querySelector('i');
-        if (icon) {
-            icon.className = isAdding ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
-        }
         button.setAttribute('aria-pressed', isAdding.toString());
-
         setTimeout(() => {
             button.classList.remove('favorite-animation');
-        }, 500); // Durée de l'animation CSS
+        }, 500);
     }
 }
-
 
 /**
  * Initialise le module des favoris.
  */
 export function init() {
     initFavoritesUI();
-    // Charger les favoris initiaux si l'utilisateur est déjà connecté
-    // (géré par le listener currentUserChanged)
     console.log('Module Favorites initialisé.');
 }
-
-// L'initialisation sera appelée depuis main.js
-// init();

@@ -220,19 +220,32 @@ function populateProfileFields(userData) {
     if (profileEmailField) profileEmailField.value = sanitizeHTML(userData.email || '');
 
     // Gestion de l'affichage de l'avatar
-    if (profileAvatarImg && profileAvatarDefaultIcon && profileAvatarContainer) {
+    if (profileAvatarImg && profileAvatarContainer) {
+        // CORRECTION : Logique simplifiée et corrigée
         if (userData.avatarUrl && !userData.avatarUrl.endsWith('avatar-default.svg')) {
-            console.log('Valeur de userData.avatarUrl reçue du serveur:', userData.avatarUrl);
-            console.log('Chemin final tenté pour profileAvatarImg.src:', avatarSrcToDisplay);
+            // Un avatar personnalisé existe
             profileAvatarImg.src = userData.avatarUrl;
             profileAvatarImg.alt = `Avatar de ${sanitizeHTML(userData.name || 'utilisateur')}`;
-            profileAvatarImg.classList.remove('hidden');
-            profileAvatarDefaultIcon.classList.add('hidden');
+            profileAvatarImg.classList.remove('hidden'); // Assure que l'image est visible
+
+            // L'élément profileAvatarDefaultIcon n'existe pas, donc on ne le manipule pas.
+            // La visibilité de l'icône par défaut doit être gérée par le conteneur si nécessaire,
+            // ou en s'assurant que l'image couvre bien l'icône.
+            if (profileAvatarDefaultIcon) {
+                profileAvatarDefaultIcon.classList.add('hidden');
+            }
+
             if (removeAvatarBtn) removeAvatarBtn.classList.remove('hidden');
         } else {
-            profileAvatarImg.classList.add('hidden');
-            profileAvatarDefaultIcon.classList.remove('hidden');
-            // S'assurer que l'alt est pertinent même pour l'icône par défaut si l'image est cachée
+            // Pas d'avatar personnalisé, afficher l'état par défaut
+            profileAvatarImg.classList.add('hidden'); // Cacher l'élément img
+            
+            // Si vous avez une icône par défaut (ce qui semble être le cas via CSS ou une autre méthode)
+            // cette logique assure que l'image ne la couvre pas.
+            if (profileAvatarDefaultIcon) {
+                profileAvatarDefaultIcon.classList.remove('hidden');
+            }
+            
             profileAvatarContainer.setAttribute('aria-label', `Avatar par défaut pour ${sanitizeHTML(userData.name || 'utilisateur')}. Cliquez pour changer.`);
             if (removeAvatarBtn) removeAvatarBtn.classList.add('hidden');
         }
@@ -248,7 +261,6 @@ function populateProfileFields(userData) {
     if (profileNewPasswordField) profileNewPasswordField.value = '';
     if (profileConfirmPasswordField) profileConfirmPasswordField.value = '';
 }
-
 
 /**
  * Gère la prévisualisation de l'avatar et son téléversement immédiat si en mode édition.
