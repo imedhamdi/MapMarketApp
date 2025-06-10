@@ -2586,3 +2586,114 @@ body.dark-mode select.form-control {
     75% { transform: scale(1.2); }
     100% { transform: scale(1); }
 }
+
+/* ============================================= */
+/* ==      MAP MARKERS & CLUSTERS             == */
+/* ============================================= */
+
+/* Style de base pour tous les clusters */
+.marker-cluster {
+    background-clip: padding-box;
+    border-radius: 50%;
+    transition: all 0.2s ease-in-out;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.marker-cluster:hover {
+    transform: scale(1.1);
+}
+
+.marker-cluster div {
+    width: 100%;
+    height: 100%;
+    margin-left: 0; /* Réinitialiser le style de la lib */
+    margin-top: 0; /* Réinitialiser le style de la lib */
+    text-align: center;
+    border-radius: 50%;
+    font-weight: bold;
+    color: var(--light-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.marker-cluster span {
+    line-height: 1; /* Assurer un centrage parfait du texte */
+}
+
+/* Clusters de petite taille (moins de 10 annonces) */
+.marker-cluster-small {
+    background-color: rgba(var(--primary-color-rgb), 0.6);
+}
+.marker-cluster-small div {
+    background-color: rgba(var(--primary-color-rgb), 0.8);
+    box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.4);
+}
+
+/* Clusters de taille moyenne (moins de 100 annonces) */
+.marker-cluster-medium {
+    background-color: rgba(var(--accent-color-rgb), 0.6); /* Utilise la couleur accent pour différencier */
+}
+.marker-cluster-medium div {
+    background-color: rgba(var(--accent-color-rgb), 0.8);
+    box-shadow: 0 0 0 3px rgba(var(--accent-color-rgb), 0.4);
+}
+
+/* Clusters de grande taille (100+ annonces) */
+.marker-cluster-large {
+    background-color: rgba(var(--danger-color-rgb), 0.6); /* Utilise la couleur danger pour les zones très denses */
+}
+.marker-cluster-large div {
+    background-color: rgba(var(--danger-color-rgb), 0.8);
+    box-shadow: 0 0 0 3px rgba(var(--danger-color-rgb), 0.4);
+}
+/* Style pour les marqueurs d'annonces individuels */
+.custom-leaflet-div-icon {
+    background: transparent;
+    border: none;
+}
+
+.map-marker-custom {
+    position: relative;
+    width: 32px;
+    height: 42px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.2s ease-out;
+}
+
+.map-marker-custom:hover {
+    transform: translateY(-5px); /* Effet de "soulèvement" au survol */
+}
+
+/* Création de la forme de l'épingle */
+.map-marker-custom::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    background-color: var(--marker-color, var(--primary-color));
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), 0 0 1px rgba(0,0,0,0.3);
+    border: 1px solid rgba(255, 255, 255, 0.5); /* Bordure claire pour la définition */
+}
+
+/* L'icône FontAwesome à l'intérieur de l'épingle */
+.map-marker-custom i {
+    position: relative;
+    z-index: 1;
+    color: var(--light-color);
+    font-size: 16px;
+    transform: translateY(-2px); /* Ajustement fin pour centrer l'icône */
+}
+
+/* Style spécifique pour les alertes (si vous voulez les différencier) */
+.map-marker-alert::before {
+    background-color: var(--accent-color);
+}

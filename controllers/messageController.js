@@ -1,5 +1,6 @@
 // controllers/messageController.js
 const Thread = require('../models/threadModel');
+const mongoose = require('mongoose'); 
 const Message = require('../models/messageModel');
 const User = require('../models/userModel');
 const Ad = require('../models/adModel');
@@ -24,7 +25,7 @@ exports.initializeSocketIO = (io) => {
 
 
 const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
+    Promise.resolve(fn(req, res, next)).catch(next);
 };
 
 // Helper pour construire les URLs complètes des images
@@ -66,7 +67,7 @@ exports.initiateOrGetThread = asyncHandler(async (req, res, next) => {
     if (recipient.blockedUsers && recipient.blockedUsers.includes(initiatorId)) {
         return next(new AppError('Cet utilisateur vous a bloqué. Vous ne pouvez pas démarrer de discussion.', 403));
     }
-    
+
     let ad = null;
     if (adId) {
         ad = await Ad.findById(adId);
@@ -85,7 +86,7 @@ exports.initiateOrGetThread = asyncHandler(async (req, res, next) => {
     thread.participants.forEach(p => {
         p.locallyDeletedAt = undefined;
     });
-    await thread.save({validateBeforeSave: false});
+    await thread.save({ validateBeforeSave: false });
 
 
     res.status(200).json({ // 200 si trouvé, 201 si créé (findOrCreate gère cela)
@@ -104,52 +105,81 @@ exports.initiateOrGetThread = asyncHandler(async (req, res, next) => {
  * Query: page, limit, sort
  */
 exports.getMyThreads = asyncHandler(async (req, res, next) => {
-    const userId = req.user.id;
+    const userId = new mongoose.Types.ObjectId(req.user.id);
 
-    // Filtrer les threads où l'utilisateur n'a pas fait de suppression locale
-    // ou où la suppression locale est antérieure au dernier message (updatedAt)
-    const threadFilter = {
-        'participants.user': userId,
-        $or: [
-            { 'participants.$.locallyDeletedAt': { $exists: false } },
-            { 
-                $expr: { 
-                    $lt: [ '$participants.$.locallyDeletedAt', '$updatedAt' ] 
-                } 
+    const threads = await Thread.aggregate([
+        // Stage 1: Match threads where the current user is a participant
+        { $match: { 'participants.user': userId } },
+
+        // Stage 2: Sort by the most recently updated
+        { $sort: { updatedAt: -1 } },
+
+        // Stage 3: Add a field to get the current user's participant data
+        {
+            $addFields: {
+                currentUserParticipant: {
+                    $arrayElemAt: [
+                        { $filter: { input: '$participants', as: 'p', cond: { $eq: ['$$p.user', userId] } } },
+                        0
+                    ]
+                }
             }
-        ]
-    };
-    // La requête ci-dessus avec $expr et $ est complexe pour un filtre direct sur un champ de tableau.
-    // Une approche plus simple est de filtrer après récupération ou d'utiliser une agrégation.
-    // Pour l'instant, on récupère tous les threads où l'utilisateur est participant,
-    // et le client peut filtrer ceux marqués comme "supprimés localement" si updatedAt n'est pas plus récent.
-    // Ou, mieux, on ajuste la requête:
-    const userThreads = await Thread.find({
-        'participants.user': userId,
-        // On veut les threads où pour CET utilisateur, soit locallyDeletedAt n'existe pas,
-        // soit locallyDeletedAt est plus ancien que le dernier message (updatedAt du thread)
-    }).populate('participants.user', 'name avatarUrl isOnline lastSeen') // Populer les infos des participants
-      .populate('ad', 'title imageUrls') // Populer les infos de l'annonce si liée
-      .sort({ updatedAt: -1 }); // Trier par le plus récent message
+        },
 
-    // Filtrer manuellement les threads supprimés localement par l'utilisateur
-    const filteredThreads = userThreads.filter(thread => {
-        const participantData = thread.participants.find(p => p.user._id.toString() === userId);
-        if (!participantData) return false; // Ne devrait pas arriver
-        return !participantData.locallyDeletedAt || (participantData.locallyDeletedAt < thread.updatedAt);
-    });
-    
-    // TODO: Appliquer la pagination sur filteredThreads si nécessaire après le filtrage manuel.
-    // Pour l'instant, on renvoie tous les threads non supprimés localement.
+        // Stage 4: Filter out threads that the user has locally deleted and that have no new messages
+        {
+            $match: {
+                $or: [
+                    { 'currentUserParticipant.locallyDeletedAt': { $exists: false } },
+                    { $expr: { $gt: ['$updatedAt', '$currentUserParticipant.locallyDeletedAt'] } }
+                ]
+            }
+        },
+
+        // Stage 5: Populate participant and ad details
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'participants.user',
+                foreignField: '_id',
+                as: 'participantDetails',
+                pipeline: [{ $project: { name: 1, avatarUrl: 1, isOnline: 1, lastSeen: 1 } }]
+            }
+        },
+        {
+            $lookup: {
+                from: 'ads',
+                localField: 'ad',
+                foreignField: '_id',
+                as: 'adDetails',
+                pipeline: [{ $project: { title: 1, imageUrls: 1 } }]
+            }
+        },
+
+        // Stage 6: Reshape the final output
+        {
+            $project: {
+                _id: 1,
+                participants: '$participantDetails', // Replace with populated details
+                ad: { $arrayElemAt: ['$adDetails', 0] },
+                lastMessage: 1,
+                createdAt: 1,
+                updatedAt: 1,
+                // You might need to map unread counts correctly if they are needed here
+            }
+        }
+    ]);
 
     res.status(200).json({
         success: true,
-        results: filteredThreads.length,
+        results: threads.length,
         data: {
-            threads: filteredThreads
+            threads: threads
         }
     });
 });
+
+
 
 
 /**
@@ -216,7 +246,7 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
     if (!text && !req.file) { // req.file vient de Multer pour les images
         return next(new AppError('Un message ne peut pas être vide (texte ou image requis).', 400));
     }
-    
+
     // Vérifier le blocage avant d'envoyer
     let finalRecipientId = recipientId;
     if (currentThreadId) {
@@ -268,8 +298,8 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
     // Mettre à jour le thread (lastMessage, unreadCounts) - le hook post-save de Message le fait déjà.
     // Mais on a besoin des infos du thread mis à jour pour Socket.IO.
     const updatedThread = await Thread.findById(currentThreadId)
-                                .populate('participants.user', 'name avatarUrl isOnline lastSeen')
-                                .populate('ad', 'title');
+        .populate('participants.user', 'name avatarUrl isOnline lastSeen')
+        .populate('ad', 'title');
 
     // Émission Socket.IO
     if (ioInstance && updatedThread) {
@@ -282,11 +312,11 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
             });
             // Si c'est un nouveau thread pour ce participant (ou réactivé)
             if (isNewThread || (participant.locallyDeletedAt && participant.locallyDeletedAt < updatedThread.updatedAt)) {
-                 ioInstance.of('/chat').to(userSocketRoom).emit('newThread', updatedThread.toObject());
+                ioInstance.of('/chat').to(userSocketRoom).emit('newThread', updatedThread.toObject());
             }
         });
     }
-    
+
     // Optionnel : Notification par email (simulée)
     // const recipient = updatedThread.participants.find(p => p.user._id.toString() !== senderId).user;
     // const sender = await User.findById(senderId);
@@ -335,7 +365,7 @@ exports.markThreadAsRead = asyncHandler(async (req, res, next) => {
         { threadId, senderId: { $ne: userId }, isRead: { $ne: true } }, // Marquer les messages reçus non lus
         { $set: { status: 'read' } } // Ou un champ `readBy: [{userId, readAt}]` pour plus de détails
     );
-    
+
     // Émettre un événement Socket.IO pour informer les autres clients de la mise à jour du statut "lu"
     if (ioInstance) {
         // Informer l'expéditeur des messages que ses messages ont été lus par ce userId
@@ -411,7 +441,7 @@ exports.reportMessage = asyncHandler(async (req, res, next) => {
 
     logger.info(`Message ${messageId} signalé par l'utilisateur ${reporterId}. Raison: ${reason || 'Non spécifiée'}`);
     // TODO: Créer une entrée dans une collection 'Reports'
-     Report.create({ messageId, reportedBy: reporterId, reason, threadId: message.threadId, content: message.text });
+    Report.create({ messageId, reportedBy: reporterId, reason, threadId: message.threadId, content: message.text });
 
     res.status(200).json({
         success: true,
