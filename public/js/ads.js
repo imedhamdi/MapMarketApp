@@ -872,7 +872,7 @@ async function loadAndDisplayAdDetails(adId) {
 
             const currentUser = state.getCurrentUser();
             if (adDetailFavoriteBtn) {
-                const userFavorites = state.getFavorites ? state.getFavorites() : [];
+                const userFavorites = state.get('favorites') || [];
                 const isFavorite = userFavorites.some(favAd => favAd === ad._id || favAd._id === ad._id);
                 adDetailFavoriteBtn.classList.toggle('active', isFavorite);
                 adDetailFavoriteBtn.setAttribute('aria-pressed', isFavorite.toString());
@@ -1045,6 +1045,39 @@ export async function fetchAllAdsAndRenderOnMap() {
 }
 
 /**
+ * Récupère les annonces de l'utilisateur connecté et les affiche dans la modale
+ * "Mes Annonces".
+ */
+async function fetchAndRenderUserAds() {
+    if (!myAdsListContainer || !myAdsLoader || !noMyAdsPlaceholder) {
+        console.warn('fetchAndRenderUserAds: éléments DOM manquants.');
+        return;
+    }
+
+    const url = `${API_BASE_URL}/my`;
+
+    myAdsLoader.classList.remove('hidden');
+    noMyAdsPlaceholder.classList.add('hidden');
+
+    try {
+        const response = await secureFetch(url, {}, false);
+        myAdsLoader.classList.add('hidden');
+
+        if (response && response.success && Array.isArray(response.data?.ads)) {
+            renderMyAdsList(response.data.ads);
+        } else {
+            renderMyAdsList([]);
+            showToast(response?.message || "Aucune annonce trouvée.", 'info');
+        }
+    } catch (error) {
+        myAdsLoader.classList.add('hidden');
+        renderMyAdsList([]);
+        console.error('Erreur lors de la récupération des annonces utilisateur:', error);
+        showToast(error.message || "Erreur de chargement des annonces utilisateur.", 'error');
+    }
+}
+
+/**
  * Construit et affiche la liste des annonces de l'utilisateur.
  * @param {object[]} userAdsData - Tableau des annonces de l'utilisateur.
  */
@@ -1203,39 +1236,20 @@ async function handleToggleFavoriteFromDetail(event) {
     if (!adId) return;
     const favoriteButton = event.currentTarget;
     const isCurrentlyFavorite = favoriteButton.classList.contains('active');
-    const action = isCurrentlyFavorite ? 'remove' : 'add';
 
-    toggleGlobalLoader(true, isCurrentlyFavorite ? "Retrait des favoris..." : "Ajout aux favoris...");
-    try {
-        // L'API pour les favoris est /api/favorites/:adId (POST pour ajouter, DELETE pour retirer)
-        const response = await secureFetch(`/api/favorites/${adId}`, {
-            method: action === 'add' ? 'POST' : 'DELETE'
-        }, false);
-        toggleGlobalLoader(false);
+    const newState = !isCurrentlyFavorite;
+    favoriteButton.classList.toggle('active', newState);
+    favoriteButton.setAttribute('aria-pressed', newState.toString());
+    const icon = favoriteButton.querySelector('i');
+    if (icon) icon.className = newState ? 'fa-solid fa-heart text-danger' : 'fa-regular fa-heart';
 
-        if (response && response.success) {
-            showToast(response.message || (action === 'add' ? "Ajouté aux favoris !" : "Retiré des favoris."), "success");
-            // Mettre à jour l'état local des favoris et l'UI du bouton
-            const currentUser = state.getCurrentUser();
-            if (currentUser) {
-                let userFavorites = state.getFavorites ? state.getFavorites() : [];
-                if (action === 'add') {
-                    if (!userFavorites.some(fav => fav === adId || fav._id === adId)) userFavorites.push(adId); // ou l'objet ad si l'état stocke des objets
-                } else {
-                    userFavorites = userFavorites.filter(favId => favId !== adId && favId._id !== adId);
-                }
-                if (state.setFavorites) state.setFavorites(userFavorites); // Mettre à jour l'état global des favoris
-            }
-            favoriteButton.classList.toggle('active', !isCurrentlyFavorite);
-            favoriteButton.setAttribute('aria-pressed', (!isCurrentlyFavorite).toString());
-            favoriteButton.querySelector('i').className = !isCurrentlyFavorite ? 'fa-solid fa-heart text-danger' : 'fa-regular fa-heart';
-        } else {
-            showToast(response.message || "Erreur lors de la mise à jour des favoris.", "error");
+    document.dispatchEvent(new CustomEvent('mapMarket:toggleFavorite', {
+        detail: {
+            adId: adId,
+            setFavorite: newState,
+            sourceButton: favoriteButton
         }
-    } catch (error) {
-        toggleGlobalLoader(false);
-        showToast(error.message || "Une erreur technique est survenue.", "error");
-    }
+    }));
 }
 
 

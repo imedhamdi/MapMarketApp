@@ -145,10 +145,21 @@ async function handleToggleFavoriteEvent(event) {
         return;
     }
 
+    const previousFavorites = state.get('favorites') || [];
+    let optimisticFavorites;
     if (setFavorite) {
-        await addFavorite(adId, sourceButton);
+        optimisticFavorites = previousFavorites.includes(adId) ? previousFavorites : [...previousFavorites, adId];
     } else {
-        await removeFavorite(adId, sourceButton);
+        optimisticFavorites = previousFavorites.filter(id => id !== adId);
+    }
+
+    updateFavoritesState(optimisticFavorites);
+    if (sourceButton) animateFavoriteButton(sourceButton, setFavorite);
+
+    const success = setFavorite ? await addFavorite(adId) : await removeFavorite(adId);
+    if (!success) {
+        updateFavoritesState(previousFavorites);
+        if (sourceButton) animateFavoriteButton(sourceButton, !setFavorite);
     }
 }
 
@@ -162,25 +173,25 @@ async function addFavorite(adId, sourceButton = null) {
         toggleGlobalLoader(true, "Ajout aux favoris...");
         const response = await secureFetch(API_BASE_URL, {
             method: 'POST',
-            body: {
-                adId: adId
-            } // Le backend s'attend à l'ID de l'annonce
+            body: { adId }
         }, false);
         toggleGlobalLoader(false);
 
-        if (response && response.success) { // Le backend devrait confirmer
+        if (response && response.success) {
             showToast("Annonce ajoutée aux favoris !", "success");
             const currentFavorites = state.get('favorites') || [];
-            if (!currentFavorites.includes(adId)) {
-                updateFavoritesState([...currentFavorites, adId]);
-            }
+            if (!currentFavorites.includes(adId)) updateFavoritesState([...currentFavorites, adId]);
             if (sourceButton) animateFavoriteButton(sourceButton, true);
+            return true;
         } else {
             showToast(response.message || "Erreur lors de l'ajout aux favoris.", "error");
+            return false;
         }
     } catch (error) {
         toggleGlobalLoader(false);
         console.error("Erreur d'ajout aux favoris:", error);
+        showToast(error.message || "Erreur lors de l'ajout aux favoris.", "error");
+        return false;
     }
 }
 
@@ -192,36 +203,37 @@ async function addFavorite(adId, sourceButton = null) {
 async function removeFavorite(adId, sourceButton = null) {
     try {
         toggleGlobalLoader(true, "Suppression des favoris...");
-        const response = await secureFetch(`${API_BASE_URL}/${adId}`, { // DELETE /api/favorites/{adId}
+        const response = await secureFetch(`${API_BASE_URL}/${adId}`, {
             method: 'DELETE'
         }, false);
         toggleGlobalLoader(false);
 
-        if (response && response.success) { // Le backend devrait confirmer
+        if (response && response.success) {
             showToast("Annonce retirée des favoris.", "info");
             const currentFavorites = state.get('favorites') || [];
             updateFavoritesState(currentFavorites.filter(id => id !== adId));
             if (sourceButton) animateFavoriteButton(sourceButton, false);
 
-            // Si la modale des favoris est ouverte, retirer l'élément de la liste
             if (favoritesModal && favoritesModal.getAttribute('aria-hidden') === 'false') {
                 const itemToRemove = favoritesListContainer.querySelector(`.favorite-item[data-ad-id="${adId}"]`);
                 if (itemToRemove) {
                     itemToRemove.remove();
-                    // Vérifier si la liste est vide après suppression
                     const remainingItems = favoritesListContainer.querySelectorAll('.favorite-item');
                     if (remainingItems.length === 0) {
                         displayNoFavorites();
                     }
                 }
             }
-
+            return true;
         } else {
             showToast(response.message || "Erreur lors de la suppression des favoris.", "error");
+            return false;
         }
     } catch (error) {
         toggleGlobalLoader(false);
         console.error("Erreur de suppression des favoris:", error);
+        showToast(error.message || "Erreur lors de la suppression des favoris.", "error");
+        return false;
     }
 }
 
