@@ -394,6 +394,49 @@ exports.resendValidationEmail = asyncHandler(async (req, res, next) => {
   }
 });
 
+
+// Ajoutez la nouvelle fonction updatePassword à la fin du fichier, avant "module.exports"
+exports.updatePassword = async (req, res, next) => {
+    try {
+        // 1) Obtenir l'utilisateur depuis la collection
+        // req.user est défini par le middleware "protect"
+        const user = await User.findById(req.user.id).select('+password');
+
+        // 2) Vérifier si le mot de passe actuel est correct
+        const { currentPassword, password, passwordConfirm } = req.body;
+        if (!currentPassword || !(await user.correctPassword(currentPassword, user.password))) {
+            return res.status(401).json({ success: false, message: 'Votre mot de passe actuel est incorrect.' });
+        }
+        
+        // 3) Valider que les nouveaux mots de passe sont fournis et correspondent
+        if (!password || !passwordConfirm) {
+            return res.status(400).json({ success: false, message: 'Veuillez fournir un nouveau mot de passe et le confirmer.' });
+        }
+
+        // 4) Mettre à jour le mot de passe
+        user.password = password;
+        user.passwordConfirm = passwordConfirm;
+        await user.save(); // Le middleware pre('save') dans userModel s'occupera du hachage
+
+        // 5) Créer un nouveau token et l'envoyer à l'utilisateur
+        const token = signToken(user._id);
+
+        res.status(200).json({
+            success: true,
+            token,
+            message: 'Mot de passe mis à jour avec succès.'
+        });
+
+    } catch (error) {
+        // Gérer les erreurs de validation (ex: mot de passe trop court)
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ success: false, message: error.message });
+        }
+        res.status(500).json({ success: false, message: "Une erreur interne est survenue." });
+    }
+};
+
+
 /**
  * Récupère les informations de l'utilisateur actuellement connecté.
  * GET /api/users/me (ou /api/auth/me) - Route protégée.

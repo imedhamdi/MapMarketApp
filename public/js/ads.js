@@ -830,71 +830,117 @@ async function loadAndDisplayAdDetails(adId) {
 
     if (adDetailLoader) adDetailLoader.classList.remove('hidden');
     if (adDetailContent) adDetailContent.classList.add('hidden');
-    adDetailModal.dataset.adId = adId; // Stocker l'ID pour les actions futures
+    adDetailModal.dataset.adId = adId;
 
     try {
-        const response = await secureFetch(`${API_BASE_URL}/${adId}`, {}, false); // Le troisième argument false pour gérer le loader manuellement
+        const response = await secureFetch(`${API_BASE_URL}/${adId}`, {}, false);
 
         if (response && response.success && response.data && response.data.ad) {
-            const ad = response.data.ad;
+            const ad = response.data.ad; // La variable 'ad' est définie ICI.
+
+            // Remplir les détails de l'annonce...
             if (adDetailItemTitle) adDetailItemTitle.textContent = sanitizeHTML(ad.title);
             if (adDetailPrice) adDetailPrice.textContent = ad.price != null ? formatPrice(ad.price) : 'Prix non spécifié';
 
             const categories = state.getCategories();
-            const categoryObj = categories ? categories.find(c => c._id === ad.category) : null; // Comparer avec _id
+            const categoryObj = categories ? categories.find(c => c._id === ad.category) : null;
             if (adDetailCategory) {
                 const iconEl = adDetailCategory.querySelector('i.fa-solid');
                 if (iconEl && categoryObj && categoryObj.icon) iconEl.className = `fa-solid ${categoryObj.icon}`;
-                else if (iconEl) iconEl.className = 'fa-solid fa-tag'; // Icône par défaut
-                // Le texte est après l'icône
+                else if (iconEl) iconEl.className = 'fa-solid fa-tag';
                 const textNode = Array.from(adDetailCategory.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
                 if (textNode) textNode.textContent = ` ${sanitizeHTML(categoryObj ? categoryObj.name : ad.category)}`;
                 else adDetailCategory.insertAdjacentText('beforeend', ` ${sanitizeHTML(categoryObj ? categoryObj.name : ad.category)}`);
             }
-
-            if (adDetailLocation) adDetailLocation.innerHTML = `<i class="fa-solid fa-map-marker-alt"></i> ${sanitizeHTML(ad.location?.address || 'Localisation non spécifiée')}`;
+            
             if (adDetailDate) adDetailDate.innerHTML = `<i class="fa-solid fa-calendar-days"></i> Publiée ${formatDate(ad.createdAt || new Date())}`;
             if (adDetailDescriptionText) adDetailDescriptionText.innerHTML = sanitizeHTML(ad.description || '').replace(/\n/g, '<br>');
 
+            // Logique de Reverse Geocoding...
+            const adDetailLocation = document.getElementById('ad-detail-location');
+            if (adDetailLocation) {
+                adDetailLocation.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Recherche...`;
+                if (ad.location && ad.location.coordinates && ad.location.coordinates.length === 2) {
+                    const [lon, lat] = ad.location.coordinates;
+                    try {
+                        const geoResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
+                        const geoData = await geoResponse.json();
+                        const city = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.municipality;
+                        const country = geoData.address.country;
+                        let locationString = city && country ? `${city}, ${country}` : country || "Lieu inconnu";
+                        adDetailLocation.innerHTML = `<i class="fa-solid fa-map-marker-alt"></i> ${sanitizeHTML(locationString)}`;
+                    } catch (geoError) {
+                        adDetailLocation.innerHTML = `<i class="fa-solid fa-map-marker-alt"></i> ${sanitizeHTML(ad.location?.address || `Coords: ${lat.toFixed(4)}, ${lon.toFixed(4)}`)}`;
+                    }
+                } else {
+                    adDetailLocation.innerHTML = `<i class="fa-solid fa-map-marker-alt"></i> Localisation non spécifiée`;
+                }
+            }
+            
             setupAdDetailCarousel(ad.imageUrls || []);
 
-            if (ad.userId) { // userId est populé par le backend
+            // Informations sur le vendeur...
+            if (ad.userId) {
                 if (adDetailSellerAvatar) {
                     adDetailSellerAvatar.src = ad.userId.avatarUrl && !ad.userId.avatarUrl.endsWith('avatar-default.svg') ? ad.userId.avatarUrl : 'avatar-default.svg';
                     adDetailSellerAvatar.alt = `Avatar de ${sanitizeHTML(ad.userId.name)}`;
                 }
                 if (adDetailSellerName) adDetailSellerName.textContent = sanitizeHTML(ad.userId.name);
                 if (adDetailSellerInfo) adDetailSellerInfo.dataset.sellerId = ad.userId._id;
-                // if (adDetailSellerRating) { /* Logique pour afficher la note du vendeur */ }
             } else {
                 if (adDetailSellerInfo) adDetailSellerInfo.classList.add('hidden');
             }
 
             const currentUser = state.getCurrentUser();
+            // Gestion du bouton favori...
             if (adDetailFavoriteBtn) {
                 const userFavorites = state.get('favorites') || [];
                 const isFavorite = userFavorites.some(favAd => favAd === ad._id || favAd._id === ad._id);
                 adDetailFavoriteBtn.classList.toggle('active', isFavorite);
                 adDetailFavoriteBtn.setAttribute('aria-pressed', isFavorite.toString());
                 adDetailFavoriteBtn.querySelector('i').className = isFavorite ? 'fa-solid fa-heart text-danger' : 'fa-regular fa-heart';
-                adDetailFavoriteBtn.dataset.adId = ad._id; // S'assurer que l'ID est là pour le handler
+                adDetailFavoriteBtn.dataset.adId = ad._id;
             }
+
+            // ================== DÉBUT DE LA CORRECTION ==================
+            // On déplace la logique du bouton "Y aller" ICI,
+            // pour qu'elle ait accès à la variable 'ad' qui vient d'être définie.
+            const navigateBtn = document.getElementById('ad-detail-navigate-btn');
+            if (navigateBtn) {
+                // On clone et remplace le bouton pour supprimer les anciens écouteurs d'événements
+                const newNavigateBtn = navigateBtn.cloneNode(true);
+                navigateBtn.parentNode.replaceChild(newNavigateBtn, navigateBtn);
+                
+                // On ajoute le nouvel écouteur
+                newNavigateBtn.addEventListener('click', () => {
+                    // La variable 'ad' est maintenant accessible ici
+                    if (ad && ad.location && ad.location.coordinates) {
+                        const [lon, lat] = ad.location.coordinates;
+                        // URL Google Maps corrigée et plus fiable
+                        const mapsUrl = `https://maps.google.com/?q=${lat},${lon}`;
+                        window.open(mapsUrl, '_blank');
+                    } else {
+                        showToast("Coordonnées de l'annonce non disponibles.", "error");
+                    }
+                });
+            }
+            // =================== FIN DE LA CORRECTION ===================
 
             if (adDetailOwnerActions && currentUser && ad.userId && ad.userId._id === currentUser._id) {
                 adDetailOwnerActions.classList.remove('hidden');
             } else if (adDetailOwnerActions) {
                 adDetailOwnerActions.classList.add('hidden');
             }
-            // Cacher le bouton "Contacter" si c'est l'annonce de l'utilisateur
+            
             if (adDetailContactSellerBtn && currentUser && ad.userId && ad.userId._id === currentUser._id) {
                 adDetailContactSellerBtn.classList.add('hidden');
             } else if (adDetailContactSellerBtn) {
                 adDetailContactSellerBtn.classList.remove('hidden');
             }
 
-
             if (adDetailLoader) adDetailLoader.classList.add('hidden');
             if (adDetailContent) adDetailContent.classList.remove('hidden');
+
         } else {
             showToast(response.message || "Impossible de charger les détails de l'annonce.", "error");
             if (adDetailLoader) adDetailLoader.innerHTML = `<p class="text-danger text-center">${sanitizeHTML(response.message) || "Erreur de chargement de l'annonce."}</p>`;
@@ -903,10 +949,40 @@ async function loadAndDisplayAdDetails(adId) {
         console.error(`Erreur lors du chargement de l'annonce ${adId}:`, error);
         showToast(error.message || "Erreur de chargement des détails.", "error");
         if (adDetailLoader) {
-            adDetailLoader.classList.remove('hidden'); // Garder visible pour montrer l'erreur
+            adDetailLoader.classList.remove('hidden');
             adDetailLoader.innerHTML = `<p class="text-danger text-center">Oups ! Une erreur est survenue lors du chargement. (${sanitizeHTML(error.message)})</p>`;
         }
         if (adDetailContent) adDetailContent.classList.add('hidden');
+    }
+}
+
+/**
+ * Gère le clic sur le bouton de navigation "Y aller".
+ * @param {Event} e - L'événement de clic.
+ */
+function handleNavigationClick(e) {
+    const adId = adDetailModal.dataset.adId;
+    if (!adId) {
+        console.error("ID de l'annonce non trouvé pour la navigation.");
+        return;
+    }
+
+    // Récupérer les détails de l'annonce depuis l'état (state) si possible,
+    // pour éviter un appel réseau inutile.
+    const ad = state.getAdById(adId);
+
+    if (ad && ad.location && ad.location.coordinates) {
+        const [lon, lat] = ad.location.coordinates;
+
+        // Construire l'URL de Google Maps pour la navigation
+        // Cette URL ouvre les directions depuis la position actuelle de l'utilisateur vers la destination
+        const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
+
+        // Ouvrir Google Maps dans un nouvel onglet
+        window.open(mapsUrl, '_blank');
+    } else {
+        showToast("Impossible de récupérer les coordonnées de l'annonce.", "error");
+        console.error("Coordonnées non trouvées pour l'annonce:", adId, ad);
     }
 }
 

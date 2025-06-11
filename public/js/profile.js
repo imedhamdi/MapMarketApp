@@ -317,38 +317,92 @@ const profileValidationRules = {
 };
 
 
+// Remplacez la fonction existante handleProfileUpdate dans public/js/profile.js par celle-ci
 async function handleProfileUpdate(event) {
     event.preventDefault();
-    const rules = { ...profileValidationRules };
-    if (!profileNewPasswordField.value) {
-        delete rules['profile-new-password'];
-        delete rules['profile-confirm-password'];
-    }
 
-    if (!validateForm(profileForm, rules)) {
-        showToast("Veuillez corriger les erreurs.", "error");
-        return;
-    }
+    const newPassword = profileNewPasswordField.value;
+    const confirmPassword = profileConfirmPasswordField.value;
+    const name = profileNameField.value.trim();
 
-    const updateData = { name: profileNameField.value.trim() };
-    if (profileNewPasswordField.value) {
-        updateData.password = profileNewPasswordField.value;
-    }
+    // --- PARTIE 1: Mise à jour du mot de passe ---
+    if (newPassword) {
+        if (newPassword !== confirmPassword) {
+            return showToast("Les nouveaux mots de passe ne correspondent pas.", "error");
+        }
+        if (newPassword.length < 6) {
+            return showToast("Le nouveau mot de passe doit comporter au moins 6 caractères.", "error");
+        }
 
-    toggleGlobalLoader(true, "Mise à jour...");
-    try {
-        const response = await secureFetch(`${API_BASE_URL_USERS}/profile`, { method: 'PUT', body: updateData }, false);
-        if (response && response.success && response.data.user) {
-            showToast("Profil mis à jour !", "success");
-            state.setCurrentUser(response.data.user);
-            switchToViewMode();
-        } else throw new Error(response.message);
-    } catch (error) {
-        showToast(error.message || "Erreur de mise à jour.", "error");
-    } finally {
-        toggleGlobalLoader(false);
+        // On lit le mot de passe actuel depuis le champ de formulaire
+        const currentPasswordField = document.getElementById('profile-current-password');
+        const currentPassword = currentPasswordField.value;
+
+        if (!currentPassword) {
+            // On met en surbrillance le champ si'il est manquant
+            currentPasswordField.focus();
+            return showToast("Le mot de passe actuel est requis pour pouvoir le changer.", "warning");
+        }
+
+        const passwordData = {
+            currentPassword: currentPassword,
+            password: newPassword,
+            passwordConfirm: confirmPassword
+        };
+        
+        toggleGlobalLoader(true, "Mise à jour du mot de passe...");
+        try {
+            // L'appel se fait maintenant sur la route PATCH que nous avons créée
+            const response = await secureFetch('/api/auth/update-password', {
+                method: 'PATCH',
+                body: passwordData
+            });
+
+            if (response && response.success) {
+                showToast("Mot de passe mis à jour avec succès !", "success");
+                if (response.token) {
+                    localStorage.setItem('mapmarket_auth_token', response.token);
+                }
+                // Vider les champs de mot de passe après succès
+                currentPasswordField.value = '';
+                profileNewPasswordField.value = '';
+                profileConfirmPasswordField.value = '';
+                switchToViewMode();
+            } else {
+                 throw new Error(response.message || "Erreur de mise à jour du mot de passe.");
+            }
+        } catch (error) {
+            showToast(error.message, "error");
+        } finally {
+            toggleGlobalLoader(false);
+        }
+
+    } else {
+        // --- PARTIE 2: Mise à jour du nom (si aucun mot de passe n'est changé) ---
+        if (!name || name.length < 3) {
+            return showToast("Le nom d'utilisateur doit comporter au moins 3 caractères.", "error");
+        }
+        
+        const updateData = { name: name };
+        toggleGlobalLoader(true, "Mise à jour du profil...");
+        try {
+            const response = await secureFetch(`${API_BASE_URL_USERS}/profile`, { method: 'PUT', body: updateData });
+
+            if (response && response.success && response.data.user) {
+                showToast("Profil mis à jour !", "success");
+                state.setCurrentUser(response.data.user);
+                switchToViewMode();
+            } else {
+                throw new Error(response.message || "Erreur de mise à jour du profil.");
+            }
+        } catch (error) {
+            showToast(error.message, "error");
+        } finally {
+            toggleGlobalLoader(false);
+        }
     }
 }
+
 
 async function handleDeleteAccount() {
     if (!deleteAccountCheckbox || !deleteAccountCheckbox.checked) return;

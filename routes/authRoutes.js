@@ -15,6 +15,8 @@ router.patch('/reset-password/:token', authRateLimiter, validateResetPassword, a
 
 router.get('/validate-email/:token', authController.validateEmail);
 router.post('/resend-validation-email', protect, authController.resendValidationEmail); // L'utilisateur doit être connecté pour renvoyer son propre email de validation
+// Elle définit la route que votre frontend essaie d'appeler
+router.patch('/update-password', protect, authController.updatePassword);
 
 // Route pour vérifier le statut de connexion (optionnel, utile pour le frontend)
 router.get('/me', protect, authController.getMe); // Réutilise le contrôleur pour obtenir le profil

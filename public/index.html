@@ -192,6 +192,8 @@
                                     aria-describedby="signup-email-error">
                                 <small id="signup-email-error" class="form-error-message" role="alert"></small>
                             </div>
+
+
                             <div class="form-group">
                                 <label for="signup-password" data-i18n="form.password">Mot de passe</label>
                                 <input type="password" id="signup-password" class="form-control" required
@@ -371,6 +373,16 @@
                                     aria-label="Adresse e-mail (non modifiable)">
                             </div>
                             <div id="profile-edit-actions" class="hidden">
+
+                                <div class="form-group">
+                                    <label for="profile-current-password" data-i18n="form.currentPassword">Mot de passe
+                                        actuel</label>
+                                    <input type="password" id="profile-current-password" class="form-control"
+                                        placeholder="Requis pour changer de mot de passe"
+                                        autocomplete="current-password" required>
+                                    <small id="profile-current-password-error" class="form-error-message"
+                                        role="alert"></small>
+                                </div>
                                 <div class="form-group">
                                     <label for="profile-new-password" data-i18n="form.newPassword">Nouveau mot de passe
                                         (optionnel)</label>
@@ -389,9 +401,10 @@
                                     <small id="profile-confirm-password-error" class="form-error-message"
                                         role="alert"></small>
                                 </div>
-                                <button type="submit" id="save-profile-btn" class="btn btn-primary btn-block"><i
-                                        class="fa-solid fa-save"></i> <span
-                                        data-i18n="profile.saveButton">Sauvegarder</span></button>
+                                <button type="submit" id="save-profile-btn" class="btn btn-primary btn-block">
+                                    <i class="fa-solid fa-save"></i>
+                                    <span data-i18n="profile.saveButton">Sauvegarder</span>
+                                </button>
                                 <button type="button" id="cancel-edit-profile-btn" class="btn btn-secondary btn-block"
                                     data-i18n="form.cancel">Annuler</button>
                             </div>
@@ -681,9 +694,8 @@
                                 <button id="ad-detail-contact-seller-btn" type="button"
                                     class="btn btn-primary action-btn" data-i18n="adDetail.contactSeller"><i
                                         class="fa-solid fa-comments"></i> Contacter</button>
-                                <button id="ad-detail-report-btn" type="button"
-                                    class="btn btn-danger-outline action-btn" aria-controls="report-form-modal"
-                                    data-i18n="adDetail.reportAd"><i class="fa-solid fa-flag"></i> Signaler</button>
+                                <button id="ad-detail-navigate-btn" type="button" class="btn btn-primary action-btn"><i
+                                        class="fa-solid fa-route"></i> Y aller</button>
                             </div>
 
                             <div id="ad-detail-owner-actions" class="owner-actions-toolbar hidden">

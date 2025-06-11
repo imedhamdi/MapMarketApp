@@ -84,7 +84,8 @@ app.use(
           "https://unpkg.com",
           "https://cdn.jsdelivr.net",
           "https://cdnjs.cloudflare.com",
-          "https://cdn.socket.io"
+          "https://cdn.socket.io",
+          "https://nominatim.openstreetmap.org" 
         ],
         frameSrc: ["'self'"],
         objectSrc: ["'none'"],
