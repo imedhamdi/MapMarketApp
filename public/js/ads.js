@@ -792,7 +792,7 @@ async function handleSubmitAd(event) {
             } else {
                 fetchAllAdsAndRenderOnMap(); // Pour la carte principale
                 if (myAdsModal && myAdsModal.classList.contains('active')) { // Ou une autre manière de vérifier si la modale "Mes Annonces" est visible
-                  if (typeof fetchAndRenderUserAds === 'function') fetchAndRenderUserAds();
+                    if (typeof fetchAndRenderUserAds === 'function') fetchAndRenderUserAds();
                 }
             }
             console.log("Frontend: Annonce soumise avec succès. Réponse:", response.data.ad);
@@ -812,7 +812,7 @@ async function handleSubmitAd(event) {
         } else if (error.response && typeof error.response.text === 'function') { // Fallback si error.data n'est pas là
             try {
                 errorDetailForConsole = await error.response.text();
-            } catch (e) { /* ignore */}
+            } catch (e) { /* ignore */ }
         }
         console.error(`Frontend: Erreur ${method} ${url}:`, error.message, "Détails:", errorDetailForConsole, error.stack);
         // Le toast est déjà géré par secureFetch, mais on pourrait en ajouter un plus spécifique ici si error.message est trop générique.
@@ -922,49 +922,67 @@ function setupAdDetailCarousel(imageUrls) {
     adDetailCarouselDotsContainer.innerHTML = '';
     currentAdDetailCarouselSlide = 0;
 
-    const imagesToShow = imageUrls && imageUrls.length > 0 ? imageUrls : ['https://placehold.co/600x400/e0e0e0/757575?text=Aucune+image'];
-    const isPlaceholder = !(imageUrls && imageUrls.length > 0);
+    const images = (imageUrls && imageUrls.length > 0)
+        ? imageUrls
+        : ['https://placehold.co/600x400/e0e0e0/757575?text=Aucune+image'];
 
-    imagesToShow.forEach((url, index) => {
-        const item = document.createElement('div');
-        item.className = 'carousel-item' + (index === 0 ? ' active' : '');
-        item.setAttribute('role', 'tabpanel');
-        item.setAttribute('aria-hidden', index === 0 ? 'false' : 'true');
-        item.id = `carousel-slide-${index}`;
+    const isPlaceholder = imageUrls.length === 0;
+
+    // Création des slides
+    images.forEach((url, index) => {
+        const slide = document.createElement('div');
+        slide.className = 'carousel-item';
+        slide.setAttribute('role', 'tabpanel');
+        slide.setAttribute('aria-hidden', index === 0 ? 'false' : 'true');
+        slide.id = `carousel-slide-${index}`;
 
         const img = document.createElement('img');
         img.src = url;
-        img.alt = isPlaceholder ? 'Aucune image disponible pour cette annonce' : `Image ${index + 1} de l'annonce`;
-        img.onerror = function () {
-            this.src = 'https://placehold.co/600x400/e0e0e0/757575?text=Image+indisponible';
-            this.alt = 'Image indisponible';
+        img.alt = isPlaceholder
+            ? 'Image non disponible'
+            : `Image ${index + 1} de l'annonce`;
+        img.onerror = () => {
+            img.src = 'https://placehold.co/600x400/e0e0e0/757575?text=Image+indisponible';
+            img.alt = 'Image indisponible';
         };
-        item.appendChild(img);
-        adDetailCarouselTrack.appendChild(item);
 
-        if (!isPlaceholder && imagesToShow.length > 1) {
+        slide.appendChild(img);
+        adDetailCarouselTrack.appendChild(slide);
+
+        if (!isPlaceholder && images.length > 1) {
             const dot = document.createElement('button');
             dot.type = 'button';
-            dot.className = 'carousel-dot' + (index === 0 ? ' active' : '');
+            dot.className = 'carousel-dot';
             dot.dataset.slideTo = index;
-            dot.setAttribute('aria-label', `Aller à l'image ${index + 1}`);
             dot.setAttribute('role', 'tab');
             dot.setAttribute('aria-controls', `carousel-slide-${index}`);
             dot.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
-            dot.addEventListener('click', () => goToAdDetailSlide(index, imagesToShow.length));
+            dot.setAttribute('aria-label', `Aller à l'image ${index + 1}`);
+            dot.addEventListener('click', () => goToAdDetailSlide(index, images.length));
             adDetailCarouselDotsContainer.appendChild(dot);
         }
     });
 
-    updateAdDetailCarouselUI(imagesToShow.length);
-    if (imagesToShow.length > 1 && !isPlaceholder) {
-        adDetailCarouselPrevBtn.onclick = () => {
-            if (currentAdDetailCarouselSlide > 0) goToAdDetailSlide(currentAdDetailCarouselSlide - 1, imagesToShow.length);
-        };
-        adDetailCarouselNextBtn.onclick = () => {
-            if (currentAdDetailCarouselSlide < imagesToShow.length - 1) goToAdDetailSlide(currentAdDetailCarouselSlide + 1, imagesToShow.length);
-        };
-    }
+    // Affichage initial
+    goToAdDetailSlide(0, images.length);
+
+    // Boutons navigation
+    adDetailCarouselPrevBtn.onclick = () => {
+        if (currentAdDetailCarouselSlide > 0) {
+            goToAdDetailSlide(currentAdDetailCarouselSlide - 1, images.length);
+        }
+    };
+    adDetailCarouselNextBtn.onclick = () => {
+        if (currentAdDetailCarouselSlide < images.length - 1) {
+            goToAdDetailSlide(currentAdDetailCarouselSlide + 1, images.length);
+        }
+    };
+
+    // Affichage conditionnel
+    const showControls = images.length > 1 && !isPlaceholder;
+    adDetailCarouselPrevBtn.classList.toggle('hidden', !showControls);
+    adDetailCarouselNextBtn.classList.toggle('hidden', !showControls);
+    adDetailCarouselDotsContainer.classList.toggle('hidden', !showControls);
 }
 
 /**
@@ -1011,11 +1029,11 @@ function goToAdDetailSlide(index, totalSlides) {
 export async function fetchAllAdsAndRenderOnMap() {
     // La correction est ici : nous créons un objet de filtres vide.
     // Ainsi, aucun paramètre ne sera ajouté à l'URL.
-    const filters = {}; 
-    
+    const filters = {};
+
     const params = new URLSearchParams(filters);
     const url = `${API_BASE_URL}?${params.toString()}`;
-    
+
     console.log("Appel de fetchAllAdsAndRenderOnMap avec URL corrigée :", url); // Devrait maintenant afficher /api/ads?
 
     toggleGlobalLoader(true, "Chargement des annonces...");

@@ -1336,14 +1336,21 @@ h4 {
 
 .carousel-track {
     display: flex;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    transition: transform 0.4s ease-in-out;
+    width: 100%;
 }
-
+.carousel-item {
+    flex: 0 0 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
 .carousel-track::-webkit-scrollbar {
     display: none;
+}
+.carousel-item img {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
 }
 
 .carousel-track img {
