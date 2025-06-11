@@ -3,12 +3,12 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>MapMarket - Marketplace Géolocalisée</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-        xintegrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
+        integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21,7 +21,7 @@
 
 <body>
     <div id="app-root" class="app-container" data-app-version="1.0.5">
-        <header id="main-header" class="sticky-header" role="banner" aria-label="En-tête principal">
+        <header id="main-header" class="sticky-header" aria-label="En-tête principal">
             <div class="header-content">
                 <div class="logo-container">
                     <a href="#" id="header-logo-link" aria-label="MapMarket Accueil">
@@ -81,7 +81,7 @@
         </header>
 
 
-        <main id="main-content" role="main">
+        <main id="main-content">
             <section id="map-section" aria-labelledby="map-section-title">
                 <h2 id="map-section-title" class="visually-hidden" data-i18n="map.sectionTitle">Carte interactive des
                     annonces</h2>
@@ -109,7 +109,7 @@
             </section>
         </main>
 
-        <nav id="bottom-navigation" class="mobile-nav" role="navigation" aria-label="Navigation principale mobile">
+        <nav id="bottom-navigation" class="mobile-nav" aria-label="Navigation principale mobile">
             <button class="nav-btn active" id="nav-explore-btn" type="button" aria-label="Explorer la carte"
                 aria-current="page">
                 <i class="fa-solid fa-location-dot"></i> <span class="nav-text" data-i18n="nav.explore">Explorer</span>

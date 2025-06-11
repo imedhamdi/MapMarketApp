@@ -276,16 +276,57 @@ function handleGlobalKeydown(event) {
 
 // --- Gestionnaires pour les événements custom ---
 function handleOpenModalEvent(event) {
-    const { modalId, triggerElement, view } = event.detail;
-    if (modalId) {
-        openModal(modalId, triggerElement || document.querySelector(`[data-modal-trigger="${modalId}"]`));
+    // ✅ CORRECTION : On récupère TOUS les détails, y compris onConfirm et les autres textes.
+    const { modalId, triggerElement, view, title, message, confirmText, isDestructive, onConfirm } = event.detail;
+
+    if (!modalId) return;
+
+    // ✅ CORRECTION : Logique spécifique pour la modale de confirmation.
+    if (modalId === 'confirmation-modal') {
+        const confirmationModal = document.getElementById('confirmation-modal');
+        if (!confirmationModal) {
+            console.error("La modale de confirmation avec l'ID 'confirmation-modal' est introuvable.");
+            return;
+        }
+
+        // 1. Peupler le contenu de la modale de confirmation
+        const modalTitle = confirmationModal.querySelector('.modal-title');
+        const modalMessage = confirmationModal.querySelector('.modal-body p');
+        const confirmBtn = confirmationModal.querySelector('#confirm-action-btn');
+
+        if (modalTitle && title) modalTitle.textContent = title;
+        if (modalMessage && message) modalMessage.textContent = message;
+        if (confirmBtn && confirmText) confirmBtn.textContent = confirmText;
+        if (confirmBtn && isDestructive) {
+            confirmBtn.classList.add('btn-danger');
+        } else if (confirmBtn) {
+            confirmBtn.classList.remove('btn-danger');
+        }
+
+        // 2. Gérer le bouton de confirmation pour éviter les écouteurs multiples
+        // On clone le bouton pour supprimer proprement tous les anciens écouteurs d'événements.
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+        // 3. On attache la NOUVELLE fonction onConfirm au clic
+        newConfirmBtn.addEventListener('click', () => {
+            if (typeof onConfirm === 'function') {
+                onConfirm(); // <-- C'est ici que la magie opère : la suppression est exécutée !
+            }
+            closeModal(modalId); // On ferme la modale après l'action
+        });
+
+        // 4. On ouvre la modale maintenant qu'elle est configurée
+        openModal(modalId, triggerElement);
+
+    } else {
+        // Comportement générique pour toutes les autres modales
+        openModal(modalId, triggerElement);
         if (view && modalId === 'auth-modal' && typeof window.authSwitchView === 'function') {
-             // Si une vue spécifique est demandée pour la modale d'auth
             window.authSwitchView(view);
         }
     }
 }
-
 function handleCloseModalEvent(event) {
     const { modalId } = event.detail;
     if (modalId) {
