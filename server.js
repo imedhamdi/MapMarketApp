@@ -26,7 +26,8 @@ const settingRoutes = require('./routes/settingRoutes');
 const messageCtrl = require('./controllers/messageController');
 
 const app = express();
-
+// Render.com est un proxy de confiance.
+app.set('trust proxy', 1);
 // Helmet CSP EN PREMIER !
 app.use(
   helmet({
