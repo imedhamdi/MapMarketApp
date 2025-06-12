@@ -440,31 +440,42 @@ async function sendMessage() {
         return;
     }
 
-    // Préparer le FormData
-    const formData = new FormData();
-    if (activeThreadId) {
-        formData.append('threadId', activeThreadId);
-    } else if (currentRecipient?._id) {
-        formData.append('recipientId', currentRecipient._id);
-        if (currentRecipient.adId) formData.append('adId', currentRecipient.adId);
-    } else {
-        return showToast("Erreur: discussion non identifiée.", 'error');
-    }
+    // Déterminer le payload et l'endpoint selon qu'une image est jointe ou non
+    let endpoint;
+    const options = { method: 'POST' };
 
-    if (text) formData.append('text', text);
-    if (tempImageFile) formData.append('image', tempImageFile, tempImageFile.name);
+    if (tempImageFile) {
+        endpoint = `${API_MESSAGES_URL}/messages/image`;
+        const formData = new FormData();
+        if (activeThreadId) {
+            formData.append('threadId', activeThreadId);
+        } else if (currentRecipient?._id) {
+            formData.append('recipientId', currentRecipient._id);
+            if (currentRecipient.adId) formData.append('adId', currentRecipient.adId);
+        } else {
+            return showToast("Erreur: discussion non identifiée.", 'error');
+        }
+        if (text) formData.append('text', text);
+        formData.append('image', tempImageFile, tempImageFile.name);
+        options.body = formData; // secureFetch retirera le Content-Type pour FormData
+    } else {
+        endpoint = `${API_MESSAGES_URL}/messages`;
+        const payload = { text };
+        if (activeThreadId) {
+            payload.threadId = activeThreadId;
+        } else if (currentRecipient?._id) {
+            payload.recipientId = currentRecipient._id;
+            if (currentRecipient.adId) payload.adId = currentRecipient.adId;
+        } else {
+            return showToast("Erreur: discussion non identifiée.", 'error');
+        }
+        options.body = payload;
+    }
 
     stopTypingEvent(); // Arrêter d'envoyer l'événement 'typing'
 
     try {
-        // Le backend détermine le type de contenu (json vs multipart) et le gère.
-        // On utilise toujours un endpoint qui accepte FormData. `/messages/image` est plus sûr.
-        const endpoint = tempImageFile ? `${API_MESSAGES_URL}/messages/image` : `${API_MESSAGES_URL}/messages`;
-        
-        const response = await secureFetch(endpoint, {
-            method: 'POST',
-            body: formData // secureFetch gère la suppression du Content-Type pour FormData
-        });
+        const response = await secureFetch(endpoint, options);
 
         if (!response?.success) {
             throw new Error(response?.message || "Erreur d'envoi du message.");
