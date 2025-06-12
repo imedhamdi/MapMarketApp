@@ -234,11 +234,16 @@ exports.deleteMyAvatar = asyncHandler(async (req, res, next) => {
  */
 exports.getUser = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.params.id)
-    // Sélectionner uniquement les champs publics
-    .select('name avatarUrl createdAt stats.avgRating stats.adsPublished'); // Exemple
+    // Sélectionner uniquement les champs publics et isActive (non sélectionné par défaut)
+    .select('name avatarUrl createdAt stats.avgRating stats.adsPublished')
+    .select('+isActive');
 
-  if (!user || !user.isActive) { // Ne pas montrer les utilisateurs désactivés
-    return next(new AppError('Utilisateur non trouvé ou inactif.', 404));
+  if (!user) {
+    return next(new AppError('Utilisateur non trouvé.', 404));
+  }
+
+  if (!user.isActive) {
+    return next(new AppError('Utilisateur inactif.', 404));
   }
   
   // Calculer/Récupérer les statistiques si nécessaire (comme dans getMe)
