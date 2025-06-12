@@ -616,50 +616,28 @@ async function handleInitiateChatEvent(event) {
     const { adId, recipientId } = event.detail;
     if (!recipientId) return;
 
-    const currentUser = state.getCurrentUser();
-    if (!currentUser || !currentUser.token) {
-        showToast("Veuillez vous connecter pour envoyer un message.", "warning");
-        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' } }));
-        return;
-    }
-
-    toggleGlobalLoader(true, "Ouverture de la discussion...");
-
+    toggleGlobalLoader(true, 'Ouverture de la discussion...');
     try {
-        // Vérifier que le destinataire existe
-        const userCheck = await secureFetch(`/api/users/${recipientId}`);
-        if (!userCheck?.data?.user) {
-            throw new Error("Utilisateur non trouvé ou inactif.");
+        // Contrairement à la version précédente, on n'appelle pas '/initiate' ici.
+        // On prépare juste l'UI et le premier message sera envoyé par l'utilisateur.
+        const recipientResponse = await secureFetch(`/api/users/${recipientId}`, {}, false);
+        if(!recipientResponse?.success || !recipientResponse.data?.user) {
+            throw new Error("Impossible de trouver les informations du destinataire.");
         }
+        
+        const recipient = recipientResponse.data.user;
+        if(adId) recipient.adId = adId; // Attacher l'adId pour le premier message
 
-        // Démarrer une conversation
-        const response = await secureFetch(`${API_MESSAGES_URL}/threads/initiate`, {
-            method: 'POST',
-            body: { adId, recipientId }
-        });
+        connectSocket();
+        await openChatView(null, recipient); // Ouvre avec threadId=null pour une nouvelle conversation
+        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'messages-modal' } }));
 
-        if (response?.success && response.data?.thread) {
-            const thread = response.data.thread;
-            const recipient = thread.participants.find(p => p.user._id !== currentUser.id)?.user;
-
-            if (recipient) {
-                await openChatView(thread._id, recipient);
-                document.dispatchEvent(new CustomEvent('mapmarket:openModal', {
-                    detail: { modalId: 'messages-modal' }
-                }));
-            } else {
-                throw new Error("Impossible de trouver le destinataire dans le thread.");
-            }
-        } else {
-            throw new Error(response.message || "Impossible de démarrer la conversation.");
-        }
     } catch (error) {
         showToast(error.message, "error");
     } finally {
         toggleGlobalLoader(false);
     }
 }
-
 
 function toggleChatOptionsMenu() {
     const isHidden = chatOptionsMenu.classList.toggle('hidden');
