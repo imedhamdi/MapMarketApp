@@ -888,111 +888,88 @@
                 </div>
             </div>
 
-            <div id="messages-modal" class="modal-overlay slide-from-right" role="dialog" aria-modal="true"
-                aria-labelledby="messages-modal-main-title" aria-hidden="true" tabindex="-1" data-current-chat-id="">
-                <div class="modal-content messages-modal-content">
-                    <div id="thread-list-view" class="messages-view active-view">
-                        <div class="modal-header">
-                            <h2 id="messages-modal-main-title" class="modal-title"><i class="fa-solid fa-comments"></i>
-                                <span data-i18n="messages.title">Mes Messages</span>
-                            </h2>
-                            <button id="start-new-thread-btn" type="button" class="btn btn-icon"
-                                aria-label="Démarrer une nouvelle discussion">
-                                <i class="fa-solid fa-pen-to-square"></i>
-                            </button>
-                            <button class="modal-close-btn" data-dismiss-modal="messages-modal" type="button"
-                                aria-label="Fermer la messagerie">
-                                <i class="fa-solid fa-times"></i>
-                            </button>
-                        </div>
-                        <div class="modal-body thread-list-body">
-                            <div class="pull-to-refresh-container" aria-hidden="true">
-                                <div class="pull-to-refresh-loader"><i class="fa-solid fa-spinner fa-spin"></i> <span
-                                        data-i18n="messages.pullToRefresh">Tirer pour rafraîchir</span></div>
-                            </div>
-                            <div id="no-threads-placeholder" class="placeholder-message hidden">
-                                <i class="fa-solid fa-comment-slash fa-3x"></i>
-                                <p data-i18n="messages.noThreads">Aucune discussion pour le moment.</p>
-                            </div>
-                            <ul id="thread-list" class="item-list" data-firestore-collection="users/{userId}/chats">
-                                <template id="thread-item-template">
-                                    <li class="thread-item list-item-card" tabindex="0" role="button" data-thread-id=""
-                                        data-recipient-id="">
-                                        <img src="avatar-default.svg" alt="Avatar de l'interlocuteur"
-                                            class="thread-avatar item-image"
-                                            onerror="this.src='https://placehold.co/48x48/e0e0e0/757575?text=User';">
-                                        <div class="thread-info item-info">
-                                            <span class="thread-user item-title"></span>
-                                            <p class="thread-preview"></p>
-                                        </div>
-                                        <div class="thread-meta">
-                                            <time class="thread-time"></time>
-                                            <span class="unread-badge hidden" aria-label="Messages non lus">0</span>
-                                        </div>
-                                    </li>
-                                </template>
-                            </ul>
-                        </div>
-                    </div>
+           <div id="messages-modal" class="modal-overlay slide-from-right" role="dialog" aria-modal="true" aria-labelledby="messages-modal-main-title" aria-hidden="true" tabindex="-1">
+    <div class="modal-content messages-modal-content">
 
-                    <div id="chat-view" class="messages-view hidden">
-                        <div class="modal-header chat-header">
-                            <button id="back-to-threads-btn" type="button" class="btn btn-icon"
-                                aria-label="Retour aux discussions">
-                                <i class="fa-solid fa-arrow-left"></i>
-                            </button>
-                            <img id="chat-recipient-avatar" src="avatar-default.svg" alt="Avatar de l'interlocuteur"
-                                class="chat-recipient-avatar"
-                                onerror="this.src='https://placehold.co/36x36/e0e0e0/757575?text=User';">
-                            <h2 id="chat-recipient-name" class="modal-title chat-title"></h2>
-                            <button id="chat-options-btn" type="button" class="btn btn-icon"
-                                aria-label="Options du chat" aria-haspopup="true" aria-expanded="false">
-                                <i class="fa-solid fa-ellipsis-v"></i>
-                            </button>
-                            <div id="chat-options-menu" class="dropdown-menu hidden" role="menu">
-                                <button role="menuitem" id="archive-chat-btn" data-i18n="chat.archive">Archiver</button>
-                                <button role="menuitem" id="delete-chat-btn" data-i18n="chat.delete">Supprimer</button>
-                                <button role="menuitem" id="block-user-chat-btn" data-i18n="chat.blockUser">Bloquer
-                                    utilisateur</button>
+        <div id="thread-list-view" class="messages-view active-view">
+            <div class="modal-header">
+                <h2 id="messages-modal-main-title" class="modal-title"><i class="fa-solid fa-comments"></i>
+                    <span data-i18n="messages.title">Mes Messages</span>
+                </h2>
+                <button class="modal-close-btn" data-dismiss-modal="messages-modal" type="button" aria-label="Fermer la messagerie">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body thread-list-body">
+                <div id="no-threads-placeholder" class="placeholder-message hidden">
+                    <i class="fa-solid fa-comment-slash fa-3x"></i>
+                    <p data-i18n="messages.noThreads">Aucune discussion pour le moment.</p>
+                </div>
+                <ul id="thread-list" class="item-list">
+                    <template id="thread-item-template">
+                        <li class="thread-item list-item-card" tabindex="0" role="button" data-thread-id="">
+                            <img src="avatar-default.svg" alt="Avatar de l'interlocuteur" class="thread-avatar item-image" onerror="this.src='https://placehold.co/48x48/e0e0e0/757575?text=User';">
+                            <div class="thread-info item-info">
+                                <span class="thread-user item-title"></span>
+                                <p class="thread-preview"></p>
                             </div>
-                        </div>
-                        <div id="chat-messages-container" class="modal-body chat-messages-body" role="log"
-                            aria-live="polite" data-firestore-collection="chats/{chatId}/messages">
-                            <template id="chat-message-template">
-                                <div class="chat-message" data-sender-id="" data-message-id="">
-                                    <p class="message-text"></p>
-                                    <time class="message-time"></time>
-                                </div>
-                            </template>
-                            <div id="chat-history-loader" class="loader-container hidden" role="status">
-                                <div class="spinner"></div> <span data-i18n="chat.loadingHistory">Chargement des
-                                    messages précédents...</span>
+                            <div class="thread-meta">
+                                <time class="thread-time"></time>
+                                <span class="unread-badge hidden" aria-label="Messages non lus">0</span>
                             </div>
-                        </div>
-                        <div id="chat-typing-indicator" class="typing-indicator hidden" aria-live="polite">
-                            <span data-i18n="chat.typingIndicator">Quelqu'un écrit</span><span
-                                class="dots"><span>.</span><span>.</span><span>.</span></span>
-                        </div>
-                        <div id="quick-reply-container" class="quick-reply-bar">
-                        </div>
-                        <div id="chat-input-area" class="chat-input-footer">
-                            <button id="emoji-picker-btn" type="button" class="btn btn-icon"
-                                aria-label="Ouvrir le sélecteur d'emojis" aria-controls="emoji-palette-container">
-                                <i class="fa-regular fa-face-smile"></i>
-                            </button>
-                            <div id="emoji-palette-container" class="emoji-palette hidden" role="dialog"
-                                aria-label="Sélecteur d'emojis">
-                            </div>
-                            <textarea id="chat-message-input" class="form-control message-input"
-                                placeholder="Écrire un message..." aria-label="Votre message" rows="1"></textarea>
-                            <button id="send-chat-message-btn" type="button" class="btn btn-primary btn-icon send-btn"
-                                aria-label="Envoyer le message">
-                                <i class="fa-solid fa-paper-plane"></i>
-                            </button>
-                        </div>
-                    </div>
+                        </li>
+                    </template>
+                </ul>
+            </div>
+        </div>
+
+        <div id="chat-view" class="messages-view">
+            <div class="modal-header chat-header">
+                <button id="back-to-threads-btn" type="button" class="btn btn-icon" aria-label="Retour aux discussions">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <img id="chat-recipient-avatar" src="avatar-default.svg" alt="Avatar de l'interlocuteur" class="chat-recipient-avatar" onerror="this.src='https://placehold.co/36x36/e0e0e0/757575?text=User';">
+                <h2 id="chat-recipient-name" class="modal-title chat-title"></h2>
+                <button id="chat-options-btn" type="button" class="btn btn-icon" aria-label="Options du chat" aria-haspopup="true" aria-expanded="false">
+                    <i class="fa-solid fa-ellipsis-v"></i>
+                </button>
+                <div id="chat-options-menu" class="dropdown-menu hidden" role="menu">
+                    <button role="menuitem" id="block-user-chat-btn" data-i18n="chat.blockUser">Bloquer</button>
+                    <button role="menuitem" id="delete-chat-btn" data-i18n="chat.delete">Supprimer</button>
                 </div>
             </div>
+            <div id="chat-messages-container" class="modal-body chat-messages-body" role="log" aria-live="polite">
+                <div id="chat-history-loader" class="loader-container hidden" role="status">
+                    <div class="spinner"></div>
+                </div>
+                <template id="chat-message-template">
+                    <div class="chat-message" data-message-id="">
+                        <div class="message-content">
+                            <p class="message-text"></p>
+                            <time class="message-time"></time>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            <div id="chat-typing-indicator" class="typing-indicator hidden" aria-live="polite">
+                <span></span><span class="dots"><span>.</span><span>.</span><span>.</span></span>
+            </div>
+            <div id="chat-image-preview-container" class="hidden" style="padding: 0 var(--spacing-md); align-self: flex-start;">
+                </div>
+            <div id="chat-input-area" class="chat-input-footer">
+                <button id="chat-attach-image-btn" type="button" class="btn btn-icon" aria-label="Joindre une image">
+                    <i class="fa-solid fa-paperclip"></i>
+                </button>
+                <input type="file" id="chat-image-upload-input" class="visually-hidden" accept="image/jpeg,image/png,image/webp">
+                <textarea id="chat-message-input" class="form-control message-input" placeholder="Écrire un message..." aria-label="Votre message" rows="1"></textarea>
+                <button id="send-chat-message-btn" type="button" class="btn btn-primary btn-icon send-btn" aria-label="Envoyer le message">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
 
             <div id="filters-modal" class="modal-overlay" role="dialog" aria-modal="true"
                 aria-labelledby="filters-modal-title" aria-hidden="true" tabindex="-1">

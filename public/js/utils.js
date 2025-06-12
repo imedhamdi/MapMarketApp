@@ -434,11 +434,18 @@ export async function secureFetch(url, options = {}, showGlobalLoader = true) {
         return await response.text();
 
     } catch (error) {
-        console.error(`Erreur lors de l'appel à ${url}:`, error);
-        // Afficher un message d'erreur générique à l'utilisateur, sans détails techniques
+    console.error(`Erreur lors de l'appel à ${url}:`, error);
+    
+    // Message plus spécifique pour les erreurs de validation
+    if (error.status === 400 && error.data?.errors) {
+        const validationErrors = Object.values(error.data.errors).join(', ');
+        showToast(`Erreur de validation : ${validationErrors}`, 'error');
+    } else {
         showToast(error.message || 'Une erreur de communication est survenue. Veuillez réessayer.', 'error');
-        // Propager l'erreur pour que le module appelant puisse la gérer spécifiquement si besoin
-        throw error;
+    }
+    
+    throw error;
+
     } finally {
         if (showGlobalLoader) {
             toggleGlobalLoader(false);
