@@ -1,9 +1,10 @@
-// js/messages.js
-
 /**
  * @file messages.js
  * @description Gestion complète de la messagerie instantanée pour MapMarket.
- * @version 5.0.0 (Version finale par Gemini, avec correction de la logique d'ouverture et des conflits d'événements)
+ * Ce module gère la connexion Socket.IO, l'affichage des conversations (threads),
+ * l'envoi et la réception de messages (texte et images), les indicateurs de frappe,
+ * et la mise à jour en temps réel de l'interface utilisateur.
+ * @version 2.0.0 (Version Auditée et Corrigée)
  */
 
 import * as state from './state.js';
@@ -40,47 +41,87 @@ let isLoadingHistory = false;
 let allMessagesLoaded = false;
 let typingTimer = null;
 let tempImageFile = null;
-let lastSentMessageId = null;
 
+/**
+ * Initialise le module de messagerie.
+ */
 export function init() {
     if (!initializeUI()) return;
     setupEventListeners();
     console.log('Module Messages initialisé.');
 }
 
+/**
+ * Récupère tous les éléments du DOM nécessaires et vérifie leur existence.
+ * @returns {boolean} - True si tous les éléments sont trouvés, false sinon.
+ */
 function initializeUI() {
-    const ids = ['messages-modal', 'thread-list-view', 'chat-view', 'thread-list', 'thread-item-template', 'no-threads-placeholder', 'back-to-threads-btn', 'chat-recipient-avatar', 'chat-recipient-name', 'chat-options-btn', 'chat-options-menu', 'block-user-chat-btn', 'delete-chat-btn', 'chat-messages-container', 'chat-message-template', 'chat-history-loader', 'chat-typing-indicator', 'chat-input-area', 'chat-message-input', 'send-chat-message-btn', 'messages-nav-badge', 'nav-messages-btn', 'chat-attach-image-btn', 'chat-image-upload-input', 'chat-image-preview-container'];
-    const elements = ids.map(id => document.getElementById(id));
+    const elementsToFind = {
+        messagesModal: 'messages-modal',
+        threadListView: 'thread-list-view',
+        chatView: 'chat-view',
+        threadListUl: 'thread-list',
+        threadItemTemplate: 'thread-item-template',
+        noThreadsPlaceholder: 'no-threads-placeholder',
+        backToThreadsBtn: 'back-to-threads-btn',
+        chatRecipientAvatar: 'chat-recipient-avatar',
+        chatRecipientName: 'chat-recipient-name',
+        chatOptionsBtn: 'chat-options-btn',
+        chatOptionsMenu: 'chat-options-menu',
+        blockUserChatBtn: 'block-user-chat-btn',
+        deleteChatBtn: 'delete-chat-btn',
+        chatMessagesContainer: 'chat-messages-container',
+        chatMessageTemplate: 'chat-message-template',
+        chatHistoryLoader: 'chat-history-loader',
+        chatTypingIndicator: 'chat-typing-indicator',
+        chatInputArea: 'chat-input-area',
+        chatMessageInput: 'chat-message-input',
+        sendChatMessageBtn: 'send-chat-message-btn',
+        messagesNavBadge: 'messages-nav-badge',
+        navMessagesBtn: 'nav-messages-btn',
+        chatAttachImageBtn: 'chat-attach-image-btn',
+        chatImageUploadInput: 'chat-image-upload-input',
+        chatImagePreviewContainer: 'chat-image-preview-container'
+    };
+
+    const elements = {
+        messagesModal, threadListView, chatView, threadListUl, threadItemTemplate, noThreadsPlaceholder,
+        backToThreadsBtn, chatRecipientAvatar, chatRecipientName, chatOptionsBtn, chatOptionsMenu,
+        blockUserChatBtn, deleteChatBtn, chatMessagesContainer, chatMessageTemplate, chatHistoryLoader,
+        chatTypingIndicator, chatInputArea, chatMessageInput, sendChatMessageBtn, messagesNavBadge,
+        navMessagesBtn, chatAttachImageBtn, chatImageUploadInput, chatImagePreviewContainer
+    };
     
-    for (let i = 0; i < ids.length; i++) {
-        if (!elements[i]) {
-            console.error(`Élément critique de la messagerie manquant: #${ids[i]}.`);
-            return false;
+    let allFound = true;
+    for (const key in elementsToFind) {
+        const element = document.getElementById(elementsToFind[key]);
+        if (!element) {
+            console.error(`Élément critique de la messagerie manquant: #${elementsToFind[key]}.`);
+            allFound = false;
+        }
+        // Assignation à la variable globale correspondante
+        eval(`${key} = element;`);
+    }
+
+    if(allFound) {
+        try {
+            newMessagesSound = new Audio('/sounds/new_message_notification.mp3');
+            newMessagesSound.load();
+        } catch (e) {
+            console.warn("Impossible de charger le son de notification:", e);
         }
     }
-    
-    [messagesModal, threadListView, chatView, threadListUl, threadItemTemplate, noThreadsPlaceholder, backToThreadsBtn, chatRecipientAvatar, chatRecipientName, chatOptionsBtn, chatOptionsMenu, blockUserChatBtn, deleteChatBtn, chatMessagesContainer, chatMessageTemplate, chatHistoryLoader, chatTypingIndicator, chatInputArea, chatMessageInput, sendChatMessageBtn, messagesNavBadge, navMessagesBtn, chatAttachImageBtn, chatImageUploadInput, chatImagePreviewContainer] = elements;
-
-    try {
-        newMessagesSound = new Audio('/sounds/new_message_notification.mp3');
-        newMessagesSound.load();
-    } catch (e) {
-        console.warn("Impossible de charger le son de notification:", e);
-    }
-    return true;
+    return allFound;
 }
 
 /**
- * Met en place les écouteurs d'événements. La logique d'ouverture de la modale est maintenant gérée par des fonctions dédiées.
+ * Met en place les écouteurs d'événements principaux pour le module de messagerie.
  */
 function setupEventListeners() {
     state.subscribe('currentUserChanged', handleUserChangeForSocket);
     document.addEventListener('mapMarket:initiateChat', handleInitiateChatEvent);
     
-    // Clic sur le bouton de navigation "Messages" -> Ouvre la liste des conversations
     navMessagesBtn.addEventListener('click', openThreadListView);
-
-    // Interactions dans la modale
     backToThreadsBtn.addEventListener('click', showThreadList);
     sendChatMessageBtn.addEventListener('click', sendMessage);
     chatMessageInput.addEventListener('keypress', handleInputKeypress);
@@ -93,13 +134,22 @@ function setupEventListeners() {
 
 // --- GESTION DE LA CONNEXION SOCKET.IO ---
 
+/**
+ * Gère le changement d'utilisateur pour connecter ou déconnecter le socket.
+ * @param {object|null} user - L'objet utilisateur actuel ou null.
+ */
 function handleUserChangeForSocket(user) {
-    if (!user) {
+    if (user) {
+        connectSocket();
+    } else {
         disconnectSocket();
         clearMessagesUI();
     }
 }
 
+/**
+ * Établit la connexion Socket.IO si elle n'est pas déjà active.
+ */
 function connectSocket() {
     const token = localStorage.getItem('mapmarket_auth_token');
     if (!token) return;
@@ -109,27 +159,38 @@ function connectSocket() {
     socket = io(SOCKET_NAMESPACE, { auth: { token } });
 
     socket.on('connect', () => {
-        console.log('Socket.IO connecté:', socket.id);
-        socket.emit('joinUserRoom', { userId: state.getCurrentUser()?.id });
+        console.log('Socket.IO connecté au namespace /chat:', socket.id);
+        const currentUser = state.getCurrentUser();
+        if(currentUser) {
+            socket.emit('joinUserRoom', { userId: currentUser._id });
+        }
     });
+
     socket.on('disconnect', (reason) => console.log('Socket.IO déconnecté:', reason));
     socket.on('connect_error', (err) => showToast(`Erreur de messagerie: ${err.message}`, 'error'));
+    
+    // Écoute des événements serveur
     socket.on('newMessage', handleNewMessageReceived);
     socket.on('typing', handleTypingEventReceived);
-    socket.on('newThread', loadThreads);
+    socket.on('newThread', loadThreads); // Un nouveau thread a été créé nous impliquant
+    socket.on('messagesRead', handleMessagesReadByOther); // L'autre participant a lu nos messages
 }
 
+/**
+ * Déconnecte le socket de messagerie.
+ */
 function disconnectSocket() {
     if (socket) {
         socket.disconnect();
         socket = null;
+        console.log('Socket.IO déconnecté.');
     }
 }
 
-// --- GESTION DE L'UI ET DES FLUX ---
+// --- GESTION DE L'INTERFACE ET DES FLUX ---
 
 /**
- * Gère l'ouverture de la modale depuis la barre de navigation pour afficher la liste des threads.
+ * Ouvre la modale sur la vue de la liste des conversations (threads).
  */
 function openThreadListView() {
     const currentUser = state.getCurrentUser();
@@ -138,32 +199,43 @@ function openThreadListView() {
         document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' } }));
         return;
     }
-    connectSocket();
-    showThreadList();
+    connectSocket(); // S'assurer que le socket est connecté
+    showThreadList(); // Afficher la liste des conversations
     document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'messages-modal' } }));
 }
 
+/**
+ * Affiche la vue de la liste des conversations et charge les données.
+ */
 function showThreadList() {
     activeThreadId = null;
     currentRecipient = null;
     chatView.classList.remove('active-view');
     threadListView.classList.add('active-view');
-    if(chatOptionsMenu) chatOptionsMenu.classList.add('hidden');
+    if (chatOptionsMenu) chatOptionsMenu.classList.add('hidden');
     loadThreads();
 }
 
+/**
+ * Ouvre la vue de chat pour une conversation spécifique.
+ * @param {string} threadId - L'ID du thread.
+ * @param {object} recipient - L'objet de l'autre participant.
+ */
 async function openChatView(threadId, recipient) {
     activeThreadId = threadId;
     currentRecipient = recipient;
     allMessagesLoaded = false;
     isLoadingHistory = false;
 
+    // Mise à jour de l'en-tête du chat
     chatRecipientAvatar.src = recipient.avatarUrl || 'avatar-default.svg';
     chatRecipientName.textContent = sanitizeHTML(recipient.name);
 
+    // Basculer les vues
     threadListView.classList.remove('active-view');
     chatView.classList.add('active-view');
     
+    // Réinitialisation de l'état du chat
     chatMessagesContainer.innerHTML = '';
     chatMessageInput.value = '';
     chatMessageInput.focus();
@@ -172,13 +244,17 @@ async function openChatView(threadId, recipient) {
     if (threadId) {
         markThreadAsRead(threadId);
         await loadMessageHistory(threadId, true);
-        setupInfiniteScroll();
+        setupInfiniteScroll(); // Mettre en place le scroll infini après le premier chargement
     } else {
+        // Cas d'une nouvelle conversation sans message
         chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message !</p>`;
         chatHistoryLoader.classList.remove('hidden');
     }
 }
 
+/**
+ * Nettoie l'interface de la messagerie lors de la déconnexion.
+ */
 function clearMessagesUI() {
     if (threadListUl) threadListUl.innerHTML = '';
     if (chatMessagesContainer) chatMessagesContainer.innerHTML = '';
@@ -188,8 +264,12 @@ function clearMessagesUI() {
     updateGlobalUnreadCount(0);
 }
 
-// --- LOGIQUE DES DONNÉES ---
 
+// --- LOGIQUE DE GESTION DES DONNÉES (API & RENDU) ---
+
+/**
+ * Récupère les conversations de l'utilisateur depuis l'API.
+ */
 async function loadThreads() {
     if (!threadListUl) return;
     threadListUl.innerHTML = '<div class="loader-container"><div class="spinner"></div></div>';
@@ -199,14 +279,26 @@ async function loadThreads() {
     } catch (error) {
         console.error("Erreur chargement threads:", error);
         renderThreadList([]);
+        noThreadsPlaceholder.textContent = "Erreur de chargement des conversations.";
     }
 }
 
+/**
+ * Affiche la liste des conversations dans l'interface.
+ * @param {Array} threadsData - Les données des conversations.
+ */
 function renderThreadList(threadsData) {
     if (!threadListUl || !threadItemTemplate) return;
     threadListUl.innerHTML = '';
+    
+    const currentUser = state.getCurrentUser();
+    if (!currentUser) {
+        noThreadsPlaceholder.classList.remove('hidden');
+        return;
+    }
+
     if (!threadsData || threadsData.length === 0) {
-        if (noThreadsPlaceholder) noThreadsPlaceholder.classList.remove('hidden');
+        noThreadsPlaceholder.classList.remove('hidden');
         return;
     }
     noThreadsPlaceholder.classList.add('hidden');
@@ -215,7 +307,7 @@ function renderThreadList(threadsData) {
     updateGlobalUnreadCount(totalUnread);
 
     threadsData.forEach(thread => {
-        const recipient = thread.participants.find(p => p._id !== state.getCurrentUser().id);
+        const recipient = thread.participants.find(p => p._id !== currentUser._id);
         if (!recipient) return;
 
         const clone = threadItemTemplate.content.cloneNode(true);
@@ -223,21 +315,34 @@ function renderThreadList(threadsData) {
         li.dataset.threadId = thread._id;
         li.querySelector('.thread-avatar').src = recipient.avatarUrl || 'avatar-default.svg';
         li.querySelector('.thread-user').textContent = sanitizeHTML(recipient.name);
-        li.querySelector('.thread-preview').textContent = sanitizeHTML(thread.lastMessage?.text || '[Image]');
+        
+        let previewText = thread.lastMessage?.text ? sanitizeHTML(thread.lastMessage.text) : (thread.lastMessage?.imageUrl ? '[Image]' : 'Début de la conversation');
+        li.querySelector('.thread-preview').textContent = previewText;
+        
         li.querySelector('.thread-time').textContent = thread.lastMessage ? formatDate(thread.lastMessage.createdAt, { hour: '2-digit', minute: '2-digit' }) : '';
         const unreadBadge = li.querySelector('.unread-badge');
-        unreadBadge.textContent = thread.unreadCount;
-        unreadBadge.classList.toggle('hidden', !thread.unreadCount);
+        const unreadCount = thread.participants.find(p => p.user === currentUser._id)?.unreadCount || 0;
+        unreadBadge.textContent = unreadCount;
+        unreadBadge.classList.toggle('hidden', unreadCount === 0);
 
         li.addEventListener('click', () => openChatView(thread._id, recipient));
         threadListUl.appendChild(clone);
     });
 }
 
+/**
+ * Charge l'historique des messages pour un thread donné.
+ * @param {string} threadId - L'ID du thread.
+ * @param {boolean} isInitialLoad - Indique s'il s'agit du premier chargement.
+ */
 async function loadMessageHistory(threadId, isInitialLoad = false) {
     if (isLoadingHistory || allMessagesLoaded) return;
     isLoadingHistory = true;
-    chatHistoryLoader.classList.remove('hidden');
+    if (isInitialLoad) {
+        chatMessagesContainer.innerHTML = ''; // Nettoyer pour un nouveau chargement
+        chatHistoryLoader.classList.remove('hidden');
+    }
+
     const oldestMessage = chatMessagesContainer.querySelector('.chat-message:first-child');
     const beforeTimestamp = !isInitialLoad && oldestMessage ? oldestMessage.dataset.messageTimestamp : '';
 
@@ -245,33 +350,49 @@ async function loadMessageHistory(threadId, isInitialLoad = false) {
         const url = `${API_MESSAGES_URL}/threads/${threadId}/messages?limit=20&before=${beforeTimestamp}`;
         const response = await secureFetch(url, {}, false);
         const messages = response?.data?.messages || [];
+        
         if (messages.length < 20) {
             allMessagesLoaded = true;
-            chatHistoryLoader.innerHTML = `<p class="text-center text-muted">${isInitialLoad ? 'Envoyez le premier message !' : 'Début de la conversation'}</p>`;
+            if(isInitialLoad && messages.length === 0) {
+                 chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message !</p>`;
+            } else {
+                chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Début de la conversation</p>`;
+            }
         }
         renderMessages(messages, 'prepend');
+    } catch(error) {
+        showToast("Erreur de chargement de l'historique.", "error");
     } finally {
         isLoadingHistory = false;
-        if (allMessagesLoaded || isInitialLoad) {
-            setTimeout(() => { if (chatHistoryLoader) chatHistoryLoader.classList.add('hidden'); }, 2000);
-        } else {
-             if (chatHistoryLoader) chatHistoryLoader.classList.add('hidden');
+        if (isInitialLoad && !allMessagesLoaded) {
+            chatHistoryLoader.classList.add('hidden');
         }
     }
 }
 
+/**
+ * Affiche les messages dans le conteneur de chat.
+ * @param {Array} messages - Tableau de messages à afficher.
+ * @param {string} method - 'prepend' pour ajouter au début, 'append' pour ajouter à la fin.
+ */
 function renderMessages(messages, method) {
+    if (!messages || messages.length === 0) return;
+    
     const fragment = document.createDocumentFragment();
-    const currentUserId = state.getCurrentUser().id;
+    const currentUserId = state.getCurrentUser()._id;
+
     messages.forEach(msg => {
         const clone = chatMessageTemplate.content.cloneNode(true);
         const messageEl = clone.querySelector('.chat-message');
         const textEl = messageEl.querySelector('.message-text');
         const timeEl = messageEl.querySelector('.message-time');
-        messageEl.dataset.messageId = msg.id || msg._id;
+
+        messageEl.dataset.messageId = msg._id;
         messageEl.dataset.messageTimestamp = new Date(msg.createdAt).getTime();
+
         const isSentByMe = (msg.senderId?._id || msg.senderId) === currentUserId;
         messageEl.dataset.senderId = isSentByMe ? 'me' : 'other';
+
         if (msg.imageUrl) {
             const img = document.createElement('img');
             img.src = msg.imageUrl;
@@ -280,22 +401,27 @@ function renderMessages(messages, method) {
             textEl.innerHTML = '';
             textEl.appendChild(img);
         } else {
-            textEl.innerHTML = sanitizeHTML(msg.text).replace(/\n/g, '<br>');
+            textEl.innerHTML = sanitizeHTML(msg.text || '').replace(/\n/g, '<br>');
         }
+        
         timeEl.textContent = formatDate(msg.createdAt, { hour: '2-digit', minute: '2-digit' });
         fragment.appendChild(clone);
     });
+
     if (method === 'prepend') {
         const oldScrollHeight = chatMessagesContainer.scrollHeight;
+        const oldScrollTop = chatMessagesContainer.scrollTop;
         chatMessagesContainer.prepend(fragment);
-        chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight - oldScrollHeight;
+        // Conserver la position du scroll pour ne pas sauter lors du chargement de l'historique
+        chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight - oldScrollHeight + oldScrollTop;
     } else {
         chatMessagesContainer.appendChild(fragment);
         scrollToBottom(chatMessagesContainer);
     }
 }
 
-// --- ACTIONS UTILISATEUR ---
+
+// --- ACTIONS UTILISATEUR ET ENVOI ---
 
 function handleInputKeypress(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -304,6 +430,9 @@ function handleInputKeypress(e) {
     }
 }
 
+/**
+ * Fonction principale pour l'envoi de messages (texte et/ou image).
+ */
 async function sendMessage() {
     const text = chatMessageInput.value.trim();
     if (!text && !tempImageFile) {
@@ -311,38 +440,45 @@ async function sendMessage() {
         return;
     }
 
+    // Préparer le FormData
     const formData = new FormData();
     if (activeThreadId) {
         formData.append('threadId', activeThreadId);
-    } else if (currentRecipient?.id || currentRecipient?._id) {
-        formData.append('recipientId', currentRecipient.id || currentRecipient._id);
+    } else if (currentRecipient?._id) {
+        formData.append('recipientId', currentRecipient._id);
         if (currentRecipient.adId) formData.append('adId', currentRecipient.adId);
     } else {
-        showToast("Erreur: discussion non identifiée.", 'error');
-        return;
+        return showToast("Erreur: discussion non identifiée.", 'error');
     }
-    if (text) formData.append('text', text);
-    if (tempImageFile) formData.append('image', tempImageFile);
 
-    stopTypingEvent();
+    if (text) formData.append('text', text);
+    if (tempImageFile) formData.append('image', tempImageFile, tempImageFile.name);
+
+    stopTypingEvent(); // Arrêter d'envoyer l'événement 'typing'
 
     try {
+        // Le backend détermine le type de contenu (json vs multipart) et le gère.
+        // On utilise toujours un endpoint qui accepte FormData. `/messages/image` est plus sûr.
         const endpoint = tempImageFile ? `${API_MESSAGES_URL}/messages/image` : `${API_MESSAGES_URL}/messages`;
-        const response = await secureFetch(endpoint, { method: 'POST', body: formData }, false);
+        
+        const response = await secureFetch(endpoint, {
+            method: 'POST',
+            body: formData // secureFetch gère la suppression du Content-Type pour FormData
+        });
+
         if (!response?.success) {
-            throw new Error(response?.message || "Erreur d'envoi");
+            throw new Error(response?.message || "Erreur d'envoi du message.");
         }
+        
+        // La mise à jour de l'UI se fait via l'événement socket 'newMessage' reçu du serveur
+        // pour rester synchronisé, y compris pour nos propres messages.
+        // Cela garantit que ce qui est affiché est bien ce qui a été persisté.
 
-        const sentMessage = response.data?.message;
-        if (sentMessage) {
-            lastSentMessageId = sentMessage.id || sentMessage._id;
-            if (!activeThreadId) activeThreadId = sentMessage.threadId;
-            renderMessages([sentMessage], 'append');
-            loadThreads();
-        }
-
+        // Réinitialiser les champs après l'envoi
         chatMessageInput.value = '';
+        chatMessageInput.style.height = 'auto'; // Réinitialiser la hauteur du textarea
         removeImagePreview();
+        
     } catch (error) {
         showToast(error.message, 'error');
     }
@@ -353,6 +489,7 @@ function handleImageFileSelection(event) {
     if (!file) return;
     if (!VALID_IMAGE_TYPES.includes(file.type)) return showToast("Format d'image non valide.", "error");
     if (file.size > MAX_IMAGE_SIZE_BYTES) return showToast(`L'image est trop grande (max ${MAX_IMAGE_SIZE_MB}MB).`, "error");
+    
     tempImageFile = file;
     displayImagePreview(file);
 }
@@ -373,29 +510,31 @@ function displayImagePreview(file) {
 
 function removeImagePreview() {
     tempImageFile = null;
-    if(chatImagePreviewContainer) {
-        chatImagePreviewContainer.innerHTML = '';
-        chatImagePreviewContainer.classList.add('hidden');
-    }
-    if(chatImageUploadInput) chatImageUploadInput.value = '';
+    chatImagePreviewContainer.innerHTML = '';
+    chatImagePreviewContainer.classList.add('hidden');
+    chatImageUploadInput.value = '';
 }
 
-// --- GESTION ÉVÉNEMENTS SOCKET ---
+
+// --- GESTION DES ÉVÉNEMENTS SOCKET REÇUS ---
 
 function handleNewMessageReceived({ message, thread }) {
-    if (lastSentMessageId && (message.id || message._id) === lastSentMessageId) {
-        lastSentMessageId = null; // déjà affiché localement
-        return;
+    // Recharger la liste des conversations pour qu'elle remonte en haut
+    if(threadListView.classList.contains('active-view')) {
+       loadThreads();
     }
 
-    loadThreads();
     if (activeThreadId === message.threadId) {
         renderMessages([message], 'append');
         markThreadAsRead(activeThreadId);
     } else {
-        const senderName = thread.participants.find(p => p.user._id !== state.getCurrentUser().id)?.user.name || 'inconnu';
-        showToast(`Nouveau message de ${sanitizeHTML(senderName)}`, 'info');
-        if (newMessagesSound) newMessagesSound.play().catch(e => console.warn('Erreur lecture son:', e));
+        const sender = thread.participants.find(p => p.user._id === message.senderId);
+        if (sender && sender.user._id !== state.getCurrentUser()._id) {
+             showToast(`Nouveau message de ${sanitizeHTML(sender.user.name)}`, 'info');
+             if (newMessagesSound) newMessagesSound.play().catch(e => console.warn('Erreur lecture son:', e));
+             // Mettre à jour le badge global
+             loadThreads(); // Recharge pour mettre à jour les compteurs
+        }
     }
 }
 
@@ -415,31 +554,46 @@ function stopTypingEvent() {
     }
 }
 
-function handleTypingEventReceived({ threadId, userName, isTyping }) {
+function handleTypingEventReceived({ threadId, userName }) {
     if (threadId === activeThreadId && userName !== state.getCurrentUser()?.name) {
-        chatTypingIndicator.classList.toggle('hidden', !isTyping);
-        if (isTyping) {
-            chatTypingIndicator.querySelector('span').textContent = `${sanitizeHTML(userName)} est en train d'écrire...`;
-        }
+        chatTypingIndicator.classList.remove('hidden');
+        chatTypingIndicator.querySelector('span').textContent = `${sanitizeHTML(userName)} est en train d'écrire`;
+    }
+}
+
+function handleMessagesReadByOther({ threadId, readerId }) {
+    if (threadId === activeThreadId) {
+        // Optionnel : Mettre à jour l'UI pour montrer que les messages ont été lus (double coche bleue, etc.)
+        console.log(`L'utilisateur ${readerId} a lu les messages dans ce thread.`);
     }
 }
 
 // --- FONCTIONS AUXILIAIRES ---
 
+/**
+ * Informe le serveur que le thread a été lu.
+ * @param {string} threadId - L'ID du thread.
+ */
 function markThreadAsRead(threadId) {
-    if(socket) socket.emit('markThreadRead', { threadId });
+    if (socket) {
+        socket.emit('markThreadRead', { threadId });
+    }
+    // Mettre à jour le compteur local immédiatement
+    loadThreads();
 }
 
 function updateGlobalUnreadCount(count) {
     const newCount = Math.max(0, count);
-    if(messagesNavBadge) {
+    if (messagesNavBadge) {
         messagesNavBadge.textContent = newCount > 9 ? '9+' : newCount;
         messagesNavBadge.classList.toggle('hidden', newCount === 0);
     }
 }
 
-function scrollToBottom(container, smooth = true) {
-    if(container) container.scrollTo({ top: container.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+function scrollToBottom(container) {
+    if (container) {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    }
 }
 
 function setupInfiniteScroll() {
@@ -455,15 +609,30 @@ function setupInfiniteScroll() {
 }
 
 /**
- * Gère l'événement d'initiation d'une conversation en corrigeant le problème de timing.
- * @param {CustomEvent} event - L'événement contenant les détails.
+ * Gère l'initiation d'une conversation depuis une autre partie de l'application.
+ * @param {CustomEvent} event - L'événement contenant les détails { adId, recipientId }.
  */
 async function handleInitiateChatEvent(event) {
     const { adId, recipientId } = event.detail;
     if (!recipientId) return;
 
-    toggleGlobalLoader(true, 'Ouverture de la discussion...');
+    const currentUser = state.getCurrentUser();
+    if (!currentUser || !currentUser.token) {
+        showToast("Veuillez vous connecter pour envoyer un message.", "warning");
+        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' } }));
+        return;
+    }
+
+    toggleGlobalLoader(true, "Ouverture de la discussion...");
+
     try {
+        // Vérifier que le destinataire existe
+        const userCheck = await secureFetch(`/api/users/${recipientId}`);
+        if (!userCheck?.data?.user) {
+            throw new Error("Utilisateur non trouvé ou inactif.");
+        }
+
+        // Démarrer une conversation
         const response = await secureFetch(`${API_MESSAGES_URL}/threads/initiate`, {
             method: 'POST',
             body: { adId, recipientId }
@@ -471,14 +640,15 @@ async function handleInitiateChatEvent(event) {
 
         if (response?.success && response.data?.thread) {
             const thread = response.data.thread;
-            const recipient = thread.participants.find(p => p.user._id !== state.getCurrentUser().id)?.user;
+            const recipient = thread.participants.find(p => p.user._id !== currentUser.id)?.user;
 
             if (recipient) {
-                connectSocket();
-                await openChatView(thread._id, { ...recipient, adId });
-                document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'messages-modal' } }));
+                await openChatView(thread._id, recipient);
+                document.dispatchEvent(new CustomEvent('mapmarket:openModal', {
+                    detail: { modalId: 'messages-modal' }
+                }));
             } else {
-                throw new Error('Impossible de trouver le destinataire dans le thread retourné.');
+                throw new Error("Impossible de trouver le destinataire dans le thread.");
             }
         } else {
             throw new Error(response.message || "Impossible de démarrer la conversation.");
@@ -489,6 +659,7 @@ async function handleInitiateChatEvent(event) {
         toggleGlobalLoader(false);
     }
 }
+
 
 function toggleChatOptionsMenu() {
     const isHidden = chatOptionsMenu.classList.toggle('hidden');
@@ -501,6 +672,3 @@ function closeOptionsMenuOnClickOutside(event) {
         toggleChatOptionsMenu();
     }
 }
-
-async function handleDeleteThread() { /* Logique de suppression à implémenter */ }
-async function handleToggleBlockUser(block) { /* Logique de blocage à implémenter */ }
