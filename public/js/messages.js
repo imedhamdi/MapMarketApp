@@ -40,6 +40,7 @@ let isLoadingHistory = false;
 let allMessagesLoaded = false;
 let typingTimer = null;
 let tempImageFile = null;
+let lastSentMessageId = null;
 
 export function init() {
     if (!initializeUI()) return;
@@ -101,7 +102,8 @@ function handleUserChangeForSocket(user) {
 
 function connectSocket() {
     const token = localStorage.getItem('mapmarket_auth_token');
-    if (!token || (socket && socket.connected)) return;
+    if (!token) return;
+    if (socket && socket.connected) return;
     if (socket) socket.disconnect();
 
     socket = io(SOCKET_NAMESPACE, { auth: { token } });
@@ -304,24 +306,45 @@ function handleInputKeypress(e) {
 
 async function sendMessage() {
     const text = chatMessageInput.value.trim();
-    if (!text && !tempImageFile) return;
-    if (!activeThreadId) {
-        showToast("Erreur: Impossible d'envoyer, discussion non identifiée.", "error");
+    if (!text && !tempImageFile) {
+        showToast('Le message est vide.', 'warning');
         return;
     }
+
     const formData = new FormData();
-    formData.append('threadId', activeThreadId);
+    if (activeThreadId) {
+        formData.append('threadId', activeThreadId);
+    } else if (currentRecipient?.id || currentRecipient?._id) {
+        formData.append('recipientId', currentRecipient.id || currentRecipient._id);
+        if (currentRecipient.adId) formData.append('adId', currentRecipient.adId);
+    } else {
+        showToast("Erreur: discussion non identifiée.", 'error');
+        return;
+    }
     if (text) formData.append('text', text);
     if (tempImageFile) formData.append('image', tempImageFile);
-    chatMessageInput.value = '';
-    removeImagePreview();
+
     stopTypingEvent();
+
     try {
         const endpoint = tempImageFile ? `${API_MESSAGES_URL}/messages/image` : `${API_MESSAGES_URL}/messages`;
         const response = await secureFetch(endpoint, { method: 'POST', body: formData }, false);
-        if (!response.success) showToast(response.message || "Erreur d'envoi", "error");
+        if (!response?.success) {
+            throw new Error(response?.message || "Erreur d'envoi");
+        }
+
+        const sentMessage = response.data?.message;
+        if (sentMessage) {
+            lastSentMessageId = sentMessage.id || sentMessage._id;
+            if (!activeThreadId) activeThreadId = sentMessage.threadId;
+            renderMessages([sentMessage], 'append');
+            loadThreads();
+        }
+
+        chatMessageInput.value = '';
+        removeImagePreview();
     } catch (error) {
-        showToast(error.message, "error");
+        showToast(error.message, 'error');
     }
 }
 
@@ -341,6 +364,10 @@ function displayImagePreview(file) {
         chatImagePreviewContainer.classList.remove('hidden');
         chatImagePreviewContainer.querySelector('.chat-remove-preview-btn').addEventListener('click', removeImagePreview);
     };
+    reader.onerror = () => {
+        showToast("Impossible de lire l'image.", 'error');
+        removeImagePreview();
+    };
     reader.readAsDataURL(file);
 }
 
@@ -356,14 +383,19 @@ function removeImagePreview() {
 // --- GESTION ÉVÉNEMENTS SOCKET ---
 
 function handleNewMessageReceived({ message, thread }) {
-    loadThreads(); 
+    if (lastSentMessageId && (message.id || message._id) === lastSentMessageId) {
+        lastSentMessageId = null; // déjà affiché localement
+        return;
+    }
+
+    loadThreads();
     if (activeThreadId === message.threadId) {
         renderMessages([message], 'append');
         markThreadAsRead(activeThreadId);
     } else {
         const senderName = thread.participants.find(p => p.user._id !== state.getCurrentUser().id)?.user.name || 'inconnu';
         showToast(`Nouveau message de ${sanitizeHTML(senderName)}`, 'info');
-        if (newMessagesSound) newMessagesSound.play().catch(e => console.warn("Erreur lecture son:", e));
+        if (newMessagesSound) newMessagesSound.play().catch(e => console.warn('Erreur lecture son:', e));
     }
 }
 
@@ -430,7 +462,7 @@ async function handleInitiateChatEvent(event) {
     const { adId, recipientId } = event.detail;
     if (!recipientId) return;
 
-    toggleGlobalLoader(true, "Ouverture de la discussion...");
+    toggleGlobalLoader(true, 'Ouverture de la discussion...');
     try {
         const response = await secureFetch(`${API_MESSAGES_URL}/threads/initiate`, {
             method: 'POST',
@@ -440,13 +472,13 @@ async function handleInitiateChatEvent(event) {
         if (response?.success && response.data?.thread) {
             const thread = response.data.thread;
             const recipient = thread.participants.find(p => p.user._id !== state.getCurrentUser().id)?.user;
-            
+
             if (recipient) {
-                // **CORRECTION FINALE :** Préparer la vue AVANT d'ouvrir la modale.
-                await openChatView(thread._id, recipient);
+                connectSocket();
+                await openChatView(thread._id, { ...recipient, adId });
                 document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'messages-modal' } }));
             } else {
-                throw new Error("Impossible de trouver le destinataire dans le thread retourné.");
+                throw new Error('Impossible de trouver le destinataire dans le thread retourné.');
             }
         } else {
             throw new Error(response.message || "Impossible de démarrer la conversation.");
