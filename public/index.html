@@ -75,8 +75,9 @@
                     </button>
                 </div>
                 <div id="search-suggestions-container" class="search-suggestions" role="listbox" aria-live="polite"
-                    aria-hidden="true">
-                </div>
+                    aria-hidden="true"></div>
+                <div id="recent-searches" class="search-history-section"></div>
+                <div id="trending-categories" class="trending-categories-section"></div>
             </div>
         </header>
 
@@ -93,6 +94,12 @@
                             <div class="spinner"></div>
                         </div>
                     </div>
+                    <div id="list-view-container" class="list-view-container hidden" aria-hidden="true">
+                        <ul id="ads-list-view" class="item-list"></ul>
+                    </div>
+                    <button id="toggle-view-btn" type="button" class="toggle-view-btn" aria-label="Afficher la liste des annonces">
+                        <i class="fa-solid fa-list"></i>
+                    </button>
                 </div>
                 <div id="map-info-bar" class="map-info-controls">
                     <span id="map-zoom-level" aria-live="polite" data-i18n="map.zoomLevel" data-zoom-value="">Zoom:
@@ -418,15 +425,40 @@
                             <div class="profile-stats">
                                 <div class="stat-item" aria-label="Nombre d'annonces publiées">
                                     <div id="stats-ads-published" class="count">0</div>
+                                    <div class="stat-progress"><div class="fill" style="width:0%"></div></div>
                                     <div class="label" data-i18n="profile.stats.ads">Annonces</div>
                                 </div>
                                 <div class="stat-item" aria-label="Note moyenne reçue">
                                     <div id="stats-avg-rating" class="count">N/A</div>
+                                    <div class="stat-progress"><div class="fill" style="width:0%"></div></div>
                                     <div class="label" data-i18n="profile.stats.rating">Note Moy.</div>
                                 </div>
                                 <div class="stat-item" aria-label="Nombre de favoris">
                                     <div id="stats-favorites-count" class="count">0</div>
+                                    <div class="stat-progress"><div class="fill" style="width:0%"></div></div>
                                     <div class="label" data-i18n="profile.stats.favorites">Favoris</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="profile-achievements-section">
+                            <h3>Succès &amp; Badges</h3>
+                            <div class="achievements-grid">
+                                <div class="achievement-badge locked">
+                                    <i class="fa-solid fa-flag-checkered"></i>
+                                    <span>Premier Pas</span>
+                                </div>
+                                <div class="achievement-badge locked">
+                                    <i class="fa-solid fa-bolt"></i>
+                                    <span>Vendeur Éclair</span>
+                                </div>
+                                <div class="achievement-badge locked">
+                                    <i class="fa-solid fa-comments"></i>
+                                    <span>Super Répondeur</span>
+                                </div>
+                                <div class="achievement-badge locked">
+                                    <i class="fa-solid fa-star"></i>
+                                    <span>Collectionneur</span>
                                 </div>
                             </div>
                         </div>
@@ -662,12 +694,16 @@
                                 <div id="ad-detail-seller-info" class="seller-card" data-seller-id="">
                                     <img id="ad-detail-seller-avatar" src="avatar-default.svg" alt="Avatar du vendeur"
                                         class="seller-avatar"
-                                        onerror="this.src='https://placehold.co/48x48/e0e0e0/757575?text=Seller';">
-                                    <div>
+                                        onerror="this.src='https://placehold.co/64x64/e0e0e0/757575?text=Seller';">
+                                    <div class="seller-details">
                                         <span id="ad-detail-seller-name" class="seller-name font-semibold"></span>
                                         <div id="ad-detail-seller-rating" class="star-rating-display"
-                                            aria-label="Note moyenne du vendeur">
-                                        </div>
+                                            aria-label="Note moyenne du vendeur"></div>
+                                        <p id="ad-detail-seller-since" class="seller-extra"></p>
+                                        <p id="ad-detail-seller-ads-count" class="seller-extra"></p>
+                                        <button id="ad-detail-view-profile-btn" type="button" class="btn btn-sm btn-secondary">
+                                            Voir le profil
+                                        </button>
                                     </div>
                                 </div>
                             </section>
@@ -707,6 +743,19 @@
                                         class="fa-solid fa-trash"></i> Supprimer</button>
                             </div>
                         </article>
+                    </div>
+                </div>
+            </div>
+
+            <div id="image-viewer-modal" class="modal-overlay" aria-modal="true" aria-hidden="true" tabindex="-1">
+                <div class="modal-content">
+                    <button class="modal-close-btn" data-dismiss-modal="image-viewer-modal" type="button" aria-label="Fermer la vue d'image" style="align-self:flex-end;">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                    <div id="image-viewer-container" class="image-viewer">
+                        <button id="viewer-prev" type="button" class="viewer-nav" aria-label="Image précédente"><i class="fa-solid fa-chevron-left"></i></button>
+                        <img id="viewer-image" src="" alt="Aperçu" />
+                        <button id="viewer-next" type="button" class="viewer-nav" aria-label="Image suivante"><i class="fa-solid fa-chevron-right"></i></button>
                     </div>
                 </div>
             </div>

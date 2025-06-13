@@ -478,28 +478,19 @@ h4 {
         box-shadow var(--transition-duration-short) var(--transition-timing-function);
 }
 .search-bar-wrapper {
-    position: absolute; /* Se positionne par rapport à #main-header */
-    top: 100%; /* Commence juste en dessous du .header-content */
-    left: 20%;
-    right: 20%;
-    background-color: #fff0; /* Même fond que l'en-tête ou légèrement différent */
-    padding: var(--spacing-sm) var(--spacing-md);
-    box-shadow: var(--shadow-md); /* Ombre pour la démarquer */
-    z-index: 1; /* En dessous de .header-content mais au-dessus du reste de la page */
-
-    /* État initial : caché au-dessus et invisible */
+    position: fixed;
+    inset: 0;
+    background-color: var(--body-bg);
+    z-index: 1050;
+    padding: var(--spacing-lg) var(--spacing-md);
+    display: flex;
+    flex-direction: column;
     transform: translateY(-100%);
-    opacity: 0;
-    visibility: hidden;
-    transition: transform 0.3s var(--transition-timing-function),
-                opacity 0.3s var(--transition-timing-function),
-                visibility 0s 0.3s; /* La visibilité change après la transition */
+    transition: transform var(--transition-duration-medium) var(--transition-timing-function);
+    overflow-y: auto;
 }
-.search-bar-wrapper:not(.hidden) { /* État visible */
+.search-bar-wrapper:not(.hidden) {
     transform: translateY(0);
-    opacity: 1;
-    visibility: visible;
-    transition-delay: 0s, 0s, 0s; /* Assurer que la visibilité change immédiatement */
 }
 /* Ajustements pour la barre de recherche elle-même dans le wrapper */
 #header-search-bar-wrapper .search-bar-container.expanded {
@@ -596,6 +587,25 @@ h4 {
 
 .search-suggestions[aria-hidden="false"] {
     display: block;
+}
+
+#recent-searches,
+#trending-categories {
+    margin-top: var(--spacing-lg);
+}
+
+.trending-categories-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.trend-chip {
+    background-color: var(--gray-200);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    font-size: 0.85rem;
+    cursor: pointer;
 }
 
 .suggestion-item {
@@ -896,6 +906,41 @@ h4 {
     color: var(--light-color);
 }
 
+/* Toggle view button and list view */
+#toggle-view-btn {
+    position: absolute;
+    bottom: calc(var(--bottom-nav-height) + var(--spacing-md));
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--component-bg);
+    box-shadow: var(--shadow-md);
+    border-radius: var(--border-radius-full);
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-color);
+    z-index: 400;
+}
+
+#toggle-view-btn:hover {
+    background-color: var(--gray-50);
+}
+
+.list-view-container {
+    position: absolute;
+    inset: 0;
+    background-color: var(--component-bg);
+    overflow-y: auto;
+    padding: var(--spacing-md);
+    z-index: 300;
+}
+
+.list-view-container.hidden {
+    display: none;
+}
+
 /* MODALS */
 #modals-container {
     position: fixed;
@@ -1130,6 +1175,21 @@ h4 {
     gap: var(--spacing-sm);
 }
 
+.stat-progress {
+    width: 60px;
+    height: 4px;
+    background-color: var(--gray-200);
+    border-radius: var(--border-radius-full);
+    margin: var(--spacing-xs) auto;
+    overflow: hidden;
+}
+
+.stat-progress .fill {
+    height: 100%;
+    background-color: var(--primary-color);
+    width: 0;
+}
+
 .stat-item .count {
     font-size: 1.5rem;
     font-weight: bold;
@@ -1140,6 +1200,39 @@ h4 {
     font-size: 0.8rem;
     color: var(--gray-600);
     text-transform: uppercase;
+}
+
+#profile-achievements-section {
+    margin: var(--spacing-lg) 0;
+}
+
+.achievements-grid {
+    display: flex;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.achievement-badge {
+    width: 80px;
+    padding: var(--spacing-sm);
+    text-align: center;
+    border-radius: var(--border-radius-md);
+    background-color: var(--gray-100);
+    color: var(--primary-color);
+    font-size: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.achievement-badge i {
+    font-size: 1.5rem;
+    margin-bottom: var(--spacing-xs);
+}
+
+.achievement-badge.locked {
+    background-color: var(--gray-200);
+    color: var(--gray-400);
 }
 
 .profile-danger-zone {
@@ -1306,6 +1399,41 @@ h4 {
     position: relative;
 }
 
+#image-viewer-modal .modal-content {
+    background-color: transparent;
+    box-shadow: none;
+    max-width: none;
+    padding: 0;
+}
+
+.image-viewer {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(var(--dark-color), 0.8);
+}
+
+.image-viewer img {
+    max-width: 90%;
+    max-height: 90%;
+}
+
+.viewer-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    color: var(--light-color);
+    font-size: 1.5rem;
+    padding: var(--spacing-sm);
+}
+
+#viewer-prev { left: var(--spacing-lg); }
+#viewer-next { right: var(--spacing-lg); }
+
 .loader-container {
     display: flex;
     flex-direction: column;
@@ -1458,11 +1586,22 @@ h4 {
     margin-bottom: var(--spacing-lg);
 }
 
+.seller-card .seller-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .seller-avatar {
-    width: 48px;
-    height: 48px;
+    width: 64px;
+    height: 64px;
     border-radius: 50%;
     object-fit: cover;
+}
+
+.seller-extra {
+    font-size: 0.8rem;
+    color: var(--gray-600);
 }
 
 .seller-name {
@@ -1486,6 +1625,15 @@ h4 {
     margin-top: var(--spacing-lg);
     padding-top: var(--spacing-lg);
     border-top: 1px solid var(--border-color-light);
+}
+
+#ad-detail-actions-container {
+    position: sticky;
+    bottom: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--component-bg);
+    box-shadow: 0 -2px 6px rgba(0,0,0,0.1);
+    z-index: 5;
 }
 
 #ad-detail-favorite-btn i.fa-solid {
@@ -2695,6 +2843,21 @@ body.dark-mode select.form-control {
     font-size: 17px;
     transform: translateY(-2px);
     text-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes marker-appear {
+    0% { transform: scale(0) translateY(-10px); opacity: 0; }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.map-marker-animate {
+    animation: marker-appear 0.3s ease-out;
+}
+
+.map-marker-custom--highlighted {
+    transform: scale(1.2);
+    box-shadow: 0 0 8px rgba(var(--primary-color-rgb), 0.6);
+    z-index: 1000;
 }
 
 /* Marqueurs spéciaux : Alertes */
