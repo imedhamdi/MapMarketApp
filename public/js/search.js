@@ -3,6 +3,7 @@
 import * as state from './state.js';
 
 const RECENT_KEY = 'mapMarketRecentSearches';
+const BODY_ACTIVE_CLASS = 'search-overlay-active';
 
 export function init() {
     const headerShowSearchBtn = document.getElementById('header-show-search-btn');
@@ -28,7 +29,7 @@ export function init() {
     });
 
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && searchBarWrapper.classList.contains('search-overlay--active')) {
+        if (event.key === 'Escape' && !searchBarWrapper.classList.contains('hidden')) {
             closeOverlay();
         }
     });
@@ -37,10 +38,9 @@ export function init() {
     renderTrendingCategories();
 
     function openOverlay() {
-        searchBarWrapper.classList.add('search-overlay--active');
         searchBarWrapper.classList.remove('hidden');
         searchBarWrapper.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('search-overlay--active');
+        document.body.classList.add(BODY_ACTIVE_CLASS);
         headerShowSearchBtn.setAttribute('aria-expanded', 'true');
         renderRecentSearches();
         renderTrendingCategories();
@@ -48,10 +48,9 @@ export function init() {
     }
 
     function closeOverlay() {
-        searchBarWrapper.classList.remove('search-overlay--active');
         searchBarWrapper.classList.add('hidden');
         searchBarWrapper.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('search-overlay--active');
+        document.body.classList.remove(BODY_ACTIVE_CLASS);
         headerShowSearchBtn.setAttribute('aria-expanded', 'false');
         headerShowSearchBtn.focus();
     }
@@ -74,7 +73,7 @@ export function saveSearchTerm(term) {
     const existingIdx = items.indexOf(trimmed);
     if (existingIdx !== -1) items.splice(existingIdx, 1);
     items.unshift(trimmed);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(items.slice(0, 4)));
+    localStorage.setItem(RECENT_KEY, JSON.stringify(items.slice(0, 3)));
 }
 
 export function renderRecentSearches() {
