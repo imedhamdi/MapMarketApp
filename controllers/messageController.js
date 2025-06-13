@@ -220,11 +220,11 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
     let isNewThread = false;
 
     if (!currentThreadId && (!recipientId || !adId)) {
-        return next(new AppError('Pour créer une discussion, recipientId et adId sont requis.', 400));
+        return next(new AppError('recipientId et adId sont requis pour démarrer une nouvelle discussion.', 400));
     }
 
     if (!text && !req.file) {
-        return next(new AppError('Un message ne peut pas être vide.', 400));
+        return next(new AppError('Un message doit contenir du texte ou une image.', 400));
     }
 
     // --- Vérification de blocage ---
