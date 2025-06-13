@@ -575,74 +575,72 @@ async function sendMessage(overrideText) {
         return;
     }
 
-    // Vérifications de base avant l'envoi
     if (!activeThreadId && (!currentRecipient || !currentRecipient.id || !currentRecipient.adId)) {
-        showToast("Erreur: Impossible d'envoyer le message - informations manquantes pour démarrer la conversation.", "error");
+        showToast("Erreur: Impossible d'envoyer le message - informations de destinataire manquantes.", "error");
         return;
     }
 
     const hasImage = Boolean(tempImageFile);
     let payload;
     let endpoint;
+    let requestOptions = { method: 'POST' };
 
     if (hasImage) {
         endpoint = `${API_MESSAGES_URL}/messages/image`;
         payload = new FormData();
+        payload.append('image', tempImageFile);
+        // --- DÉBUT DE LA CORRECTION ---
+        // Toujours ajouter le champ texte, même s'il est vide.
+        payload.append('text', text);
+        // --- FIN DE LA CORRECTION ---
     } else {
         endpoint = `${API_MESSAGES_URL}/messages`;
-        payload = {};
+        payload = { text: text };
     }
 
     if (activeThreadId) {
         if (hasImage) payload.append('threadId', activeThreadId);
         else payload.threadId = activeThreadId;
-    } else {
+    } else if (newChatContext) {
         if (hasImage) {
-            payload.append('recipientId', currentRecipient.id);
-            payload.append('adId', currentRecipient.adId);
+            payload.append('recipientId', newChatContext.recipientId);
+            payload.append('adId', newChatContext.adId);
         } else {
-            payload.recipientId = currentRecipient.id;
-            payload.adId = currentRecipient.adId;
+            payload.recipientId = newChatContext.recipientId;
+            payload.adId = newChatContext.adId;
         }
     }
 
-    if (text) {
-        if (hasImage) payload.append('text', text);
-        else payload.text = text;
+    if (hasImage) {
+        requestOptions.body = payload; // FormData va directement dans le body
+    } else {
+        requestOptions.body = JSON.stringify(payload);
+        requestOptions.headers = { 'Content-Type': 'application/json' };
     }
-
-    if (hasImage) payload.append('image', tempImageFile);
-
+    
+    // Nettoyage immédiat de l'UI pour une meilleure réactivité
     chatMessageInput.value = '';
     removeImagePreview();
     stopTypingEvent();
 
     try {
-        const response = await secureFetch(endpoint, {
-            method: 'POST',
-            body: payload
-        }, true);
+        const response = await secureFetch(endpoint, requestOptions, true);
 
         if (!response.success) {
             showToast(response.message || "Erreur d'envoi", "error");
             return;
         }
 
-        // Mise à jour de l'état après envoi réussi
+        // Si c'était une nouvelle discussion, mettre à jour le contexte local
         if (!activeThreadId && response.data?.threadId) {
             activeThreadId = response.data.threadId;
-            // Recharger la liste des threads
-            await loadThreads(currentTabRole);
-            // Mettre à jour le thread actif
-            const thread = response.data.thread;
-            if (thread) {
-                openChatView(thread._id, thread.participants.find(p => p._id !== state.getCurrentUser().id));
-            }
+            newChatContext = null; // Le contexte de nouvelle discussion n'est plus nécessaire
+            loadThreads(currentTabRole); // Recharger les threads pour inclure le nouveau
         }
 
     } catch (error) {
         console.error("Erreur d'envoi de message:", error);
-        showToast(error.message || "Une erreur est survenue lors de l'envoi", "error");
+        // Le toast est déjà géré par secureFetch
     }
 }
 function handleImageFileSelection(event) {
