@@ -46,7 +46,6 @@ let adDetailDescriptionText, adDetailSellerInfo, adDetailSellerAvatar, adDetailS
 let adDetailSellerSince, adDetailSellerAdsCount, adDetailViewProfileBtn;
 let adDetailActionsContainer, adDetailFavoriteBtn, adDetailContactSellerBtn, adDetailReportBtn;
 let adDetailOwnerActions, adDetailEditAdBtn, adDetailDeleteAdBtn;
-// let adDetailSellerRating, adDetailRatingSection, adAverageRatingDisplay, rateAdBtn, adReviewsList; // Pour les avis futurs
 let imageViewerModal, viewerImage, viewerPrevBtn, viewerNextBtn;
 let viewerImages = [];
 let viewerIndex = 0;
@@ -111,10 +110,6 @@ function initAdsUI() {
     adDetailOwnerActions = document.getElementById('ad-detail-owner-actions');
     adDetailEditAdBtn = document.getElementById('ad-detail-edit-ad-btn');
     adDetailDeleteAdBtn = document.getElementById('ad-detail-delete-ad-btn');
-    // adDetailRatingSection = document.getElementById('ad-detail-rating-section'); // Pour les avis futurs
-    // adAverageRatingDisplay = document.getElementById('ad-average-rating-display'); // Pour les avis futurs
-    // rateAdBtn = document.getElementById('rate-ad-btn'); // Pour les avis futurs
-    // adReviewsList = document.getElementById('ad-reviews-list'); // Pour les avis futurs
 
     imageViewerModal = document.getElementById('image-viewer-modal');
     viewerImage = document.getElementById('viewer-image');
@@ -173,7 +168,6 @@ function initAdsUI() {
     if (adDetailDeleteAdBtn) adDetailDeleteAdBtn.addEventListener('click', handleDeleteAdFromDetail);
     if (adDetailFavoriteBtn) adDetailFavoriteBtn.addEventListener('click', handleToggleFavoriteFromDetail);
     if (adDetailContactSellerBtn) adDetailContactSellerBtn.addEventListener('click', handleContactSellerFromDetail);
-    // if (rateAdBtn) rateAdBtn.addEventListener('click', handleRateAdFromDetail); // Pour les avis futurs
 
     // Événement déclenché par la mini-carte dans le formulaire d'annonce
     document.addEventListener('mapMarket:adFormMarkerPlaced', (event) => {
