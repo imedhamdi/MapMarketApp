@@ -74,10 +74,21 @@ const sendErrorProd = (err, req, res) => {
 };
 
 module.exports = (err, req, res, next) => {
+  // Normaliser les erreurs Joi pour tous les environnements
+  if (err.isJoi) {
+    const errors = err.details.map(detail => ({
+      field: detail.path.join('.'),
+      message: detail.message.replace(/["']/g, '')
+    }));
+    err = new AppError('Données de requête invalides.', 400);
+    err.errors = errors;
+  }
+
   err.statusCode = err.statusCode || 500;
   err.status = err.status || 'error';
 
   if (process.env.NODE_ENV === 'development') {
+    // En développement, renvoyer l'erreur complète
     sendErrorDev(err, req, res);
   } else if (process.env.NODE_ENV === 'production') {
     let error = { ...err, message: err.message, name: err.name }; // Copier l'erreur
@@ -87,18 +98,11 @@ module.exports = (err, req, res, next) => {
     if (error.name === 'ValidationError') error = handleValidationErrorDB(error); // Pour Mongoose
     if (error.name === 'JsonWebTokenError') error = handleJWTError();
     if (error.name === 'TokenExpiredError') error = handleJWTExpiredError();
-    // Gérer les erreurs de validation Joi (si error.isJoi est true)
-    if (err.isJoi) {
-        const errors = err.details.map(detail => ({
-            field: detail.path.join('.'),
-            message: detail.message.replace(/["']/g, ""), // Nettoyer les guillemets
-        }));
-        error = new AppError('Données de requête invalides.', 400);
-        error.errors = errors;
-    }
-
 
     sendErrorProd(error, req, res);
+  } else {
+    // Fallback si NODE_ENV n'est pas défini
+    sendErrorDev(err, req, res);
   }
 };
 

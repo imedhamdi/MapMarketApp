@@ -264,9 +264,8 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
    const messageData = {
         threadId: currentThreadId,
         senderId,
-        // S'assure que 'text' est toujours une chaîne. Si 'text' est falsy (null, undefined, ""),
-        // il deviendra une chaîne vide, ce qui est valide pour le schéma Mongoose.
-        text: text || '', 
+        // Cast du contenu en chaîne pour éviter les erreurs de type côté base de données
+        text: typeof text === 'string' ? text : String(text || ''),
     };
     if (req.file) {
         messageData.imageUrl = path.join('messages', req.file.filename).replace(/\\/g, '/');
