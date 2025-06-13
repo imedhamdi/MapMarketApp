@@ -896,7 +896,7 @@ async function loadAndDisplayAdDetails(adId) {
                 }
                 if (adDetailSellerName) adDetailSellerName.textContent = sanitizeHTML(ad.userId.name);
                 if (adDetailSellerInfo) adDetailSellerInfo.dataset.sellerId = ad.userId._id;
-                if (adDetailSellerSince) adDetailSellerSince.textContent = `Membre depuis ${formatDate(ad.userId.createdAt)}`;
+                if (adDetailSellerSince) adDetailSellerSince.textContent = `Membre depuis ${formatDate(ad.userId.createdAt, { month: 'long', year: 'numeric' })}`;
                 if (adDetailSellerAdsCount) adDetailSellerAdsCount.textContent = `${ad.userId.stats?.adsPublished || 0} annonce(s) active(s)`;
                 if (adDetailViewProfileBtn) {
                     const newBtn = adDetailViewProfileBtn.cloneNode(true);
