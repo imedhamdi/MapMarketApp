@@ -2,7 +2,7 @@
  * @file ads.js
  * @description Gestion des annonces : CRUD complet, upload d'images,
  * affichage des détails, gestion des annonces de l'utilisateur et interaction avec la carte.
- * @version 1.2.0 - Refactorisation de la modale de détail
+ * @version 1.3.0 - Ajout géocodage, distance dynamique et couleurs badges.
  */
 
 import * as state from './state.js';
@@ -14,7 +14,8 @@ import {
     sanitizeHTML,
     formatPrice,
     formatDate,
-    generateUUID
+    generateUUID,
+    calculateDistance
 } from './utils.js';
 import {
     updateTempMarker,
@@ -41,7 +42,7 @@ let adFormMiniMap; // Instance de la mini-carte Leaflet
 // --- Éléments du DOM pour la modale de détail d'annonce ---
 let adDetailModal, adDetailBodyContent, adDetailLoader, adDetailContent;
 let adDetailCarouselTrack, adDetailCarouselPrevBtn, adDetailCarouselNextBtn, adDetailCarouselDotsContainer, adDetailImageCounter; // Ajouté: adDetailImageCounter
-let adDetailItemTitle, adDetailPrice, adDetailCategory, adDetailLocation, adDetailDate;
+let adDetailItemTitle, adDetailPrice, adDetailCategory, adDetailLocation, adDetailDistance, adDetailDate;
 let adDetailDescriptionWrapper, adDetailDescriptionText, toggleDescriptionBtn; // Modifié/Ajouté
 let adDetailSellerInfo, adDetailSellerAvatar, adDetailSellerName;
 let adDetailSellerSince, adDetailSellerAdsCount;
@@ -132,6 +133,7 @@ function initAdsUI() {
     adDetailPrice = document.getElementById('ad-detail-price');
     adDetailCategory = document.getElementById('ad-detail-category');
     adDetailLocation = document.getElementById('ad-detail-location');
+    adDetailDistance = document.getElementById('ad-detail-distance');
     adDetailDate = document.getElementById('ad-detail-date');
     adDetailDescriptionWrapper = document.getElementById('ad-detail-description-wrapper');
     adDetailDescriptionText = document.getElementById('ad-detail-description-text');
@@ -895,16 +897,18 @@ async function loadAndDisplayAdDetails(adId) {
     adDetailModal.dataset.adId = adId;
 
     try {
-        const response = await secureFetch(`${API_BASE_URL}/${adId}`, {}, false);
+        const response = await secureFetch(`/api/ads/${adId}`, {}, false);
 
         if (response && response.success && response.data && response.data.ad) {
             const ad = response.data.ad;
             const currentUser = state.getCurrentUser();
 
+            // Remplissage de base
             if (adDetailItemTitle) adDetailItemTitle.textContent = sanitizeHTML(ad.title);
             if (adDetailPrice) adDetailPrice.textContent = ad.price != null ? formatPrice(ad.price) : 'Prix non spécifié';
             if (adDetailDescriptionText) adDetailDescriptionText.innerHTML = sanitizeHTML(ad.description || '').replace(/\n/g, '<br>');
 
+            // --- GESTION DES BADGES DE MÉTADONNÉES ---
             const categories = state.getCategories();
             const categoryObj = categories ? categories.find(c => c.id === ad.category || c._id === ad.category) : null;
             if (adDetailCategory) {
@@ -915,8 +919,42 @@ async function loadAndDisplayAdDetails(adId) {
                 if (textNode) textNode.textContent = ` ${sanitizeHTML(categoryObj ? categoryObj.name : 'Catégorie')}`;
             }
 
-            if (adDetailLocation) adDetailLocation.innerHTML = `<i class="fa-solid fa-map-marker-alt"></i> ${sanitizeHTML(ad.location?.address || "Lieu non précisé")}`;
+            // Date
             if (adDetailDate) adDetailDate.innerHTML = `<i class="fa-solid fa-calendar-days"></i> Publiée ${formatDate(ad.createdAt || new Date())}`;
+
+            // Localisation avec géocodage et distance
+            if (ad.location && ad.location.coordinates && ad.location.coordinates.length === 2) {
+                const [lon, lat] = ad.location.coordinates;
+
+                if (adDetailLocation) {
+                    adDetailLocation.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Recherche...`;
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`)
+                        .then(res => res.json())
+                        .then(geoData => {
+                            const city = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.municipality;
+                            const country = geoData.address.country;
+                            let locationString = city && country ? `${city}, ${country}` : (ad.location.address || 'Lieu inconnu');
+                            adDetailLocation.innerHTML = `<i class="fa-solid fa-map-marker-alt"></i> ${sanitizeHTML(locationString)}`;
+                        })
+                        .catch(geoError => {
+                            console.warn("Erreur de géocodage inversé:", geoError);
+                            adDetailLocation.innerHTML = `<i class="fa-solid fa-map-marker-alt"></i> ${sanitizeHTML(ad.location.address || `Près de vous`)}`;
+                        });
+                }
+
+                const userPosition = state.getMapState()?.userPosition;
+                if (userPosition && userPosition.lat && userPosition.lng && adDetailDistance) {
+                    const distance = calculateDistance(userPosition.lat, userPosition.lng, lat, lon);
+                    adDetailDistance.innerHTML = `<i class="fa-solid fa-signs-post"></i> ~ ${distance.toFixed(1)} km`;
+                    adDetailDistance.style.display = 'inline-flex';
+                } else if (adDetailDistance) {
+                    adDetailDistance.style.display = 'none';
+                }
+
+            } else {
+                if (adDetailLocation) adDetailLocation.innerHTML = `<i class="fa-solid fa-map-marker-alt"></i> Localisation non spécifiée`;
+                if (adDetailDistance) adDetailDistance.style.display = 'none';
+            }
 
             setupAdDetailCarousel(ad.imageUrls || []);
 
