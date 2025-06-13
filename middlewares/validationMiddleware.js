@@ -170,11 +170,9 @@ const createMessageSchema = Joi.object({
         then: Joi.optional(),
         otherwise: Joi.required()
     }),
-    text: Joi.string().trim().max(2000).when('image', {
-        is: Joi.exist(),
-        then: Joi.optional().allow(''),
-        otherwise: Joi.required()
-    }),
+    // Le texte est optionnel et peut être une chaîne vide ;
+    // la présence d'au moins un contenu (texte ou image) sera vérifiée dans le contrôleur
+    text: Joi.string().trim().max(2000).allow('').optional()
 }).xor('threadId', 'recipientId');
 
 // Schémas pour les alertes
