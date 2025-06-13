@@ -646,6 +646,11 @@ function handleThreadsTabClick(e) {
  * (thread existant ou newChatContext) pour fournir les informations requises
  * par l'API.
  */
+/**
+ * ✅ FONCTION CORRIGÉE ET ROBUSTE
+ * Gère l'envoi d'un message texte ou d'une image.
+ * @param {string} [overrideText] - Texte optionnel à envoyer, utilisé pour les actions spéciales (offres, etc.).
+ */
 async function sendMessage(overrideText) {
     const text = overrideText !== undefined ? overrideText : chatMessageInput.value.trim();
     const hasImage = Boolean(tempImageFile);
@@ -655,72 +660,79 @@ async function sendMessage(overrideText) {
         return;
     }
 
-    // Valider le contexte du chat
     if (!activeThreadId && !newChatContext) {
         showToast("Erreur: Impossible d'envoyer le message, contexte de discussion manquant.", "error");
         console.error("sendMessage a été appelé sans activeThreadId ni newChatContext.");
         return;
     }
 
-    let payload;
     let endpoint;
     let requestOptions = { method: 'POST' };
 
-    if (hasImage) {
-        endpoint = `${API_MESSAGES_URL}/messages/image`;
-        payload = new FormData();
-        payload.append('image', tempImageFile);
-        payload.append('text', text); // Le texte (même vide) est ajouté au FormData
+    // Construire le payload de base
+    let payload = {
+        text: text, // On envoie le texte brut
+    };
 
-        if (activeThreadId) {
-            payload.append('threadId', activeThreadId);
-        } else if (newChatContext) {
-            payload.append('recipientId', newChatContext.recipientId);
-            payload.append('adId', newChatContext.adId);
-        }
-        requestOptions.body = payload;
-        // Pour FormData, le navigateur définit le Content-Type automatiquement, il ne faut PAS le spécifier ici.
-
-    } else { // Si c'est un message texte uniquement
-        endpoint = `${API_MESSAGES_URL}/messages`;
-        payload = { text };
-
-        if (activeThreadId) {
-            payload.threadId = activeThreadId;
-        } else if (newChatContext) {
-            payload.recipientId = newChatContext.recipientId;
-            payload.adId = newChatContext.adId;
-        }
-
-        requestOptions.body = JSON.stringify(payload);
-        requestOptions.headers = { 'Content-Type': 'application/json' };
+    if (activeThreadId) {
+        payload.threadId = activeThreadId;
+    } else if (newChatContext) {
+        payload.recipientId = newChatContext.recipientId;
+        payload.adId = newChatContext.adId;
     }
 
-    // Nettoyage immédiat de l'UI
-    const messageInputBeforeSend = chatMessageInput.value; // Garder la valeur au cas où l'envoi échoue
+    if (hasImage) {
+        // --- Logique pour l'upload d'image (utilise FormData) ---
+        endpoint = `${API_MESSAGES_URL}/messages/image`;
+        const formData = new FormData();
+        formData.append('image', tempImageFile);
+
+        // Ajouter les autres champs du payload au FormData
+        for (const key in payload) {
+            if (payload[key] !== undefined && payload[key] !== null) {
+                formData.append(key, payload[key]);
+            }
+        }
+        requestOptions.body = formData;
+        // Pas de 'Content-Type' ici, le navigateur le gère pour FormData
+    } else {
+        // --- Logique pour un message texte simple (utilise JSON) ---
+        endpoint = `${API_MESSAGES_URL}/messages`;
+        requestOptions.body = payload; // On passe l'objet JavaScript directement
+        // L'en-tête 'Content-Type: application/json' sera ajouté par secureFetch
+    }
+
+    // Sauvegarder la valeur de l'input au cas où l'envoi échouerait
+    const messageInputBeforeSend = chatMessageInput.value;
+
+    // Nettoyage immédiat de l'interface pour une meilleure réactivité
     chatMessageInput.value = '';
-    removeImagePreview();
+    removeImagePreview(); // Cette fonction gère aussi tempImageFile = null;
     stopTypingEvent();
 
     try {
-        const response = await secureFetch(endpoint, requestOptions, false); // Loader non bloquant
+        const response = await secureFetch(endpoint, requestOptions, false);
 
-        if (!response.success) {
-             throw new Error(response.message || "Erreur lors de l'envoi du message.");
+        if (!response || !response.success) {
+            // L'erreur est déjà affichée par secureFetch, on restaure juste l'input.
+            throw new Error(response?.message || "Erreur lors de l'envoi du message.");
         }
 
+        // Si c'était la création d'un nouveau thread, mettre à jour l'ID localement
         if (!activeThreadId && response.data?.threadId) {
             activeThreadId = response.data.threadId;
-            newChatContext = null;
-            loadThreads(currentTabRole);
+            newChatContext = null; // Le contexte de "nouveau chat" n'est plus nécessaire
+            loadThreads(currentTabRole); // Recharger la liste des conversations
         }
+
     } catch (error) {
-        console.error("Erreur d'envoi de message:", error);
-        showToast(error.message, "error");
-        chatMessageInput.value = messageInputBeforeSend; // Restaurer le texte en cas d'échec
-        // La restauration de l'image est plus complexe, pour l'instant on la laisse supprimée de la preview.
+        console.error("Erreur d'envoi de message interceptée dans sendMessage:", error);
+        // showToast est déjà géré dans secureFetch, mais on restaure le texte ici.
+        chatMessageInput.value = messageInputBeforeSend;
+        // La restauration de l'aperçu de l'image est plus complexe et est omise pour l'instant.
     }
 }
+
 function handleImageFileSelection(event) {
     const file = event.target.files[0];
     if (!file) return;

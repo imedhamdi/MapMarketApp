@@ -261,13 +261,13 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
         currentThreadId = thread._id;
         isNewThread = !thread.lastMessage;
     }
-
-    const messageData = {
+   const messageData = {
         threadId: currentThreadId,
         senderId,
-        text: text ? text.trim() : null,
+        // S'assure que 'text' est toujours une chaîne. Si 'text' est falsy (null, undefined, ""),
+        // il deviendra une chaîne vide, ce qui est valide pour le schéma Mongoose.
+        text: text || '', 
     };
-
     if (req.file) {
         messageData.imageUrl = path.join('messages', req.file.filename).replace(/\\/g, '/');
     }

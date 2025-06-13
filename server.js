@@ -7,6 +7,9 @@ const morgan = require('morgan');
 const path = require('path');
 const mongoSanitize = require('express-mongo-sanitize');
 const sanitizationMiddleware = require('./middlewares/sanitizationMiddleware'); // NOUVEL IMPORT
+const jwt = require('jsonwebtoken');
+const User = require('./models/userModel');
+const SOCKET_NAMESPACE = '/chat';
 
 
 const connectDB = require('./config/db');
@@ -117,6 +120,9 @@ app.use(
 app.use(express.static(path.join(__dirname, 'public')));
 // CETTE LIGNE UNIQUE GÈRE TOUS LES UPLOADS CORRECTEMENT
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/avatars', express.static(path.join(__dirname, 'uploads/avatars')));
+app.use('/ads', express.static(path.join(__dirname, 'uploads/ads')));
+app.use('/messages', express.static(path.join(__dirname, 'uploads/messages')));
 
 // Middlewares de base
 const corsOptions = {
@@ -198,44 +204,73 @@ app.use(globalErrorHandler);
 const server = http.createServer(app);
 const io = require('socket.io')(server, { cors: corsOptions });
 
-io.of('/chat').on('connection', (socket) => {
-  logger.info(`Socket.IO: Nouvel utilisateur connecté au namespace /chat: ${socket.id}`);
-  const token = socket.handshake.auth.token;
-  if (token) {
+// Utiliser un middleware d'authentification pour le namespace /chat
+io.of(SOCKET_NAMESPACE).use(async (socket, next) => {
+    const token = socket.handshake.auth.token;
+    if (!token) {
+        logger.warn(`Socket.IO: Tentative de connexion sans token pour ${socket.id}.`);
+        return next(new Error('Authentication error: Token manquant.'));
+    }
     try {
-      logger.info(`Socket.IO: Utilisateur ${socket.id} a fourni un token.`);
+        // 1. Vérification du token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        // 2. Vérifier si l'utilisateur existe toujours
+        const currentUser = await User.findById(decoded.id).select('+isActive');
+        if (!currentUser) {
+            return next(new Error('Authentication error: L\'utilisateur n\'existe plus.'));
+        }
+
+        // 3. Vérifier si le mot de passe a changé après l'émission du token
+        if (currentUser.changedPasswordAfter(decoded.iat)) {
+            return next(new Error('Authentication error: Mot de passe récemment changé.'));
+        }
+
+        // 4. Vérifier si le compte est actif
+        if (!currentUser.isActive) {
+            return next(new Error('Authentication error: Compte désactivé.'));
+        }
+
+        // Si tout est bon, on attache l'utilisateur au socket pour un usage ultérieur
+        socket.user = currentUser;
+        next();
+
     } catch (err) {
-      logger.warn(`Socket.IO: Échec de l'authentification du token pour ${socket.id}: ${err.message}`);
-      socket.disconnect(true);
-      return;
+        logger.warn(`Socket.IO: Échec de l'authentification du token pour ${socket.id}: ${err.message}`);
+        return next(new Error('Authentication error: Token invalide ou expiré.'));
     }
-  } else {
-    logger.warn(`Socket.IO: Connexion sans token pour ${socket.id}. Déconnexion.`);
-    socket.disconnect(true);
-    return;
-  }
-  socket.on('joinUserRoom', ({ userId }) => {
-    if (userId) {
-      socket.join(`user_${userId}`);
-      logger.info(`Socket.IO: Socket ${socket.id} a rejoint la room user_${userId}`);
-    }
-  });
-  socket.on('joinThreadRoom', ({ threadId }) => {
-    if (threadId) {
-      socket.join(`thread_${threadId}`);
-      logger.info(`Socket.IO: Socket ${socket.id} a rejoint la room thread_${threadId}`);
-    }
-  });
-  socket.on('leaveThreadRoom', ({ threadId }) => {
-    if (threadId) {
-      socket.leave(`thread_${threadId}`);
-      logger.info(`Socket.IO: Socket ${socket.id} a quitté la room thread_${threadId}`);
-    }
-  });
-  socket.on('disconnect', (reason) => {
-    logger.info(`Socket.IO: Utilisateur déconnecté du namespace /chat: ${socket.id}. Raison: ${reason}`);
-  });
 });
+
+
+io.of(SOCKET_NAMESPACE).on('connection', (socket) => {
+    // À ce stade, le socket est déjà authentifié grâce au middleware .use() ci-dessus.
+    // L'objet `socket.user` est disponible.
+    logger.info(`Socket.IO: Utilisateur authentifié connecté au namespace /chat: ${socket.id}, UserID: ${socket.user.id}`);
+    
+    // Rejoindre la room personnelle pour recevoir des notifications ciblées
+    socket.join(`user_${socket.user.id}`);
+    logger.info(`Socket.IO: Socket ${socket.id} a rejoint la room user_${socket.user.id}`);
+
+    // Gérer les autres événements Socket.IO
+    socket.on('joinThreadRoom', ({ threadId }) => {
+        if (threadId) {
+            socket.join(`thread_${threadId}`);
+            logger.info(`Socket.IO: Socket ${socket.id} a rejoint la room thread_${threadId}`);
+        }
+    });
+
+    socket.on('leaveThreadRoom', ({ threadId }) => {
+        if (threadId) {
+            socket.leave(`thread_${threadId}`);
+            logger.info(`Socket.IO: Socket ${socket.id} a quitté la room thread_${threadId}`);
+        }
+    });
+
+    socket.on('disconnect', (reason) => {
+        logger.info(`Socket.IO: Utilisateur déconnecté du namespace /chat: ${socket.id}. Raison: ${reason}`);
+    });
+});
+
 
 messageCtrl.initializeSocketIO(io);
 

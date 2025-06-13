@@ -353,88 +353,99 @@ const profileValidationRules = {
 async function handleProfileUpdate(event) {
     event.preventDefault();
 
+    const name = profileNameField.value.trim();
     const newPassword = profileNewPasswordField.value;
     const confirmPassword = profileConfirmPasswordField.value;
-    const name = profileNameField.value.trim();
+    const currentPasswordField = document.getElementById('profile-current-password');
+    const currentPassword = currentPasswordField.value;
 
-    // --- PARTIE 1: Mise à jour du mot de passe ---
+    let profileUpdated = false;
+    let passwordUpdated = false;
+
+    // --- PARTIE 1: Logique de mise à jour du mot de passe ---
+    // On exécute cette partie seulement si l'utilisateur a entré un nouveau mot de passe.
     if (newPassword) {
+        if (newPassword.length < 6) {
+            return showToast("Le nouveau mot de passe doit faire au moins 6 caractères.", "error");
+        }
         if (newPassword !== confirmPassword) {
             return showToast("Les nouveaux mots de passe ne correspondent pas.", "error");
         }
-        if (newPassword.length < 6) {
-            return showToast("Le nouveau mot de passe doit comporter au moins 6 caractères.", "error");
-        }
-
-        // On lit le mot de passe actuel depuis le champ de formulaire
-        const currentPasswordField = document.getElementById('profile-current-password');
-        const currentPassword = currentPasswordField.value;
-
         if (!currentPassword) {
-            // On met en surbrillance le champ si'il est manquant
+            showToast("Le mot de passe actuel est requis pour le modifier.", "warning");
             currentPasswordField.focus();
-            return showToast("Le mot de passe actuel est requis pour pouvoir le changer.", "warning");
+            return;
         }
 
-        const passwordData = {
-            currentPassword: currentPassword,
-            password: newPassword,
-            passwordConfirm: confirmPassword
-        };
-        
         toggleGlobalLoader(true, "Mise à jour du mot de passe...");
         try {
-            // L'appel se fait maintenant sur la route PATCH que nous avons créée
             const response = await secureFetch('/api/auth/update-password', {
                 method: 'PATCH',
-                body: passwordData
+                body: { currentPassword, password: newPassword, passwordConfirm: confirmPassword }
             });
-
+            
+            // La réponse du backend est déjà gérée par secureFetch en cas d'erreur
+            // On vérifie juste le succès pour la suite.
             if (response && response.success) {
                 showToast("Mot de passe mis à jour avec succès !", "success");
-                if (response.token) {
+                // Le backend envoie un nouveau token, mettons-le à jour
+                if(response.token) {
                     localStorage.setItem('mapmarket_auth_token', response.token);
                 }
-                // Vider les champs de mot de passe après succès
-                currentPasswordField.value = '';
-                profileNewPasswordField.value = '';
-                profileConfirmPasswordField.value = '';
-                switchToViewMode();
+                passwordUpdated = true;
             } else {
-                 throw new Error(response.message || "Erreur de mise à jour du mot de passe.");
+                 // Si secureFetch n'a pas levé d'erreur mais success=false
+                 throw new Error(response.message || "La mise à jour du mot de passe a échoué.");
             }
+
         } catch (error) {
             showToast(error.message, "error");
-        } finally {
             toggleGlobalLoader(false);
-        }
-
-    } else {
-        // --- PARTIE 2: Mise à jour du nom (si aucun mot de passe n'est changé) ---
-        if (!name || name.length < 3) {
-            return showToast("Le nom d'utilisateur doit comporter au moins 3 caractères.", "error");
-        }
-        
-        const updateData = { name: name };
-        toggleGlobalLoader(true, "Mise à jour du profil...");
-        try {
-            const response = await secureFetch(`${API_BASE_URL_USERS}/profile`, { method: 'PUT', body: updateData });
-
-            if (response && response.success && response.data.user) {
-                showToast("Profil mis à jour !", "success");
-                state.setCurrentUser(response.data.user);
-                switchToViewMode();
-            } else {
-                throw new Error(response.message || "Erreur de mise à jour du profil.");
-            }
-        } catch (error) {
-            showToast(error.message, "error");
+            return; // On arrête tout si la mise à jour du mot de passe échoue
         } finally {
             toggleGlobalLoader(false);
         }
     }
-}
 
+    // --- PARTIE 2: Logique de mise à jour du nom d'utilisateur ---
+    const currentUser = state.getCurrentUser();
+    // On met à jour le nom si l'utilisateur l'a changé ET si on n'a pas tenté de changer le mot de passe
+    // OU si la mise à jour du mot de passe a réussi.
+    if (currentUser && name !== currentUser.name && name.length >= 3) {
+        toggleGlobalLoader(true, "Mise à jour du profil...");
+        try {
+            const response = await secureFetch('/api/users/profile', {
+                method: 'PUT',
+                body: { name: name }
+            });
+
+            if (response && response.success && response.data.user) {
+                if (!passwordUpdated) { // N'affiche ce toast que si seul le nom a été changé
+                    showToast("Nom d'utilisateur mis à jour !", "success");
+                }
+                state.setCurrentUser(response.data.user); // Met à jour l'état local avec les nouvelles données
+                profileUpdated = true;
+            } else {
+                 throw new Error(response.message || "La mise à jour du profil a échoué.");
+            }
+        } catch (error) {
+            showToast(error.message, "error");
+            // On ne stoppe pas ici, car le mot de passe a peut-être été mis à jour avec succès.
+        } finally {
+            toggleGlobalLoader(false);
+        }
+    } else if (name.length < 3) {
+        // Si l'utilisateur a essayé de mettre un nom trop court, on le notifie.
+        showToast("Le nom d'utilisateur doit contenir au moins 3 caractères.", "error");
+        return;
+    }
+
+    // --- PARTIE 3: Finalisation ---
+    // Si au moins une des deux opérations a réussi, on réinitialise l'UI.
+    if (profileUpdated || passwordUpdated) {
+        switchToViewMode(); // Repasse en mode lecture et vide les champs de mot de passe.
+    }
+}
 
 async function handleDeleteAccount() {
     if (!deleteAccountCheckbox || !deleteAccountCheckbox.checked) return;

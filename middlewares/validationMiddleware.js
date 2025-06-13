@@ -177,6 +177,22 @@ const createMessageSchema = Joi.object({
     })
 }).xor('threadId', 'recipientId'); // Assure que soit threadId, soit recipientId est fourni, mais pas les deux.
 
+// Schéma pour l'envoi de message avec image (où le texte est optionnel)
+const sendMessageWithImageSchema = Joi.object({
+    threadId: Joi.string().hex().length(24).optional(),
+    recipientId: Joi.string().hex().length(24).optional(),
+    adId: Joi.string().hex().length(24).when('threadId', {
+        is: Joi.exist(),
+        then: Joi.optional(),
+        otherwise: Joi.required()
+    }),
+    // Pour cette route, le texte est optionnel car l'image est la donnée principale
+    text: Joi.string().trim().allow('').max(2000).optional()
+}).xor('threadId', 'recipientId');
+
+
+
+
 // Schémas pour les alertes
 const createAlertSchema = Joi.object({
     keywords: Joi.string().trim().min(3).max(100).required(),
@@ -271,5 +287,6 @@ exports.validateCreateMessage = validateRequest(createMessageSchema);
 
 exports.validateCreateAlert = validateRequest(createAlertSchema);
 exports.validateUpdateAlert = validateRequest(updateAlertSchema); // Export du nouveau validateur
+exports.validateSendMessageWithImage = validateRequest(sendMessageWithImageSchema);
 
 exports.validateAddFavorite = validateRequest(addFavoriteSchema);

@@ -4,7 +4,7 @@ const messageController = require('../controllers/messageController');
 const { protect } = require('../middlewares/authMiddleware');
 const { handleMulterUpload, uploadMessageImage } = require('../middlewares/uploadMiddleware');
 // Importer les validateurs spécifiques (à créer dans validationMiddleware.js)
-const { validateCreateMessage, validateInitiateThread } = require('../middlewares/validationMiddleware');
+const { validateCreateMessage, validateInitiateThread, validateSendMessageWithImage } = require('../middlewares/validationMiddleware');
 
 const router = express.Router();
 
@@ -22,11 +22,11 @@ router.delete('/threads/:threadId/local', messageController.deleteThreadLocally)
 router.post('/messages', validateCreateMessage, messageController.sendMessage); // Pour les messages texte
 router.post(
     '/messages/image',
-    handleMulterUpload(uploadMessageImage), // Gère l'upload avant le contrôleur
-    // Pas besoin de validateCreateMessage ici si le texte est optionnel avec une image
-    // ou si les champs threadId/recipientId sont envoyés en multipart/form-data
-    messageController.sendMessage // Le même contrôleur peut gérer les deux si req.file est vérifié
+    handleMulterUpload(uploadMessageImage),  // 1. Multer gère le fichier
+    validateSendMessageWithImage,            // 2. Joi valide le corps (threadId/recipientId/texte optionnel)
+    messageController.sendMessage            // 3. Le contrôleur traite la requête
 );
+
 
 // Route pour signaler un message
 router.post('/messages/:messageId/report', messageController.reportMessage);

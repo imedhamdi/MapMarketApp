@@ -396,46 +396,32 @@ exports.resendValidationEmail = asyncHandler(async (req, res, next) => {
 
 
 // Ajoutez la nouvelle fonction updatePassword à la fin du fichier, avant "module.exports"
-exports.updatePassword = async (req, res, next) => {
-    try {
-        // 1) Obtenir l'utilisateur depuis la collection
-        // req.user est défini par le middleware "protect"
-        const user = await User.findById(req.user.id).select('+password');
+// CORRIGÉ : Version refactorisée avec asyncHandler pour la cohérence
+exports.updatePassword = asyncHandler(async (req, res, next) => {
+    // 1) Obtenir l'utilisateur depuis la collection
+    const user = await User.findById(req.user.id).select('+password');
 
-        // 2) Vérifier si le mot de passe actuel est correct
-        const { currentPassword, password, passwordConfirm } = req.body;
-        if (!currentPassword || !(await user.correctPassword(currentPassword, user.password))) {
-            return res.status(401).json({ success: false, message: 'Votre mot de passe actuel est incorrect.' });
-        }
-        
-        // 3) Valider que les nouveaux mots de passe sont fournis et correspondent
-        if (!password || !passwordConfirm) {
-            return res.status(400).json({ success: false, message: 'Veuillez fournir un nouveau mot de passe et le confirmer.' });
-        }
-
-        // 4) Mettre à jour le mot de passe
-        user.password = password;
-        user.passwordConfirm = passwordConfirm;
-        await user.save(); // Le middleware pre('save') dans userModel s'occupera du hachage
-
-        // 5) Créer un nouveau token et l'envoyer à l'utilisateur
-        const token = signToken(user._id);
-
-        res.status(200).json({
-            success: true,
-            token,
-            message: 'Mot de passe mis à jour avec succès.'
-        });
-
-    } catch (error) {
-        // Gérer les erreurs de validation (ex: mot de passe trop court)
-        if (error.name === 'ValidationError') {
-            return res.status(400).json({ success: false, message: error.message });
-        }
-        res.status(500).json({ success: false, message: "Une erreur interne est survenue." });
+    // 2) Vérifier si le mot de passe actuel est correct
+    const { currentPassword, password, passwordConfirm } = req.body;
+    if (!currentPassword || !(await user.correctPassword(currentPassword, user.password))) {
+        // AppError est intercepté par asyncHandler
+        return next(new AppError('Votre mot de passe actuel est incorrect.', 401));
     }
-};
 
+    // 3) Valider que les nouveaux mots de passe sont fournis
+    if (!password || !passwordConfirm) {
+        return next(new AppError('Veuillez fournir un nouveau mot de passe et le confirmer.', 400));
+    }
+    // La validation de la correspondance est déjà gérée par le schéma Mongoose
+
+    // 4) Mettre à jour le mot de passe
+    user.password = password;
+    user.passwordConfirm = passwordConfirm;
+    await user.save(); // Le middleware pre('save') s'occupera du reste
+
+    // 5) Créer et envoyer un nouveau token
+    createSendToken(user, 200, res); // Réutilise la fonction utilitaire pour envoyer le token
+});
 
 /**
  * Récupère les informations de l'utilisateur actuellement connecté.
