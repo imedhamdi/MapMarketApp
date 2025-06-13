@@ -170,12 +170,13 @@ const createMessageSchema = Joi.object({
         then: Joi.optional(),
         otherwise: Joi.required()
     }),
-    // Règle corrigée : le texte est requis pour cette route, ne peut être vide.
-    text: Joi.string().trim().min(1).max(2000).required().messages({
-        'string.empty': 'Le message ne peut pas être vide.',
-        'any.required': 'Le contenu du message est requis.'
+    text: Joi.string().trim().allow('').max(2000).messages({
+        'string.max': 'Le message ne doit pas dépasser {#limit} caractères.'
     })
-}).xor('threadId', 'recipientId'); // Assure que soit threadId, soit recipientId est fourni, mais pas les deux.
+    .when(Joi.object({ threadId: Joi.not().exist() }), {
+        then: Joi.required() // Requis seulement pour les nouveaux threads
+    })
+}).xor('threadId', 'recipientId');
 
 // Schéma pour l'envoi de message avec image (où le texte est optionnel)
 const sendMessageWithImageSchema = Joi.object({

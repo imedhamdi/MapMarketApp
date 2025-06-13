@@ -660,9 +660,9 @@ async function sendMessage(overrideText) {
         return;
     }
 
-    if (!activeThreadId && !newChatContext) {
+    // Validation des champs requis
+    if (!activeThreadId && (!newChatContext || !newChatContext.recipientId || !newChatContext.adId)) {
         showToast("Erreur: Impossible d'envoyer le message, contexte de discussion manquant.", "error");
-        console.error("sendMessage a été appelé sans activeThreadId ni newChatContext.");
         return;
     }
 
@@ -671,16 +671,15 @@ async function sendMessage(overrideText) {
 
     // Construire le payload de base
     let payload = {
-        text: text, // On envoie le texte brut
+        text: text || '', // Toujours inclure le texte même vide si image
     };
 
     if (activeThreadId) {
         payload.threadId = activeThreadId;
-    } else if (newChatContext) {
+    } else {
         payload.recipientId = newChatContext.recipientId;
         payload.adId = newChatContext.adId;
     }
-
     if (hasImage) {
         // --- Logique pour l'upload d'image (utilise FormData) ---
         endpoint = `${API_MESSAGES_URL}/messages/image`;
