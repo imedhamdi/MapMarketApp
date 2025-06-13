@@ -4,9 +4,10 @@ const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const mongoSanitize = require('express-mongo-sanitize');
-const xss = require('xss-clean');
 const path = require('path');
+const mongoSanitize = require('express-mongo-sanitize');
+const sanitizationMiddleware = require('./middlewares/sanitizationMiddleware'); // NOUVEL IMPORT
+
 
 const connectDB = require('./config/db');
 // const corsOptions = require('./config/corsOptions');
@@ -140,8 +141,9 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));;
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(sanitizationMiddleware); // Remplace xss()
 app.use(mongoSanitize());
-app.use(xss());
+
 
 // Logging HTTP
 if (process.env.NODE_ENV === 'development') {
