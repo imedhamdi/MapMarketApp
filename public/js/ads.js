@@ -897,7 +897,7 @@ async function loadAndDisplayAdDetails(adId) {
                 if (adDetailSellerInfo) adDetailSellerInfo.dataset.sellerId = ad.userId._id;
                 if (adDetailSellerSince) {
                     // Vérifie d'abord l'existence du champ sellerId.createdAt (nouveau format)
-                    const sellerSince = ad?.sellerId?.createdAt || ad?.userId?.createdAt;
+                    const sellerSince = ad?.userId?.createdAt;
                     if (sellerSince) {
                         const formattedDate = formatDate(
                             sellerSince,

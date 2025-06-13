@@ -246,7 +246,7 @@ exports.getMyAds = asyncHandler(async (req, res, next) => {
  * GET /api/ads/:id
  */
 exports.getAdById = asyncHandler(async (req, res, next) => {
-    const ad = await Ad.findById(req.params.id).populate('userId', 'name avatarUrl email'); // Populer les infos du vendeur
+   const ad = await Ad.findById(req.params.id).populate('userId', 'name avatarUrl email createdAt');
 
     if (!ad || ad.status === 'deleted') { // Ne pas montrer les annonces explicitement supprimées
         return next(new AppError('Annonce non trouvée.', 404));
