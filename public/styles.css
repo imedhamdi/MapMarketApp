@@ -2816,3 +2816,80 @@ body.dark-mode select.form-control {
 }
 
 /* Ajoutez d'autres catégories selon vos besoins */
+
+/* ---------- Messagerie améliorée ---------- */
+
+/* Modal de prise de contact */
+#contact-seller-modal .modal-content {
+    max-width: 400px;
+}
+
+#contact-seller-modal textarea {
+    width: 100%;
+    resize: vertical;
+    min-height: 80px;
+}
+
+/* Onglets de discussions */
+#threads-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color-light);
+}
+
+#threads-tabs button {
+    flex: 1;
+    padding: var(--spacing-sm);
+    background: none;
+    border: none;
+    font-weight: 600;
+    color: var(--gray-600);
+    border-bottom: 2px solid transparent;
+}
+
+#threads-tabs button.active {
+    color: var(--text-color-base);
+    border-color: var(--primary-color);
+}
+
+/* En-tête de conversation collant */
+.chat-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: var(--modal-bg);
+}
+
+.chat-ad-summary {
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-bottom: 1px solid var(--border-color-light);
+    background-color: var(--gray-50);
+    font-size: 0.9rem;
+}
+
+.chat-ad-summary a {
+    font-weight: 600;
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.chat-security-alert {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    background-color: var(--warning-color);
+    color: white;
+    padding: var(--spacing-xs) var(--spacing-md);
+    font-size: 0.85rem;
+}
+
+.chat-actions-toolbar {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-top: 1px solid var(--border-color-light);
+    background-color: var(--gray-50);
+}
+
+.chat-actions-toolbar button {
+    flex: 1;
+}
