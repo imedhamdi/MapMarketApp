@@ -230,31 +230,28 @@ async function openChatView(threadId, recipient) {
     allMessagesLoaded = false;
     isLoadingHistory = false;
 
-    chatRecipientAvatar.src = recipient.avatarUrl || 'avatar-default.svg';
-    chatRecipientName.textContent = sanitizeHTML(recipient.name);
+    // Mise à jour UI
+    chatRecipientAvatar.src = recipient?.avatarUrl || 'avatar-default.svg';
+    chatRecipientName.textContent = sanitizeHTML(recipient?.name || 'Nouveau contact');
 
     threadListView.classList.remove('active-view');
     chatView.classList.add('active-view');
-
+    
+    // Réinitialisation
     chatMessagesContainer.innerHTML = '';
     chatMessageInput.value = '';
-    removeImagePreview();
     chatMessageInput.focus();
-
+    removeImagePreview();
+    
     if (threadId) {
-        // ⚠️ MODIFICATION CRUCIALE : S'il s'agit d'un thread existant, on vide le contexte.
-        newChatContext = null;
-        
         markThreadAsRead(threadId);
         await loadMessageHistory(threadId, true);
         setupInfiniteScroll();
     } else {
-        // C'est une NOUVELLE conversation, on affiche un message d'accueil.
-        chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message à ${sanitizeHTML(recipient.name)} !</p>`;
+        chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message !</p>`;
         chatHistoryLoader.classList.remove('hidden');
     }
 }
-
 
 /**
  * Nettoie l'interface de la messagerie lors de la déconnexion.
@@ -442,73 +439,59 @@ function handleInputKeypress(e) {
 async function sendMessage() {
     const text = chatMessageInput.value.trim();
     if (!text && !tempImageFile) {
-        showToast('Le message est vide.', 'warning');
+        showToast("Veuillez saisir un message ou sélectionner une image", "warning");
         return;
     }
 
-    let endpoint;
-    const options = { method: 'POST' };
+    // Validation renforcée
+    if (!activeThreadId && (!currentRecipient || !currentRecipient.id || !currentRecipient.adId)) {
+        showToast("Erreur: Impossible d'envoyer le message - informations manquantes pour démarrer la conversation.", "error");
+        return;
+    }
 
-    // On vérifie d'abord si l'on démarre ou non une nouvelle conversation
-    const isNewThread = !activeThreadId;
-
-    // --- Construction sécurisée du payload ---
-    const getPayloadData = () => {
-        if (isNewThread) {
-            // recipientId et adId sont indispensables pour un premier message
-            const recipientId = currentRecipient?._id;
-            const adId = currentRecipient?.adId;
-            if (!recipientId || !adId) {
-                showToast("Impossible d'envoyer : destinataire ou annonce manquant.", "error");
-                return null;
-            }
-            return { recipientId, adId };
-        }
-        // Thread déjà existant
-        return { threadId: activeThreadId };
-    };
+    const formData = new FormData();
     
+    if (activeThreadId) {
+        formData.append('threadId', activeThreadId);
+    } else {
+        formData.append('recipientId', currentRecipient.id);
+        formData.append('adId', currentRecipient.adId);
+    }
+
+    if (text) formData.append('text', text);
+    if (tempImageFile) formData.append('image', tempImageFile);
+
+    chatMessageInput.value = '';
+    removeImagePreview();
+    stopTypingEvent();
+
     try {
-        const payloadData = getPayloadData();
-        if (!payloadData) return;
+        const endpoint = tempImageFile ? `${API_MESSAGES_URL}/messages/image` : `${API_MESSAGES_URL}/messages`;
+        const response = await secureFetch(endpoint, { 
+            method: 'POST', 
+            body: formData 
+        }, true); // true pour afficher le loader global
 
-        if (tempImageFile) {
-            endpoint = `${API_MESSAGES_URL}/messages/image`;
-            const formData = new FormData();
-            Object.entries(payloadData).forEach(([key, value]) => formData.append(key, value));
-            if (text) formData.append('text', text);
-            formData.append('image', tempImageFile, tempImageFile.name);
-            options.body = formData;
-
-        } else {
-            endpoint = `${API_MESSAGES_URL}/messages`;
-            options.body = { text, ...payloadData };
+        if (!response.success) {
+            showToast(response.message || "Erreur d'envoi", "error");
+            return;
         }
 
-        stopTypingEvent();
-
-        // On utilise secureFetch qui gère l'envoi de JSON ou FormData.
-        const response = await secureFetch(endpoint, options);
-
-        if (!response?.success) {
-            throw new Error(response?.message || "Erreur d'envoi du message.");
+        // Mise à jour de l'état après envoi réussi
+        if (!activeThreadId && response.data?.threadId) {
+            activeThreadId = response.data.threadId;
+            // Recharger la liste des threads
+            await loadThreads();
+            // Mettre à jour le thread actif
+            const thread = response.data.thread;
+            if (thread) {
+                openChatView(thread._id, thread.participants.find(p => p._id !== state.getCurrentUser().id));
+            }
         }
-        
-        // Si c'était un nouveau thread, la réponse du backend nous donne le threadId.
-        if (isNewThread && response.data?.message?.threadId) {
-             activeThreadId = response.data.message.threadId;
-             newChatContext = null; // Le contexte a été utilisé, on le nettoie.
-             // On peut recharger l'historique pour afficher le message "Début de la conversation".
-             await loadMessageHistory(activeThreadId, true);
-        }
-
-        chatMessageInput.value = '';
-        chatMessageInput.style.height = 'auto';
-        removeImagePreview();
 
     } catch (error) {
-        // Affiche une erreur générique en cas d'échec d'envoi
-        showToast(error.message || "L'envoi a échoué", 'error');
+        console.error("Erreur d'envoi de message:", error);
+        showToast(error.message || "Une erreur est survenue lors de l'envoi", "error");
     }
 }
 function handleImageFileSelection(event) {
@@ -640,34 +623,29 @@ function setupInfiniteScroll() {
  * @param {CustomEvent} event - L'événement contenant les détails { adId, recipientId }.
  */
 async function handleInitiateChatEvent(event) {
-    const { adId, recipientId } = event.detail;
-
-    // AdId et recipientId sont indispensables pour créer une nouvelle conversation
+    const { adId, recipientId, recipientName, recipientAvatar } = event.detail;
     if (!recipientId || !adId) {
-        showToast("Impossible d’initier la discussion : annonce ou destinataire manquant.", "error");
+        showToast("Informations manquantes pour démarrer la conversation", "error");
         return;
     }
 
-    toggleGlobalLoader(true, 'Ouverture de la discussion...');
+    toggleGlobalLoader(true, "Ouverture de la discussion...");
     try {
-        // Le `secureFetch` pour obtenir les détails du destinataire est bon.
-        const recipientResponse = await secureFetch(`/api/users/${recipientId}`, {}, false);
-        if (!recipientResponse?.success || !recipientResponse.data?.user) {
-            throw new Error("Impossible de trouver le destinataire.");
-        }
+        // Préparer l'objet recipient avec toutes les infos nécessaires
+        currentRecipient = {
+            id: recipientId,
+            name: recipientName || 'Nouveau contact',
+            avatarUrl: recipientAvatar || 'avatar-default.svg',
+            adId: adId // Ajout crucial de l'ID d'annonce
+        };
 
-        // On récupère l'utilisateur et on lui attache l'annonce courante
-        const recipient = { ...recipientResponse.data.user, adId };
-
-        // Conserve également l'adId dans un contexte séparé pour d'autres opérations éventuelles
-        newChatContext = { adId };
-
-        connectSocket();
-        // On ouvre la vue de chat SANS threadId, ce qui indique une nouvelle conversation.
-        await openChatView(null, recipient);
-
-        // On ouvre la modale des messages.
-        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'messages-modal' } }));
+        // Préparer la vue de chat immédiatement
+        openChatView(null, currentRecipient);
+        
+        // Ouvrir la modale
+        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { 
+            detail: { modalId: 'messages-modal' } 
+        }));
 
     } catch (error) {
         showToast(error.message, "error");
@@ -675,7 +653,6 @@ async function handleInitiateChatEvent(event) {
         toggleGlobalLoader(false);
     }
 }
-
 
 
 
