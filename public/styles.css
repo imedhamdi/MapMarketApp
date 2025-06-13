@@ -105,6 +105,10 @@ body.modal-open {
     overflow: hidden;
 }
 
+body.search-overlay-active {
+    overflow: hidden;
+}
+
 #app-root {
     flex: 1;
     display: flex;
