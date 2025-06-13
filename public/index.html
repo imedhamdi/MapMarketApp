@@ -900,6 +900,10 @@
                     <i class="fa-solid fa-times"></i>
                 </button>
             </div>
+            <nav id="threads-tabs" aria-label="Filtrer les discussions">
+                <button type="button" class="active" data-tab="purchases">Achats</button>
+                <button type="button" data-tab="sales">Ventes</button>
+            </nav>
             <div class="modal-body thread-list-body">
                 <div id="no-threads-placeholder" class="placeholder-message hidden">
                     <i class="fa-solid fa-comment-slash fa-3x"></i>
@@ -938,6 +942,13 @@
                     <button role="menuitem" id="delete-chat-btn" data-i18n="chat.delete">Supprimer</button>
                 </div>
             </div>
+            <div class="chat-ad-summary">
+                <a href="#" id="chat-ad-link">Titre de l'annonce</a> - <span id="chat-ad-price"></span>
+            </div>
+            <div class="chat-security-alert" role="alert">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span>Ne payez jamais en avance et rencontrez le vendeur dans un lieu sûr.</span>
+            </div>
             <div id="chat-messages-container" class="modal-body chat-messages-body" role="log" aria-live="polite">
                 <div id="chat-history-loader" class="loader-container hidden" role="status">
                     <div class="spinner"></div>
@@ -953,6 +964,11 @@
             </div>
             <div id="chat-typing-indicator" class="typing-indicator hidden" aria-live="polite">
                 <span></span><span class="dots"><span>.</span><span>.</span><span>.</span></span>
+            </div>
+            <div id="chat-action-footer" class="chat-actions-toolbar">
+                <button type="button" id="chat-make-offer-btn" class="btn btn-secondary btn-sm"><i class="fa-solid fa-handshake"></i> Faire offre</button>
+                <button type="button" id="chat-share-location-btn" class="btn btn-secondary btn-sm"><i class="fa-solid fa-location-dot"></i> Ma position</button>
+                <button type="button" id="chat-meet-btn" class="btn btn-secondary btn-sm"><i class="fa-solid fa-calendar-check"></i> RDV</button>
             </div>
             <div id="chat-image-preview-container" class="hidden" style="padding: 0 var(--spacing-md); align-self: flex-start;">
                 </div>
@@ -970,6 +986,24 @@
 
     </div>
 </div>
+
+        <div id="contact-seller-modal" class="modal-overlay center-modal" role="dialog" aria-modal="true" aria-labelledby="contact-seller-title" aria-hidden="true" tabindex="-1">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="contact-seller-title" class="modal-title"><i class="fa-solid fa-envelope"></i> <span>Contacter le vendeur</span></h2>
+                    <button class="modal-close-btn" data-dismiss-modal="contact-seller-modal" type="button" aria-label="Fermer la prise de contact">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p class="contact-seller-suggest" style="margin-bottom: var(--spacing-sm);">Message suggéré :</p>
+                    <textarea id="contact-seller-message" class="form-control" rows="4">Bonjour, cette annonce est-elle toujours disponible ?</textarea>
+                </div>
+                <div class="modal-footer">
+                    <button id="send-contact-seller-btn" type="button" class="btn btn-primary btn-block"><i class="fa-solid fa-paper-plane"></i> Envoyer</button>
+                </div>
+            </div>
+        </div>
 
             <div id="filters-modal" class="modal-overlay" role="dialog" aria-modal="true"
                 aria-labelledby="filters-modal-title" aria-hidden="true" tabindex="-1">
