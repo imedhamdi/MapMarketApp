@@ -177,6 +177,51 @@ function setupEventListeners() {
         sendMessage(`[RDV_PROPOSE]:${date}|${time}|${location}`);
         document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'appointment-modal' } }));
     });
+
+    if (deleteChatBtn) {
+        deleteChatBtn.addEventListener('click', () => {
+            const threadIdToDelete = activeThreadId;
+            if (!threadIdToDelete) {
+                showToast("Aucune conversation active à supprimer.", "error");
+                return;
+            }
+
+            // Fermer le petit menu d'options avant d'ouvrir la modale de confirmation
+            if (chatOptionsMenu) chatOptionsMenu.classList.add('hidden');
+
+            document.dispatchEvent(new CustomEvent('mapmarket:openModal', {
+                detail: {
+                    modalId: 'confirmation-modal',
+                    title: 'Supprimer la conversation',
+                    message: 'Cette action masquera la conversation de votre liste. Vous pourrez la restaurer si un nouveau message est envoyé. Voulez-vous continuer ?',
+                    confirmButtonText: 'Supprimer pour moi',
+                    cancelButtonText: 'Annuler',
+                    isDestructive: true,
+                    onConfirm: async () => {
+                        toggleGlobalLoader(true, "Suppression en cours...");
+                        try {
+                            const response = await secureFetch(`${API_MESSAGES_URL}/threads/${threadIdToDelete}/local`, {
+                                method: 'DELETE'
+                            }, false);
+
+                            if (response && response.success) {
+                                showToast("Conversation masquée avec succès.", "success");
+                                // Revenir à la liste des threads, qui se mettra à jour
+                                showThreadList();
+                            } else {
+                                throw new Error(response.message || 'La suppression a échoué.');
+                            }
+
+                        } catch (error) {
+                            showToast(error.message || 'Une erreur est survenue lors de la suppression.', 'error');
+                        } finally {
+                            toggleGlobalLoader(false);
+                        }
+                    }
+                }
+            }));
+        });
+    }
 }
 
 // --- GESTION DE LA CONNEXION SOCKET.IO ---
