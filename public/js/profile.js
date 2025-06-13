@@ -20,6 +20,7 @@ let profileForm, profileNameField, profileEmailField, profileNewPasswordField, p
 let editProfileBtn, saveProfileBtn, cancelEditProfileBtn, profileEditActions;
 let deleteAccountTriggerBtn, deleteAccountConfirmSection, deleteAccountCheckbox, confirmDeleteAccountBtn, cancelDeleteAccountBtn;
 let statsAdsPublished, statsAvgRating, statsFavoritesCount;
+let profileAchievementsSection;
 
 // Champs éditables
 let editableFields = [];
@@ -67,6 +68,7 @@ function initProfileUI() {
     statsAdsPublished = document.getElementById('stats-ads-published');
     statsAvgRating = document.getElementById('stats-avg-rating');
     statsFavoritesCount = document.getElementById('stats-favorites-count');
+    profileAchievementsSection = document.getElementById('profile-achievements-section');
 
     // --- Écouteurs d'événements ---
     document.addEventListener('mapMarket:modalOpened', (event) => {
@@ -201,8 +203,38 @@ function populateProfileFields(userData) {
     if (statsAvgRating) statsAvgRating.textContent = userData.stats?.avgRating ? `${parseFloat(userData.stats.avgRating).toFixed(1)}/5` : 'N/A';
     if (statsFavoritesCount) statsFavoritesCount.textContent = userData.stats?.favoritesCount ?? '0';
 
+    // Mise à jour des barres de progression
+    if (statsAdsPublished) {
+        const pct = Math.min(100, (parseInt(userData.stats?.adsPublished || 0) / 10) * 100);
+        statsAdsPublished.nextElementSibling?.querySelector('.fill')?.style.setProperty('width', pct + '%');
+    }
+    if (statsAvgRating) {
+        const pct = Math.min(100, ((parseFloat(userData.stats?.avgRating) || 0) / 5) * 100);
+        statsAvgRating.nextElementSibling?.querySelector('.fill')?.style.setProperty('width', pct + '%');
+    }
+    if (statsFavoritesCount) {
+        const pct = Math.min(100, (parseInt(userData.stats?.favoritesCount || 0) / 10) * 100);
+        statsFavoritesCount.nextElementSibling?.querySelector('.fill')?.style.setProperty('width', pct + '%');
+    }
+
+    updateAchievements(userData);
+
     if (profileNewPasswordField) profileNewPasswordField.value = '';
     if (profileConfirmPasswordField) profileConfirmPasswordField.value = '';
+}
+
+function updateAchievements(userData) {
+    if (!profileAchievementsSection) return;
+    const badges = profileAchievementsSection.querySelectorAll('.achievement-badge');
+    const achievements = {
+        firstAd: (userData.stats?.adsPublished || 0) > 0,
+        fastSeller: userData.stats?.fastSales, // à définir selon la logique réelle
+        collector: Array.isArray(userData.favorites) && userData.favorites.length >= 10
+    };
+
+    if (badges[0] && achievements.firstAd) badges[0].classList.remove('locked');
+    if (badges[1] && achievements.fastSeller) badges[1].classList.remove('locked');
+    if (badges[3] && achievements.collector) badges[3].classList.remove('locked');
 }
 
 

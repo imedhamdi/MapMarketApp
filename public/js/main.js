@@ -11,6 +11,7 @@ import * as State from './state.js';
 import * as Auth from './auth.js';
 import * as Modals from './modals.js';
 import * as MapCtrl from './map.js';
+import * as Search from './search.js';
 import * as Ads from './ads.js';
 import * as Favorites from './favorites.js';
 import * as Profile from './profile.js';
@@ -43,6 +44,7 @@ class App {
             MapCtrl.init();
             Ads.init();
             Filters.init();
+            Search.init();
             Alerts.init();
             Favorites.init();
             Profile.init();
@@ -76,47 +78,6 @@ class App {
     }
 
     setupGlobalEventListeners() {
-        // --- Barre de recherche rétractable ---
-        const headerShowSearchBtn = document.getElementById('header-show-search-btn');
-        const searchBarWrapper = document.getElementById('header-search-bar-wrapper');
-        const closeSearchBarBtn = document.getElementById('close-search-bar-btn');
-        const mainSearchInput = document.getElementById('main-search-input');
-
-        if (headerShowSearchBtn && searchBarWrapper && closeSearchBarBtn && mainSearchInput) {
-            headerShowSearchBtn.addEventListener('click', () => {
-                const isCurrentlyHidden = searchBarWrapper.classList.contains('hidden');
-                if (isCurrentlyHidden) {
-                    searchBarWrapper.classList.remove('hidden');
-                    // Forcer un reflow pour que la transition s'applique correctement après le display:block
-                    void searchBarWrapper.offsetWidth;
-                    searchBarWrapper.setAttribute('aria-hidden', 'false');
-                    headerShowSearchBtn.setAttribute('aria-expanded', 'true');
-                    mainSearchInput.focus();
-                } else {
-                    searchBarWrapper.classList.add('hidden');
-                    searchBarWrapper.setAttribute('aria-hidden', 'true');
-                    headerShowSearchBtn.setAttribute('aria-expanded', 'false');
-                }
-            });
-
-            closeSearchBarBtn.addEventListener('click', () => {
-                searchBarWrapper.classList.add('hidden');
-                searchBarWrapper.setAttribute('aria-hidden', 'true');
-                headerShowSearchBtn.setAttribute('aria-expanded', 'false');
-                headerShowSearchBtn.focus();
-            });
-
-            // Fermer la barre de recherche avec la touche Echap
-            document.addEventListener('keydown', (event) => {
-                if (event.key === 'Escape' && !searchBarWrapper.classList.contains('hidden')) {
-                    closeSearchBarBtn.click();
-                }
-            });
-        } else {
-            console.warn("Éléments pour la barre de recherche rétractable non trouvés. La fonctionnalité pourrait être inactive.");
-        }
-
-
         // --- Boutons de l'en-tête (Profil, Filtres, Notifications) ---
         const headerProfileBtn = document.getElementById('header-profile-btn');
         if (headerProfileBtn) {

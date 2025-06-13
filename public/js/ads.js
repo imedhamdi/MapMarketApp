@@ -46,6 +46,9 @@ let adDetailDescriptionText, adDetailSellerInfo, adDetailSellerAvatar, adDetailS
 let adDetailActionsContainer, adDetailFavoriteBtn, adDetailContactSellerBtn, adDetailReportBtn;
 let adDetailOwnerActions, adDetailEditAdBtn, adDetailDeleteAdBtn;
 // let adDetailSellerRating, adDetailRatingSection, adAverageRatingDisplay, rateAdBtn, adReviewsList; // Pour les avis futurs
+let imageViewerModal, viewerImage, viewerPrevBtn, viewerNextBtn;
+let viewerImages = [];
+let viewerIndex = 0;
 
 // --- Éléments du DOM pour la modale "Mes Annonces" ---
 let myAdsModal, myAdsListContainer, myAdItemTemplate, noMyAdsPlaceholder, myAdsLoader;
@@ -108,6 +111,14 @@ function initAdsUI() {
     // adAverageRatingDisplay = document.getElementById('ad-average-rating-display'); // Pour les avis futurs
     // rateAdBtn = document.getElementById('rate-ad-btn'); // Pour les avis futurs
     // adReviewsList = document.getElementById('ad-reviews-list'); // Pour les avis futurs
+
+    imageViewerModal = document.getElementById('image-viewer-modal');
+    viewerImage = document.getElementById('viewer-image');
+    viewerPrevBtn = document.getElementById('viewer-prev');
+    viewerNextBtn = document.getElementById('viewer-next');
+
+    viewerPrevBtn?.addEventListener('click', () => showViewerImage(viewerIndex - 1));
+    viewerNextBtn?.addEventListener('click', () => showViewerImage(viewerIndex + 1));
 
     // Modale "Mes Annonces"
     myAdsModal = document.getElementById('my-ads-modal');
@@ -1002,6 +1013,8 @@ function setupAdDetailCarousel(imageUrls) {
         ? imageUrls
         : ['https://placehold.co/600x400/e0e0e0/757575?text=Aucune+image'];
 
+    viewerImages = images;
+
     const isPlaceholder = imageUrls.length === 0;
 
     // Création des slides
@@ -1021,6 +1034,7 @@ function setupAdDetailCarousel(imageUrls) {
             img.src = 'https://placehold.co/600x400/e0e0e0/757575?text=Image+indisponible';
             img.alt = 'Image indisponible';
         };
+        img.addEventListener('click', () => openImageViewer(index));
 
         slide.appendChild(img);
         adDetailCarouselTrack.appendChild(slide);
@@ -1095,6 +1109,22 @@ function goToAdDetailSlide(index, totalSlides) {
         adDetailCarouselTrack.style.transform = `translateX(-${currentAdDetailCarouselSlide * 100}%)`;
     }
     updateAdDetailCarouselUI(totalSlides);
+}
+
+function openImageViewer(startIndex) {
+    if (!imageViewerModal || !viewerImage) return;
+    viewerIndex = startIndex;
+    showViewerImage(viewerIndex);
+    document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'image-viewer-modal' } }));
+}
+
+function showViewerImage(index) {
+    if (!viewerImages.length) return;
+    viewerIndex = (index + viewerImages.length) % viewerImages.length;
+    if (viewerImage) {
+        viewerImage.src = viewerImages[viewerIndex];
+        viewerImage.alt = `Image ${viewerIndex + 1}`;
+    }
 }
 
 

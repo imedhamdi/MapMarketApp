@@ -21,6 +21,9 @@ let userMarker = null; // Marqueur pour la position de l'utilisateur
 let tempMarker = null; // Marqueur temporaire pour la création d'annonce/alerte
 let adMarkersLayer = null; // Layer group pour les marqueurs d'annonces (pour clustering)
 let alertMarkersLayer = null; // Layer group pour les marqueurs/zones d'alertes
+let adMarkersById = {};
+
+let listViewContainer, adsListView, toggleViewBtn;
 
 // Configuration des icônes
 const pulsingIconConfig = {
@@ -75,6 +78,9 @@ export function init() {
     geolocateBtn = document.getElementById('map-geolocate-btn');
     mapZoomLevelDisplay = document.getElementById('map-zoom-level');
     mapLocationFeedbackDisplay = document.getElementById('map-current-location-feedback');
+    listViewContainer = document.getElementById('list-view-container');
+    adsListView = document.getElementById('ads-list-view');
+    toggleViewBtn = document.getElementById('toggle-view-btn');
 
     if (!mapViewNode) {
         console.error("Élément #map-view non trouvé. La carte ne peut pas être initialisée.");
@@ -162,6 +168,22 @@ export function init() {
         if (mapInstance && alertMarkersLayer) mapInstance.addLayer(alertMarkersLayer);
 
         if (geolocateBtn) geolocateBtn.addEventListener('click', () => geolocateUser(true)); // Clic manuel centre toujours
+
+        if (toggleViewBtn && listViewContainer) {
+            toggleViewBtn.addEventListener('click', () => {
+                const hidden = listViewContainer.classList.toggle('hidden');
+                listViewContainer.setAttribute('aria-hidden', hidden.toString());
+                const icon = toggleViewBtn.querySelector('i');
+                if (!hidden) {
+                    renderAdsInListView();
+                    toggleViewBtn.setAttribute('aria-label', 'Afficher la carte');
+                    if (icon) { icon.classList.remove('fa-list'); icon.classList.add('fa-map'); }
+                } else {
+                    toggleViewBtn.setAttribute('aria-label', 'Afficher la liste des annonces');
+                    if (icon) { icon.classList.remove('fa-map'); icon.classList.add('fa-list'); }
+                }
+            });
+        }
 
         updateMapInfoBar(); // Met à jour le zoom initial
         window.addEventListener('resize', debounceMapInvalidateSize);
@@ -512,6 +534,7 @@ export function removeTempMarker() {
 export function displayAdsOnMap(ads) {
     if (!mapInstance || !adMarkersLayer) return;
     adMarkersLayer.clearLayers();
+    adMarkersById = {};
     if (!ads || ads.length === 0) {
         return;
     }
@@ -550,8 +573,16 @@ export function displayAdsOnMap(ads) {
                     });
                 }
             });
+            marker.on('add', () => {
+                const el = marker.getElement();
+                if (el) {
+                    el.classList.add('map-marker-animate');
+                    setTimeout(() => el.classList.remove('map-marker-animate'), 600);
+                }
+            });
 
             adMarkersLayer.addLayer(marker);
+            adMarkersById[adId] = marker;
         } else {
             console.warn(`Annonce "${ad.title}" (ID: ${ad._id || ad.id}) n'a pas de coordonnées valides.`);
         }
@@ -576,6 +607,56 @@ export function focusOnAd(adId) {
     } else {
         showToast("Impossible de localiser cette annonce sur la carte ou annonce non trouvée.", "warning");
     }
+}
+
+export function renderAdsInListView() {
+    if (!mapInstance || !adsListView) return;
+    adsListView.innerHTML = '';
+    const bounds = mapInstance.getBounds();
+    const ads = state.get('ads') || [];
+    const visible = ads.filter(ad => {
+        const lat = ad.latitude ?? ad.location?.coordinates?.[1];
+        const lng = ad.longitude ?? ad.location?.coordinates?.[0];
+        return lat != null && lng != null && bounds.contains([lat, lng]);
+    });
+
+    const template = document.getElementById('my-ad-item-template');
+    if (!template) return;
+
+    visible.forEach(ad => {
+        const clone = template.content.firstElementChild.cloneNode(true);
+        const adId = ad._id || ad.id;
+        clone.dataset.adId = adId;
+        const img = clone.querySelector('img');
+        if (img) {
+            img.src = (ad.imageUrls && ad.imageUrls[0]) || 'https://placehold.co/80x80/e0e0e0/757575?text=Ad';
+        }
+        const titleEl = clone.querySelector('.item-title');
+        if (titleEl) titleEl.textContent = ad.title;
+        const priceEl = clone.querySelector('.item-price');
+        if (priceEl) {
+            priceEl.textContent = ad.price != null ? (state.getLanguage() === 'fr'
+                ? ad.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
+                : ad.price.toLocaleString('en-US', { style: 'currency', currency: 'USD' })) : 'N/A';
+        }
+        const actions = clone.querySelector('.my-ad-actions');
+        if (actions) actions.remove();
+
+        clone.addEventListener('mouseenter', () => {
+            const marker = adMarkersById[adId];
+            const el = marker && marker.getElement();
+            if (el) el.classList.add('map-marker-custom--highlighted');
+        });
+        clone.addEventListener('mouseleave', () => {
+            const marker = adMarkersById[adId];
+            const el = marker && marker.getElement();
+            if (el) el.classList.remove('map-marker-custom--highlighted');
+        });
+        clone.addEventListener('click', () => {
+            document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId } }));
+        });
+        adsListView.appendChild(clone);
+    });
 }
 
 // Contenu des popups et gestionnaires d'événements pour displayAdsOnMap
