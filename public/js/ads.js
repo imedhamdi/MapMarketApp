@@ -990,39 +990,43 @@ async function loadAndDisplayAdDetails(adId) {
             }
 
             const userFavorites = state.get('favorites') || [];
-            if (adDetailFavoriteBtn) {
-                const isFavorite = userFavorites.some(favAd => favAd === ad._id || favAd._id === ad._id);
+            // Détermine si l'utilisateur connecté est le propriétaire de l'annonce
+            const isOwner = currentUser && ad.userId && ad.userId._id === currentUser._id;
+
+            // Gère les boutons d'actions du propriétaire (Éditer, Supprimer)
+            if (adDetailOwnerActions) {
+                adDetailOwnerActions.classList.toggle('hidden', !isOwner);
+            }
+
+            // Gère les boutons d'actions du visiteur (Favoris, Contacter, Y aller)
+            const navigateBtn = document.getElementById('ad-detail-navigate-btn');
+            if (adDetailFavoriteBtn) adDetailFavoriteBtn.classList.toggle('hidden', isOwner);
+            if (adDetailContactSellerBtn) adDetailContactSellerBtn.classList.toggle('hidden', isOwner);
+            if (navigateBtn) navigateBtn.classList.toggle('hidden', isOwner);
+
+            // Mettre à jour l'état du bouton favori (uniquement si ce n'est pas le propriétaire)
+            if (!isOwner && adDetailFavoriteBtn) {
+            
+                const isFavorite = userFavorites.some(favAdId => favAdId === ad._id);
                 adDetailFavoriteBtn.classList.toggle('active', isFavorite);
                 adDetailFavoriteBtn.setAttribute('aria-pressed', isFavorite.toString());
                 adDetailFavoriteBtn.querySelector('i').className = isFavorite ? 'fa-solid fa-heart text-danger' : 'fa-regular fa-heart';
                 adDetailFavoriteBtn.dataset.adId = ad._id;
             }
 
-            const navigateBtn = document.getElementById('ad-detail-navigate-btn');
+            // Re-attacher l'événement du bouton de navigation pour éviter les écouteurs multiples
             if (navigateBtn) {
                 const newNavigateBtn = navigateBtn.cloneNode(true);
                 navigateBtn.parentNode.replaceChild(newNavigateBtn, navigateBtn);
                 newNavigateBtn.addEventListener('click', () => {
                     if (ad && ad.location && ad.location.coordinates) {
                         const [lon, lat] = ad.location.coordinates;
-                        const mapsUrl = `https://maps.google.com/?q=${lat},${lon}`;
+                        const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
                         window.open(mapsUrl, '_blank');
                     } else {
-                        showToast("Coordonnées de l'annonce non disponibles.", 'error');
+                        showToast("Coordonnées de l'annonce non disponibles.", "error");
                     }
                 });
-            }
-
-            if (adDetailOwnerActions && currentUser && ad.userId && ad.userId._id === currentUser._id) {
-                adDetailOwnerActions.classList.remove('hidden');
-            } else if (adDetailOwnerActions) {
-                adDetailOwnerActions.classList.add('hidden');
-            }
-
-            if (adDetailContactSellerBtn && currentUser && ad.userId && ad.userId._id === currentUser._id) {
-                adDetailContactSellerBtn.classList.add('hidden');
-            } else if (adDetailContactSellerBtn) {
-                adDetailContactSellerBtn.classList.remove('hidden');
             }
 
             if (adDetailLoader) adDetailLoader.classList.add('hidden');
@@ -1471,7 +1475,7 @@ function handleContactSellerFromDetail() {
     // Récupérer les détails de l'annonce depuis l'état pour les passer à la messagerie
     const allAds = state.get('ads');
     const adData = allAds.find(ad => (ad._id || ad.id) === adId);
-    
+
     if (!adData) {
         showToast("Détails de l'annonce introuvables pour démarrer la discussion.", "error");
         return;
@@ -1479,7 +1483,7 @@ function handleContactSellerFromDetail() {
 
     // Dispatcher un événement avec toutes les infos nécessaires
     document.dispatchEvent(new CustomEvent('mapMarket:initiateChat', {
-        detail: { 
+        detail: {
             recipientId: sellerId,
             adId: adId,
             // Ajout des données pour l'affichage immédiat du bandeau
@@ -1491,7 +1495,7 @@ function handleContactSellerFromDetail() {
             }
         }
     }));
-    
+
     // Fermer la modale de détail pour afficher celle des messages.
     document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'ad-detail-modal' } }));
 }

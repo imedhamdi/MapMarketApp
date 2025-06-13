@@ -7,9 +7,10 @@ const fs = require('fs');
 const path = require('path');
 const APIFeatures = require('../utils/apiFeatures'); // Utilitaire pour filtres, tri, pagination (à créer)
 const fetch = require('node-fetch'); // NOTE : Assurez-vous que node-fetch est installé ou utilisez l'API fetch native de Node 18+
+const { clear } = require('console');
 
 const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
+    Promise.resolve(fn(req, res, next)).catch(next);
 };
 
 // Fonction d'aide pour récupérer la devise à partir du code pays
@@ -30,7 +31,7 @@ const getCurrencyFromCountryCode = (countryCode) => {
 // Helper pour construire les URLs des images
 const mapImageUrls = (req, ad) => {
     if (ad.imageUrls && ad.imageUrls.length > 0) {
-        ad.imageUrls = ad.imageUrls.map(filePath => 
+        ad.imageUrls = ad.imageUrls.map(filePath =>
             // Si filePath est déjà une URL complète (ex: Cloudinary), ne pas la préfixer
             filePath.startsWith('http') ? filePath : `${req.protocol}://${req.get('host')}/uploads/${filePath}`
         );
@@ -132,6 +133,24 @@ exports.createAd = asyncHandler(async (req, res, next) => {
         logger.warn(`Échec du géocodage inversé pour la détection de devise. Utilisation de la devise par défaut. Erreur: ${geoError.message}`);
     }
     // --- Fin de la détection de devise ---
+    // --- Début de la DÉTERMINATION DE L'ADRESSE (AJOUT) ---
+    let adDisplayAddress = locationAddress; // Utilise l'adresse fournie par défaut
+    if (!adDisplayAddress || adDisplayAddress.trim() === '') {
+        try {
+            const geoResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=<span class="math-inline">\{parsedLat\}&lon\=</span>{parsedLng}&accept-language=fr`);
+            if (geoResponse.ok) {
+                const geoData = await geoResponse.json();
+                if (geoData && geoData.display_name) {
+                    adDisplayAddress = geoData.display_name; // 'display_name' est souvent plus complet.
+                    logger.info(`Adresse déterminée par géocodage inversé : ${adDisplayAddress}`);
+                }
+            }
+        } catch (geoError) {
+            logger.warn(`Échec du géocodage inversé pour la détermination de l'adresse. Utilisation des coordonnées comme fallback. Erreur: ${geoError.message}`);
+            adDisplayAddress = `Lat: ${parsedLat}, Lng: ${parsedLng}`;
+        }
+    }
+    // --- Fin de la DÉTERMINATION DE L'ADRESSE ---
 
     // 3. Préparation de l'objet adData pour la création
     const adData = {
@@ -143,7 +162,7 @@ exports.createAd = asyncHandler(async (req, res, next) => {
         location: {
             type: 'Point',
             coordinates: [parsedLng, parsedLat], // GeoJSON: [longitude, latitude]
-            address: (locationAddress && typeof locationAddress === 'string') ? locationAddress.trim() : ''
+            address: adDisplayAddress.trim() 
         },
         userId: req.user.id,
         status: 'online', // Ou 'pending_review', 'draft' selon votre logique métier
@@ -192,8 +211,8 @@ exports.createAd = asyncHandler(async (req, res, next) => {
     // 6. Peupler les informations de l'utilisateur pour la réponse
     // Utiliser .lean() pour obtenir un objet JS simple, ce qui est généralement plus performant.
     const populatedAd = await Ad.findById(newAdDocument._id)
-                                .populate('userId', 'name avatarUrl') // Sélectionner les champs de l'utilisateur
-                                .lean(); // Important pour la performance et pour éviter les objets Mongoose complexes
+        .populate('userId', 'name avatarUrl') // Sélectionner les champs de l'utilisateur
+        .lean(); // Important pour la performance et pour éviter les objets Mongoose complexes
 
     if (!populatedAd) {
         // Ce cas est très improbable si Ad.create a réussi et que l'annonce n'a pas été supprimée immédiatement après.
@@ -252,7 +271,7 @@ exports.getMyAds = asyncHandler(async (req, res, next) => {
     const features = new APIFeatures(Ad.find({ userId: req.user.id }), req.query)
         .sort()
         .paginate();
-    
+
     const ads = await features.query;
     const totalAds = await Ad.countDocuments({ userId: req.user.id });
 
@@ -279,7 +298,7 @@ exports.getMyAds = asyncHandler(async (req, res, next) => {
  * GET /api/ads/:id
  */
 exports.getAdById = asyncHandler(async (req, res, next) => {
-   const ad = await Ad.findById(req.params.id).populate('userId', 'name avatarUrl email createdAt');
+    const ad = await Ad.findById(req.params.id).populate('userId', 'name avatarUrl email createdAt');
 
     if (!ad || ad.status === 'deleted') { // Ne pas montrer les annonces explicitement supprimées
         return next(new AppError('Annonce non trouvée.', 404));
@@ -363,10 +382,10 @@ exports.updateAd = asyncHandler(async (req, res, next) => {
         if (ad.location) {
             updates.location = { ...ad.location, address: req.body.locationAddress };
         } else { // Si pas de location existante, et on fournit juste une adresse sans coords
-             return next(new AppError('Coordonnées manquantes pour la nouvelle adresse. Veuillez localiser sur la carte.', 400));
+            return next(new AppError('Coordonnées manquantes pour la nouvelle adresse. Veuillez localiser sur la carte.', 400));
         }
     }
-    
+
     // Gestion des images
     let newImageUrls = ad.imageUrls || [];
     // 1. Supprimer les images marquées pour suppression (non implémenté via req.body.imagesToDelete)
@@ -375,13 +394,13 @@ exports.updateAd = asyncHandler(async (req, res, next) => {
         try {
             const urlsToKeep = JSON.parse(req.body.existingImageUrls);
             // Filtrer les anciennes URLs pour ne garder que celles à conserver
-            const oldUrlsToRemove = newImageUrls.filter(oldUrl => 
+            const oldUrlsToRemove = newImageUrls.filter(oldUrl =>
                 !urlsToKeep.includes(oldUrl) && !oldUrl.startsWith('http') // Ne supprimer que les fichiers locaux
             );
             oldUrlsToRemove.forEach(filePath => {
                 const fullPath = path.join(__dirname, '..', 'uploads', filePath);
                 fs.unlink(fullPath, err => {
-                    if(err && err.code !== 'ENOENT') logger.error(`Erreur suppression ancienne image ${fullPath}: ${err}`);
+                    if (err && err.code !== 'ENOENT') logger.error(`Erreur suppression ancienne image ${fullPath}: ${err}`);
                 });
             });
             newImageUrls = urlsToKeep;

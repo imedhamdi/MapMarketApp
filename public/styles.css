@@ -3370,3 +3370,28 @@ body.dark-mode #ad-detail-date i { color: var(--gray-400); }
 .ad-preview-card .favorite-btn.active i {
     color: var(--danger-color);
 }
+/* ============================================= */
+/* ==      STYLES POUR ACTIONS PROPRIÉTAIRE   == */
+/* ============================================= */
+
+.owner-actions-panel {
+    background-color: var(--gray-100);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-md);
+    margin: var(--spacing-lg) 0;
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: space-around;
+}
+
+body.dark-mode .owner-actions-panel {
+    background-color: var(--gray-700);
+    border-color: var(--gray-600);
+}
+
+.owner-actions-panel .btn {
+    flex: 1; /* Pour que les boutons prennent une largeur égale */
+}
+
+/* Le style .btn-danger-outline est déjà dans votre CSS, parfait ! */

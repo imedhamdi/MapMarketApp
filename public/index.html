@@ -6,7 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>MapMarket - Marketplace Géolocalisée</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -102,14 +104,16 @@
                                 <span id="preview-card-distance" class="meta-badge"></span>
                             </div>
                         </div>
-                        <button id="preview-card-favorite-btn" type="button" class="btn btn-icon favorite-btn" aria-label="Ajouter aux favoris">
+                        <button id="preview-card-favorite-btn" type="button" class="btn btn-icon favorite-btn"
+                            aria-label="Ajouter aux favoris">
                             <i class="fa-regular fa-heart"></i>
                         </button>
                     </div>
                     <div id="list-view-container" class="list-view-container hidden" aria-hidden="true">
                         <ul id="ads-list-view" class="item-list"></ul>
                     </div>
-                    <button id="toggle-view-btn" type="button" class="toggle-view-btn" aria-label="Afficher la liste des annonces">
+                    <button id="toggle-view-btn" type="button" class="toggle-view-btn"
+                        aria-label="Afficher la liste des annonces">
                         <i class="fa-solid fa-list"></i>
                     </button>
                 </div>
@@ -437,17 +441,23 @@
                             <div class="profile-stats">
                                 <div class="stat-item" aria-label="Nombre d'annonces publiées">
                                     <div id="stats-ads-published" class="count">0</div>
-                                    <div class="stat-progress"><div class="fill" style="width:0%"></div></div>
+                                    <div class="stat-progress">
+                                        <div class="fill" style="width:0%"></div>
+                                    </div>
                                     <div class="label" data-i18n="profile.stats.ads">Annonces</div>
                                 </div>
                                 <div class="stat-item" aria-label="Note moyenne reçue">
                                     <div id="stats-avg-rating" class="count">N/A</div>
-                                    <div class="stat-progress"><div class="fill" style="width:0%"></div></div>
+                                    <div class="stat-progress">
+                                        <div class="fill" style="width:0%"></div>
+                                    </div>
                                     <div class="label" data-i18n="profile.stats.rating">Note Moy.</div>
                                 </div>
                                 <div class="stat-item" aria-label="Nombre de favoris">
                                     <div id="stats-favorites-count" class="count">0</div>
-                                    <div class="stat-progress"><div class="fill" style="width:0%"></div></div>
+                                    <div class="stat-progress">
+                                        <div class="fill" style="width:0%"></div>
+                                    </div>
                                     <div class="label" data-i18n="profile.stats.favorites">Favoris</div>
                                 </div>
                             </div>
@@ -693,9 +703,12 @@
                             <p id="ad-detail-price" class="ad-price"></p>
                             <div id="ad-detail-meta-container" class="ad-meta-info">
                                 <span id="ad-detail-category" class="meta-badge"><i class="fa-solid fa-tag"></i> </span>
-                                <span id="ad-detail-location" class="meta-badge"><i class="fa-solid fa-map-marker-alt"></i> </span>
-                                <span id="ad-detail-distance" class="meta-badge" style="display: none;"><i class="fa-solid fa-signs-post"></i> </span>
-                                <span id="ad-detail-date" class="meta-badge"><i class="fa-solid fa-calendar-days"></i> </span>
+                                <span id="ad-detail-location" class="meta-badge"><i
+                                        class="fa-solid fa-map-marker-alt"></i> </span>
+                                <span id="ad-detail-distance" class="meta-badge" style="display: none;"><i
+                                        class="fa-solid fa-signs-post"></i> </span>
+                                <span id="ad-detail-date" class="meta-badge"><i class="fa-solid fa-calendar-days"></i>
+                                </span>
                             </div>
 
                             <section aria-labelledby="ad-detail-description-title">
@@ -703,7 +716,8 @@
                                 <div id="ad-detail-description-wrapper" class="collapsible-description">
                                     <p id="ad-detail-description-text" class="ad-description"></p>
                                 </div>
-                                <button id="toggle-description-btn" type="button" class="btn btn-link" style="display: none;">Lire la suite...</button>
+                                <button id="toggle-description-btn" type="button" class="btn btn-link"
+                                    style="display: none;">Lire la suite...</button>
                             </section>
 
                             <section id="ad-detail-seller-info-section" aria-labelledby="ad-detail-seller-title">
@@ -725,25 +739,24 @@
 
 
 
-                            <div id="ad-detail-owner-actions" class="owner-actions-toolbar hidden">
-                                <button id="ad-detail-edit-ad-btn" type="button" class="btn btn-secondary action-btn"
-                                    aria-controls="ad-form-modal" data-i18n="adDetail.editButton"><i
-                                        class="fa-solid fa-pen"></i> Éditer</button>
-                                <button id="ad-detail-delete-ad-btn" type="button" class="btn btn-danger action-btn"
-                                    aria-controls="confirmation-modal" data-i18n="adDetail.deleteButton"><i
-                                        class="fa-solid fa-trash"></i> Supprimer</button>
+                            <div id="ad-detail-owner-actions" class="owner-actions-panel hidden">
+                                <button id="ad-detail-edit-ad-btn" type="button" class="btn btn-primary action-btn">
+                                    <i class="fa-solid fa-pen"></i> Éditer
+                                </button>
+                                <button id="ad-detail-delete-ad-btn" type="button"
+                                    class="btn btn-danger-outline action-btn">
+                                    <i class="fa-solid fa-trash"></i> Supprimer
+                                </button>
                             </div>
                         </article>
                     </div>
                     <div id="ad-detail-actions-container" class="actions-toolbar">
                         <button data-favorite-btn data-ad-id="" id="ad-detail-favorite-btn" type="button"
-                            class="btn btn-icon action-btn" aria-pressed="false"
-                            aria-label="Ajouter aux favoris">
+                            class="btn btn-icon action-btn" aria-pressed="false" aria-label="Ajouter aux favoris">
                             <i class="fa-regular fa-heart"></i>
                         </button>
-                        <button id="ad-detail-contact-seller-btn" type="button"
-                            class="btn btn-primary action-btn" data-i18n="adDetail.contactSeller"><i
-                                class="fa-solid fa-comments"></i> Contacter</button>
+                        <button id="ad-detail-contact-seller-btn" type="button" class="btn btn-primary action-btn"
+                            data-i18n="adDetail.contactSeller"><i class="fa-solid fa-comments"></i> Contacter</button>
                         <button id="ad-detail-navigate-btn" type="button" class="btn btn-primary action-btn"><i
                                 class="fa-solid fa-route"></i> Y aller</button>
                     </div>
@@ -752,13 +765,16 @@
 
             <div id="image-viewer-modal" class="modal-overlay" aria-modal="true" aria-hidden="true" tabindex="-1">
                 <div class="modal-content">
-                    <button class="modal-close-btn" id="close-image-viewer-btn" type="button" aria-label="Fermer la vue d'image" style="align-self:flex-end;">
+                    <button class="modal-close-btn" id="close-image-viewer-btn" type="button"
+                        aria-label="Fermer la vue d'image" style="align-self:flex-end;">
                         <i class="fa-solid fa-times"></i>
                     </button>
                     <div id="image-viewer-container" class="image-viewer">
-                        <button id="viewer-prev" type="button" class="viewer-nav" aria-label="Image précédente"><i class="fa-solid fa-chevron-left"></i></button>
+                        <button id="viewer-prev" type="button" class="viewer-nav" aria-label="Image précédente"><i
+                                class="fa-solid fa-chevron-left"></i></button>
                         <img id="viewer-image" src="" alt="Aperçu" />
-                        <button id="viewer-next" type="button" class="viewer-nav" aria-label="Image suivante"><i class="fa-solid fa-chevron-right"></i></button>
+                        <button id="viewer-next" type="button" class="viewer-nav" aria-label="Image suivante"><i
+                                class="fa-solid fa-chevron-right"></i></button>
                     </div>
                 </div>
             </div>
@@ -940,170 +956,201 @@
                 </div>
             </div>
 
-           <div id="messages-modal" class="modal-overlay slide-from-right" role="dialog" aria-modal="true" aria-labelledby="messages-modal-main-title" aria-hidden="true" tabindex="-1">
-    <div class="modal-content messages-modal-content">
+            <div id="messages-modal" class="modal-overlay slide-from-right" role="dialog" aria-modal="true"
+                aria-labelledby="messages-modal-main-title" aria-hidden="true" tabindex="-1">
+                <div class="modal-content messages-modal-content">
 
-        <div id="thread-list-view" class="messages-view active-view">
-            <div class="modal-header">
-                <h2 id="messages-modal-main-title" class="modal-title"><i class="fa-solid fa-comments"></i>
-                    <span data-i18n="messages.title">Mes Messages</span>
-                </h2>
-                <button class="modal-close-btn" data-dismiss-modal="messages-modal" type="button" aria-label="Fermer la messagerie">
-                    <i class="fa-solid fa-times"></i>
-                </button>
-            </div>
-            <nav id="threads-tabs" aria-label="Filtrer les discussions">
-                <button type="button" class="active" data-tab="purchases">Achats</button>
-                <button type="button" data-tab="sales">Ventes</button>
-            </nav>
-            <div class="modal-body thread-list-body">
-                <div id="no-threads-placeholder" class="placeholder-message hidden">
-                    <i class="fa-solid fa-comment-slash fa-3x"></i>
-                    <p data-i18n="messages.noThreads">Aucune discussion pour le moment.</p>
-                </div>
-                <ul id="thread-list" class="item-list">
-                    <template id="thread-item-template">
-                        <li class="thread-item list-item-card" tabindex="0" role="button" data-thread-id="">
-                            <img src="avatar-default.svg" alt="Avatar de l'interlocuteur" class="thread-avatar item-image" onerror="this.src='https://placehold.co/48x48/e0e0e0/757575?text=User';">
-                            <div class="thread-info item-info">
-                                <span class="thread-user item-title"></span>
-                                <p class="thread-preview"></p>
+                    <div id="thread-list-view" class="messages-view active-view">
+                        <div class="modal-header">
+                            <h2 id="messages-modal-main-title" class="modal-title"><i class="fa-solid fa-comments"></i>
+                                <span data-i18n="messages.title">Mes Messages</span>
+                            </h2>
+                            <button class="modal-close-btn" data-dismiss-modal="messages-modal" type="button"
+                                aria-label="Fermer la messagerie">
+                                <i class="fa-solid fa-times"></i>
+                            </button>
+                        </div>
+                        <nav id="threads-tabs" aria-label="Filtrer les discussions">
+                            <button type="button" class="active" data-tab="purchases">Achats</button>
+                            <button type="button" data-tab="sales">Ventes</button>
+                        </nav>
+                        <div class="modal-body thread-list-body">
+                            <div id="no-threads-placeholder" class="placeholder-message hidden">
+                                <i class="fa-solid fa-comment-slash fa-3x"></i>
+                                <p data-i18n="messages.noThreads">Aucune discussion pour le moment.</p>
                             </div>
-                            <div class="thread-meta">
-                                <time class="thread-time"></time>
-                                <span class="unread-badge hidden" aria-label="Messages non lus">0</span>
-                            </div>
-                        </li>
-                    </template>
-                </ul>
-            </div>
-        </div>
-
-        <div id="chat-view" class="messages-view">
-            <div class="modal-header chat-header">
-                <button id="back-to-threads-btn" type="button" class="btn btn-icon" aria-label="Retour aux discussions">
-                    <i class="fa-solid fa-arrow-left"></i>
-                </button>
-                <img id="chat-recipient-avatar" src="avatar-default.svg" alt="Avatar de l'interlocuteur" class="chat-recipient-avatar" onerror="this.src='https://placehold.co/36x36/e0e0e0/757575?text=User';">
-                <h2 id="chat-recipient-name" class="modal-title chat-title"></h2>
-                <button id="chat-options-btn" type="button" class="btn btn-icon" aria-label="Options du chat" aria-haspopup="true" aria-expanded="false">
-                    <i class="fa-solid fa-ellipsis-v"></i>
-                </button>
-                <div id="chat-options-menu" class="dropdown-menu hidden" role="menu">
-                    <button role="menuitem" id="block-user-chat-btn" data-i18n="chat.blockUser">Bloquer</button>
-                    <button role="menuitem" id="delete-chat-btn" data-i18n="chat.delete">Supprimer</button>
-                </div>
-            </div>
-            <div id="chat-ad-summary" class="chat-ad-summary">
-                <img id="chat-ad-thumbnail" src="https://placehold.co/60x60/e0e0e0/757575?text=Ad" alt="Miniature de l'annonce" class="chat-ad-thumbnail">
-                <div class="chat-ad-summary-details">
-                    <a href="#" id="chat-ad-link" class="chat-ad-title-link">Titre de l'annonce</a>
-                    <span id="chat-ad-price" class="chat-ad-price-tag"></span>
-                </div>
-            </div>
-            <div class="chat-security-alert" role="alert">
-                <i class="fa-solid fa-shield-halved"></i>
-                <span>Ne payez jamais en avance et rencontrez le vendeur dans un lieu sûr.</span>
-            </div>
-            <div id="chat-messages-container" class="modal-body chat-messages-body" role="log" aria-live="polite">
-                <div id="chat-history-loader" class="loader-container hidden" role="status">
-                    <div class="spinner"></div>
-                </div>
-                <template id="chat-message-template">
-                    <div class="chat-message" data-message-id="">
-                        <div class="message-content">
-                            <p class="message-text"></p>
-                            <time class="message-time"></time>
+                            <ul id="thread-list" class="item-list">
+                                <template id="thread-item-template">
+                                    <li class="thread-item list-item-card" tabindex="0" role="button" data-thread-id="">
+                                        <img src="avatar-default.svg" alt="Avatar de l'interlocuteur"
+                                            class="thread-avatar item-image"
+                                            onerror="this.src='https://placehold.co/48x48/e0e0e0/757575?text=User';">
+                                        <div class="thread-info item-info">
+                                            <span class="thread-user item-title"></span>
+                                            <p class="thread-preview"></p>
+                                        </div>
+                                        <div class="thread-meta">
+                                            <time class="thread-time"></time>
+                                            <span class="unread-badge hidden" aria-label="Messages non lus">0</span>
+                                        </div>
+                                    </li>
+                                </template>
+                            </ul>
                         </div>
                     </div>
-                </template>
-            </div>
-            <div id="chat-typing-indicator" class="typing-indicator hidden" aria-live="polite">
-                <span></span><span class="dots"><span>.</span><span>.</span><span>.</span></span>
-            </div>
-            <div id="chat-action-footer" class="chat-actions-toolbar">
-                <button type="button" id="chat-make-offer-btn" class="btn btn-secondary btn-sm"><i class="fa-solid fa-handshake"></i> Faire offre</button>
-                <button type="button" id="chat-share-location-btn" class="btn btn-secondary btn-sm"><i class="fa-solid fa-location-dot"></i> Ma position</button>
-                <button type="button" id="chat-meet-btn" class="btn btn-secondary btn-sm"><i class="fa-solid fa-calendar-check"></i> RDV</button>
-            </div>
-            <div id="chat-image-preview-container" class="hidden" style="padding: 0 var(--spacing-md); align-self: flex-start;">
-                </div>
-            <div id="chat-input-area" class="chat-input-footer">
-                <button id="chat-attach-image-btn" type="button" class="btn btn-icon" aria-label="Joindre une image">
-                    <i class="fa-solid fa-paperclip"></i>
-                </button>
-                <input type="file" id="chat-image-upload-input" class="visually-hidden" accept="image/jpeg,image/png,image/webp">
-                <textarea id="chat-message-input" class="form-control message-input" placeholder="Écrire un message..." aria-label="Votre message" rows="1"></textarea>
-                <button id="send-chat-message-btn" type="button" class="btn btn-primary btn-icon send-btn" aria-label="Envoyer le message">
-                    <i class="fa-solid fa-paper-plane"></i>
-                </button>
-            </div>
-        </div>
 
-    </div>
-</div>
+                    <div id="chat-view" class="messages-view">
+                        <div class="modal-header chat-header">
+                            <button id="back-to-threads-btn" type="button" class="btn btn-icon"
+                                aria-label="Retour aux discussions">
+                                <i class="fa-solid fa-arrow-left"></i>
+                            </button>
+                            <img id="chat-recipient-avatar" src="avatar-default.svg" alt="Avatar de l'interlocuteur"
+                                class="chat-recipient-avatar"
+                                onerror="this.src='https://placehold.co/36x36/e0e0e0/757575?text=User';">
+                            <h2 id="chat-recipient-name" class="modal-title chat-title"></h2>
+                            <button id="chat-options-btn" type="button" class="btn btn-icon"
+                                aria-label="Options du chat" aria-haspopup="true" aria-expanded="false">
+                                <i class="fa-solid fa-ellipsis-v"></i>
+                            </button>
+                            <div id="chat-options-menu" class="dropdown-menu hidden" role="menu">
+                                <button role="menuitem" id="block-user-chat-btn"
+                                    data-i18n="chat.blockUser">Bloquer</button>
+                                <button role="menuitem" id="delete-chat-btn" data-i18n="chat.delete">Supprimer</button>
+                            </div>
+                        </div>
+                        <div id="chat-ad-summary" class="chat-ad-summary">
+                            <img id="chat-ad-thumbnail" src="https://placehold.co/60x60/e0e0e0/757575?text=Ad"
+                                alt="Miniature de l'annonce" class="chat-ad-thumbnail">
+                            <div class="chat-ad-summary-details">
+                                <a href="#" id="chat-ad-link" class="chat-ad-title-link">Titre de l'annonce</a>
+                                <span id="chat-ad-price" class="chat-ad-price-tag"></span>
+                            </div>
+                        </div>
+                        <div class="chat-security-alert" role="alert">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            <span>Ne payez jamais en avance et rencontrez le vendeur dans un lieu sûr.</span>
+                        </div>
+                        <div id="chat-messages-container" class="modal-body chat-messages-body" role="log"
+                            aria-live="polite">
+                            <div id="chat-history-loader" class="loader-container hidden" role="status">
+                                <div class="spinner"></div>
+                            </div>
+                            <template id="chat-message-template">
+                                <div class="chat-message" data-message-id="">
+                                    <div class="message-content">
+                                        <p class="message-text"></p>
+                                        <time class="message-time"></time>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        <div id="chat-typing-indicator" class="typing-indicator hidden" aria-live="polite">
+                            <span></span><span class="dots"><span>.</span><span>.</span><span>.</span></span>
+                        </div>
+                        <div id="chat-action-footer" class="chat-actions-toolbar">
+                            <button type="button" id="chat-make-offer-btn" class="btn btn-secondary btn-sm"><i
+                                    class="fa-solid fa-handshake"></i> Faire offre</button>
+                            <button type="button" id="chat-share-location-btn" class="btn btn-secondary btn-sm"><i
+                                    class="fa-solid fa-location-dot"></i> Ma position</button>
+                            <button type="button" id="chat-meet-btn" class="btn btn-secondary btn-sm"><i
+                                    class="fa-solid fa-calendar-check"></i> RDV</button>
+                        </div>
+                        <div id="chat-image-preview-container" class="hidden"
+                            style="padding: 0 var(--spacing-md); align-self: flex-start;">
+                        </div>
+                        <div id="chat-input-area" class="chat-input-footer">
+                            <button id="chat-attach-image-btn" type="button" class="btn btn-icon"
+                                aria-label="Joindre une image">
+                                <i class="fa-solid fa-paperclip"></i>
+                            </button>
+                            <input type="file" id="chat-image-upload-input" class="visually-hidden"
+                                accept="image/jpeg,image/png,image/webp">
+                            <textarea id="chat-message-input" class="form-control message-input"
+                                placeholder="Écrire un message..." aria-label="Votre message" rows="1"></textarea>
+                            <button id="send-chat-message-btn" type="button" class="btn btn-primary btn-icon send-btn"
+                                aria-label="Envoyer le message">
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
 
-        <div id="offer-modal" class="modal-overlay center-modal" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
-            <div class="modal-content" style="max-width: 320px;">
-                <div class="modal-header">
-                    <h2 class="modal-title">Faire une offre</h2>
-                    <button class="modal-close-btn" data-dismiss-modal="offer-modal" type="button" aria-label="Fermer">×</button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="offer-amount-input">Votre offre (€)</label>
-                        <input type="number" id="offer-amount-input" class="form-control" placeholder="Ex: 50" min="0">
-                        <small id="offer-amount-error" class="form-error-message"></small>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button id="submit-offer-btn" class="btn btn-primary">Soumettre l'offre</button>
                 </div>
             </div>
-        </div>
-        
-        <div id="appointment-modal" class="modal-overlay center-modal" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
-            <div class="modal-content" style="max-width: 400px;">
-                <div class="modal-header">
-                    <h2 class="modal-title">Planifier un rendez-vous</h2>
-                    <button class="modal-close-btn" data-dismiss-modal="appointment-modal" type="button" aria-label="Fermer">×</button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="appointment-date-input">Date du RDV</label>
-                        <input type="date" id="appointment-date-input" class="form-control">
+
+            <div id="offer-modal" class="modal-overlay center-modal" role="dialog" aria-modal="true" aria-hidden="true"
+                tabindex="-1">
+                <div class="modal-content" style="max-width: 320px;">
+                    <div class="modal-header">
+                        <h2 class="modal-title">Faire une offre</h2>
+                        <button class="modal-close-btn" data-dismiss-modal="offer-modal" type="button"
+                            aria-label="Fermer">×</button>
                     </div>
-                    <div class="form-group">
-                        <label for="appointment-time-input">Heure du RDV</label>
-                        <input type="time" id="appointment-time-input" class="form-control">
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="offer-amount-input">Votre offre (€)</label>
+                            <input type="number" id="offer-amount-input" class="form-control" placeholder="Ex: 50"
+                                min="0">
+                            <small id="offer-amount-error" class="form-error-message"></small>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="appointment-location-input">Lieu du RDV (optionnel)</label>
-                        <input type="text" id="appointment-location-input" class="form-control" placeholder="Ex: Devant la mairie">
+                    <div class="modal-footer">
+                        <button id="submit-offer-btn" class="btn btn-primary">Soumettre l'offre</button>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button id="submit-appointment-btn" class="btn btn-primary">Proposer ce RDV</button>
                 </div>
             </div>
-        </div>
-        <div id="contact-seller-modal" class="modal-overlay center-modal" role="dialog" aria-modal="true" aria-labelledby="contact-seller-title" aria-hidden="true" tabindex="-1">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2 id="contact-seller-title" class="modal-title"><i class="fa-solid fa-envelope"></i> <span>Contacter le vendeur</span></h2>
-                    <button class="modal-close-btn" data-dismiss-modal="contact-seller-modal" type="button" aria-label="Fermer la prise de contact">
-                        <i class="fa-solid fa-times"></i>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <p class="contact-seller-suggest" style="margin-bottom: var(--spacing-sm);">Message suggéré :</p>
-                    <textarea id="contact-seller-message" class="form-control" rows="4">Bonjour, cette annonce est-elle toujours disponible ?</textarea>
-                </div>
-                <div class="modal-footer">
-                    <button id="send-contact-seller-btn" type="button" class="btn btn-primary btn-block"><i class="fa-solid fa-paper-plane"></i> Envoyer</button>
+
+            <div id="appointment-modal" class="modal-overlay center-modal" role="dialog" aria-modal="true"
+                aria-hidden="true" tabindex="-1">
+                <div class="modal-content" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h2 class="modal-title">Planifier un rendez-vous</h2>
+                        <button class="modal-close-btn" data-dismiss-modal="appointment-modal" type="button"
+                            aria-label="Fermer">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="appointment-date-input">Date du RDV</label>
+                            <input type="date" id="appointment-date-input" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="appointment-time-input">Heure du RDV</label>
+                            <input type="time" id="appointment-time-input" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="appointment-location-input">Lieu du RDV (optionnel)</label>
+                            <input type="text" id="appointment-location-input" class="form-control"
+                                placeholder="Ex: Devant la mairie">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="submit-appointment-btn" class="btn btn-primary">Proposer ce RDV</button>
+                    </div>
                 </div>
             </div>
-        </div>
+            <div id="contact-seller-modal" class="modal-overlay center-modal" role="dialog" aria-modal="true"
+                aria-labelledby="contact-seller-title" aria-hidden="true" tabindex="-1">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="contact-seller-title" class="modal-title"><i class="fa-solid fa-envelope"></i>
+                            <span>Contacter le vendeur</span></h2>
+                        <button class="modal-close-btn" data-dismiss-modal="contact-seller-modal" type="button"
+                            aria-label="Fermer la prise de contact">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="contact-seller-suggest" style="margin-bottom: var(--spacing-sm);">Message suggéré :
+                        </p>
+                        <textarea id="contact-seller-message" class="form-control"
+                            rows="4">Bonjour, cette annonce est-elle toujours disponible ?</textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="send-contact-seller-btn" type="button" class="btn btn-primary btn-block"><i
+                                class="fa-solid fa-paper-plane"></i> Envoyer</button>
+                    </div>
+                </div>
+            </div>
 
             <div id="filters-modal" class="modal-overlay" role="dialog" aria-modal="true"
                 aria-labelledby="filters-modal-title" aria-hidden="true" tabindex="-1">
