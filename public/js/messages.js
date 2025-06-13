@@ -449,32 +449,28 @@ async function sendMessage() {
     let endpoint;
     const options = { method: 'POST' };
 
-    // Détermine si on est dans un nouveau thread ou un thread existant
+    // On vérifie d'abord si l'on démarre ou non une nouvelle conversation
     const isNewThread = !activeThreadId;
-    
-    // ✅ CORRECTION CRITIQUE : Logique de construction du payload rendue robuste.
+
+    // --- Construction sécurisée du payload ---
     const getPayloadData = () => {
         if (isNewThread) {
-            // Pour un nouveau thread, on a besoin de recipientId et adId.
-            // On les récupère de `currentRecipient` et de notre nouvelle variable `newChatContext`.
-            if (!currentRecipient?._id || !newChatContext?.adId) {
-                // Cette erreur est celle que vous voyez. Elle se déclenche car newChatContext est vide.
-                // Avec les corrections, `newChatContext` sera bien peuplé.
-                showToast("Erreur critique : destinataire ou annonce manquant pour démarrer.", "error");
-                throw new Error("Missing recipient or adId for new chat.");
+            // recipientId et adId sont indispensables pour un premier message
+            const recipientId = currentRecipient?._id;
+            const adId = currentRecipient?.adId;
+            if (!recipientId || !adId) {
+                showToast("Impossible d'envoyer : destinataire ou annonce manquant.", "error");
+                return null;
             }
-            return {
-                recipientId: currentRecipient._id,
-                adId: newChatContext.adId
-            };
-        } else {
-            // Pour un thread existant, seul threadId est nécessaire.
-            return { threadId: activeThreadId };
+            return { recipientId, adId };
         }
+        // Thread déjà existant
+        return { threadId: activeThreadId };
     };
     
     try {
         const payloadData = getPayloadData();
+        if (!payloadData) return;
 
         if (tempImageFile) {
             endpoint = `${API_MESSAGES_URL}/messages/image`;
@@ -511,9 +507,8 @@ async function sendMessage() {
         removeImagePreview();
 
     } catch (error) {
-        if (error.message !== "Missing recipient or adId for new chat.") {
-            showToast(error.message || "L'envoi a échoué", 'error');
-        }
+        // Affiche une erreur générique en cas d'échec d'envoi
+        showToast(error.message || "L'envoi a échoué", 'error');
     }
 }
 function handleImageFileSelection(event) {
@@ -647,6 +642,7 @@ function setupInfiniteScroll() {
 async function handleInitiateChatEvent(event) {
     const { adId, recipientId } = event.detail;
 
+    // AdId et recipientId sont indispensables pour créer une nouvelle conversation
     if (!recipientId || !adId) {
         showToast("Impossible d’initier la discussion : annonce ou destinataire manquant.", "error");
         return;
@@ -660,10 +656,11 @@ async function handleInitiateChatEvent(event) {
             throw new Error("Impossible de trouver le destinataire.");
         }
 
-        const recipient = recipientResponse.data.user;
+        // On récupère l'utilisateur et on lui attache l'annonce courante
+        const recipient = { ...recipientResponse.data.user, adId };
 
-        // ✅ CORRECTION MAJEURE : On stocke adId dans notre variable d'état dédiée.
-        newChatContext = { adId: adId };
+        // Conserve également l'adId dans un contexte séparé pour d'autres opérations éventuelles
+        newChatContext = { adId };
 
         connectSocket();
         // On ouvre la vue de chat SANS threadId, ce qui indique une nouvelle conversation.
