@@ -114,6 +114,7 @@ app.use(
 );
 // Statics : public et uploads
 app.use(express.static(path.join(__dirname, 'public')));
+// CETTE LIGNE UNIQUE GÈRE TOUS LES UPLOADS CORRECTEMENT
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Middlewares de base
@@ -173,12 +174,8 @@ app.get('/favicon.ico', (req, res) => {
 });
 // Catch-all SPA (doit être après toutes les routes API et fichiers statiques)
 app.get('*', (req, res, next) => {
-  if (
-    req.originalUrl.startsWith('/api') ||
-    req.originalUrl.startsWith('/uploads') ||
-    req.originalUrl.startsWith('/favicon.ico') ||
-    req.originalUrl.match(/\.(js|css|png|jpg|jpeg|svg|ico|json|webmanifest|webp|mp3|mp4)$/)
-  ) {
+  // Simplification de la condition
+  if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
     return next();
   }
   res.sendFile(path.resolve(__dirname, 'public', 'index.html'));
