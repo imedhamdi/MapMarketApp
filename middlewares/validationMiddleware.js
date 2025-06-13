@@ -165,6 +165,11 @@ const updateAdSchema = Joi.object({
 const createMessageSchema = Joi.object({
     threadId: Joi.string().hex().length(24).optional(),
     recipientId: Joi.string().hex().length(24).optional(),
+    adId: Joi.string().hex().length(24).when('threadId', {
+        is: Joi.exist(),
+        then: Joi.optional(),
+        otherwise: Joi.required()
+    }),
     text: Joi.string().trim().max(2000).when('image', {
         is: Joi.exist(),
         then: Joi.optional().allow(''),

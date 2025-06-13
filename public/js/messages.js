@@ -227,6 +227,10 @@ function showThreadList() {
 async function openChatView(threadId, recipient) {
     activeThreadId = threadId;
     currentRecipient = recipient;
+    newChatContext = threadId ? null : {
+        recipientId: recipient.id || recipient._id,
+        adId: recipient.adId
+    };
     allMessagesLoaded = false;
     isLoadingHistory = false;
 
@@ -433,8 +437,9 @@ function handleInputKeypress(e) {
 
 /**
  * ✅ FONCTION CORRIGÉE ET ROBUSTE
- * Fonction principale pour l'envoi de messages. Utilise `newChatContext`
- * pour obtenir adId lors de la création d'un nouveau thread.
+ * Fonction principale pour l'envoi de messages. Utilise le contexte courant
+ * (thread existant ou newChatContext) pour fournir les informations requises
+ * par l'API.
  */
 async function sendMessage() {
     const text = chatMessageInput.value.trim();
@@ -443,34 +448,53 @@ async function sendMessage() {
         return;
     }
 
-    // Validation renforcée
+    // Vérifications de base avant l'envoi
     if (!activeThreadId && (!currentRecipient || !currentRecipient.id || !currentRecipient.adId)) {
         showToast("Erreur: Impossible d'envoyer le message - informations manquantes pour démarrer la conversation.", "error");
         return;
     }
 
-    const formData = new FormData();
-    
-    if (activeThreadId) {
-        formData.append('threadId', activeThreadId);
+    const hasImage = Boolean(tempImageFile);
+    let payload;
+    let endpoint;
+
+    if (hasImage) {
+        endpoint = `${API_MESSAGES_URL}/messages/image`;
+        payload = new FormData();
     } else {
-        formData.append('recipientId', currentRecipient.id);
-        formData.append('adId', currentRecipient.adId);
+        endpoint = `${API_MESSAGES_URL}/messages`;
+        payload = {};
     }
 
-    if (text) formData.append('text', text);
-    if (tempImageFile) formData.append('image', tempImageFile);
+    if (activeThreadId) {
+        if (hasImage) payload.append('threadId', activeThreadId);
+        else payload.threadId = activeThreadId;
+    } else {
+        if (hasImage) {
+            payload.append('recipientId', currentRecipient.id);
+            payload.append('adId', currentRecipient.adId);
+        } else {
+            payload.recipientId = currentRecipient.id;
+            payload.adId = currentRecipient.adId;
+        }
+    }
+
+    if (text) {
+        if (hasImage) payload.append('text', text);
+        else payload.text = text;
+    }
+
+    if (hasImage) payload.append('image', tempImageFile);
 
     chatMessageInput.value = '';
     removeImagePreview();
     stopTypingEvent();
 
     try {
-        const endpoint = tempImageFile ? `${API_MESSAGES_URL}/messages/image` : `${API_MESSAGES_URL}/messages`;
-        const response = await secureFetch(endpoint, { 
-            method: 'POST', 
-            body: formData 
-        }, true); // true pour afficher le loader global
+        const response = await secureFetch(endpoint, {
+            method: 'POST',
+            body: payload
+        }, true);
 
         if (!response.success) {
             showToast(response.message || "Erreur d'envoi", "error");
@@ -634,10 +658,13 @@ async function handleInitiateChatEvent(event) {
         // Préparer l'objet recipient avec toutes les infos nécessaires
         currentRecipient = {
             id: recipientId,
+            _id: recipientId,
             name: recipientName || 'Nouveau contact',
             avatarUrl: recipientAvatar || 'avatar-default.svg',
             adId: adId // Ajout crucial de l'ID d'annonce
         };
+
+        newChatContext = { recipientId, adId };
 
         // Préparer la vue de chat immédiatement
         openChatView(null, currentRecipient);
