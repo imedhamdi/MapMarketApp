@@ -132,7 +132,7 @@ exports.getMyThreads = asyncHandler(async (req, res, next) => {
                 localField: 'ad',
                 foreignField: '_id',
                 as: 'adDetails',
-                pipeline: [{ $project: { title: 1, imageUrls: 1 } }]
+                pipeline: [{ $project: { title: 1, imageUrls: 1, price: 1 } }]
             }
         },
         {
@@ -142,7 +142,8 @@ exports.getMyThreads = asyncHandler(async (req, res, next) => {
                 ad: {
                     _id: { $arrayElemAt: ['$adDetails._id', 0] },
                     title: { $arrayElemAt: ['$adDetails.title', 0] },
-                    image: { $arrayElemAt: ['$adDetails.imageUrls', 0] }
+                    price: { $arrayElemAt: ['$adDetails.price', 0] },
+                    imageUrls: { $arrayElemAt: ['$adDetails.imageUrls', 0] }
                 },
                 lastMessage: 1,
                 createdAt: 1,
