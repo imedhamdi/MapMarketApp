@@ -2,7 +2,7 @@
  * @file ads.js
  * @description Gestion des annonces : CRUD complet, upload d'images,
  * affichage des détails, gestion des annonces de l'utilisateur et interaction avec la carte.
- * @version 1.1.0
+ * @version 1.2.0 - Refactorisation de la modale de détail
  */
 
 import * as state from './state.js';
@@ -40,13 +40,14 @@ let adFormMiniMap; // Instance de la mini-carte Leaflet
 
 // --- Éléments du DOM pour la modale de détail d'annonce ---
 let adDetailModal, adDetailBodyContent, adDetailLoader, adDetailContent;
-let adDetailCarouselTrack, adDetailCarouselPrevBtn, adDetailCarouselNextBtn, adDetailCarouselDotsContainer;
+let adDetailCarouselTrack, adDetailCarouselPrevBtn, adDetailCarouselNextBtn, adDetailCarouselDotsContainer, adDetailImageCounter; // Ajouté: adDetailImageCounter
 let adDetailItemTitle, adDetailPrice, adDetailCategory, adDetailLocation, adDetailDate;
-let adDetailDescriptionText, adDetailSellerInfo, adDetailSellerAvatar, adDetailSellerName;
+let adDetailDescriptionWrapper, adDetailDescriptionText, toggleDescriptionBtn; // Modifié/Ajouté
+let adDetailSellerInfo, adDetailSellerAvatar, adDetailSellerName;
 let adDetailSellerSince, adDetailSellerAdsCount;
 let adDetailActionsContainer, adDetailFavoriteBtn, adDetailContactSellerBtn, adDetailReportBtn;
 let adDetailOwnerActions, adDetailEditAdBtn, adDetailDeleteAdBtn;
-let imageViewerModal, viewerImage, viewerPrevBtn, viewerNextBtn, closeImageViewerBtn;
+let imageViewerModal, viewerImage, viewerPrevBtn, viewerNextBtn, closeViewerBtn; // Ajouté: closeViewerBtn
 let viewerImages = [];
 let viewerIndex = 0;
 
@@ -58,6 +59,42 @@ let myAdsPublishNewBtn;
 let adImageFiles = []; // Tableau pour stocker les fichiers d'images (File objects ou objets pour images existantes)
 let currentEditingAdId = null; // ID de l'annonce en cours d'édition
 let currentAdDetailCarouselSlide = 0;
+
+// --- NOUVELLES FONCTIONS DE GESTION UI ---
+
+/**
+ * Gère le clic sur "Lire la suite" pour la description.
+ */
+function handleToggleDescription() {
+    if (!adDetailDescriptionWrapper || !toggleDescriptionBtn) return;
+    const isExpanded = adDetailDescriptionWrapper.classList.toggle('expanded');
+    toggleDescriptionBtn.textContent = isExpanded ? 'Voir moins' : 'Lire la suite';
+    toggleDescriptionBtn.setAttribute('aria-expanded', isExpanded);
+}
+
+/**
+ * Affiche ou masque le bouton "Lire la suite" en fonction de la hauteur du contenu.
+ */
+function checkDescriptionOverflow() {
+    if (!adDetailDescriptionWrapper || !adDetailDescriptionText || !toggleDescriptionBtn) return;
+    const isOverflowing = adDetailDescriptionText.scrollHeight > adDetailDescriptionWrapper.clientHeight;
+    toggleDescriptionBtn.style.display = isOverflowing ? 'inline-block' : 'none';
+}
+
+/**
+ * Ferme manuellement le visionneur d'images sans affecter la modale parente.
+ */
+function closeImageViewer() {
+    if (!imageViewerModal) return;
+
+    imageViewerModal.classList.add('hidden');
+    imageViewerModal.setAttribute('aria-hidden', 'true');
+
+    // Redonner le focus à la modale de détail pour l'accessibilité
+    if (adDetailModal) {
+        adDetailModal.focus();
+    }
+}
 
 /**
  * Initialise les éléments du DOM et les écouteurs d'événements pour la gestion des annonces.
@@ -90,12 +127,15 @@ function initAdsUI() {
     adDetailCarouselPrevBtn = document.getElementById('ad-detail-carousel-prev-btn');
     adDetailCarouselNextBtn = document.getElementById('ad-detail-carousel-next-btn');
     adDetailCarouselDotsContainer = document.getElementById('ad-detail-carousel-dots');
+    adDetailImageCounter = document.getElementById('ad-detail-image-counter');
     adDetailItemTitle = document.getElementById('ad-detail-item-title');
     adDetailPrice = document.getElementById('ad-detail-price');
     adDetailCategory = document.getElementById('ad-detail-category');
     adDetailLocation = document.getElementById('ad-detail-location');
     adDetailDate = document.getElementById('ad-detail-date');
+    adDetailDescriptionWrapper = document.getElementById('ad-detail-description-wrapper');
     adDetailDescriptionText = document.getElementById('ad-detail-description-text');
+    toggleDescriptionBtn = document.getElementById('toggle-description-btn');
     adDetailSellerInfo = document.getElementById('ad-detail-seller-info');
     adDetailSellerAvatar = document.getElementById('ad-detail-seller-avatar');
     adDetailSellerName = document.getElementById('ad-detail-seller-name');
@@ -114,13 +154,23 @@ function initAdsUI() {
     viewerImage = document.getElementById('viewer-image');
     viewerPrevBtn = document.getElementById('viewer-prev');
     viewerNextBtn = document.getElementById('viewer-next');
-    closeImageViewerBtn = document.getElementById('close-image-viewer-btn');
+    closeViewerBtn = document.getElementById('close-image-viewer-btn');
 
     viewerPrevBtn?.addEventListener('click', () => showViewerImage(viewerIndex - 1));
     viewerNextBtn?.addEventListener('click', () => showViewerImage(viewerIndex + 1));
-    closeImageViewerBtn?.addEventListener('click', closeImageViewer);
-
-    document.addEventListener('keydown', handleImageViewerKeydown, true);
+    if (closeViewerBtn) {
+        closeViewerBtn.addEventListener('click', closeImageViewer);
+    }
+    if (imageViewerModal) {
+        imageViewerModal.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeImageViewer();
+            }
+        });
+    }
+    if (toggleDescriptionBtn) {
+        toggleDescriptionBtn.addEventListener('click', handleToggleDescription);
+    }
 
     // Modale "Mes Annonces"
     myAdsModal = document.getElementById('my-ads-modal');
@@ -848,50 +898,34 @@ async function loadAndDisplayAdDetails(adId) {
         const response = await secureFetch(`${API_BASE_URL}/${adId}`, {}, false);
 
         if (response && response.success && response.data && response.data.ad) {
-            const ad = response.data.ad; // La variable 'ad' est définie ICI.
+            const ad = response.data.ad;
+            const currentUser = state.getCurrentUser();
 
-            // Remplir les détails de l'annonce...
             if (adDetailItemTitle) adDetailItemTitle.textContent = sanitizeHTML(ad.title);
             if (adDetailPrice) adDetailPrice.textContent = ad.price != null ? formatPrice(ad.price) : 'Prix non spécifié';
+            if (adDetailDescriptionText) adDetailDescriptionText.innerHTML = sanitizeHTML(ad.description || '').replace(/\n/g, '<br>');
 
             const categories = state.getCategories();
-            const categoryObj = categories ? categories.find(c => c._id === ad.category) : null;
+            const categoryObj = categories ? categories.find(c => c.id === ad.category || c._id === ad.category) : null;
             if (adDetailCategory) {
                 const iconEl = adDetailCategory.querySelector('i.fa-solid');
                 if (iconEl && categoryObj && categoryObj.icon) iconEl.className = `fa-solid ${categoryObj.icon}`;
                 else if (iconEl) iconEl.className = 'fa-solid fa-tag';
                 const textNode = Array.from(adDetailCategory.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
-                if (textNode) textNode.textContent = ` ${sanitizeHTML(categoryObj ? categoryObj.name : ad.category)}`;
-                else adDetailCategory.insertAdjacentText('beforeend', ` ${sanitizeHTML(categoryObj ? categoryObj.name : ad.category)}`);
+                if (textNode) textNode.textContent = ` ${sanitizeHTML(categoryObj ? categoryObj.name : 'Catégorie')}`;
             }
-            
-            if (adDetailDate) adDetailDate.innerHTML = `<i class="fa-solid fa-calendar-days"></i> Publiée ${formatDate(ad.createdAt || new Date())}`;
-            if (adDetailDescriptionText) adDetailDescriptionText.innerHTML = sanitizeHTML(ad.description || '').replace(/\n/g, '<br>');
 
-            // Logique de Reverse Geocoding...
-            const adDetailLocation = document.getElementById('ad-detail-location');
-            if (adDetailLocation) {
-                adDetailLocation.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Recherche...`;
-                if (ad.location && ad.location.coordinates && ad.location.coordinates.length === 2) {
-                    const [lon, lat] = ad.location.coordinates;
-                    try {
-                        const geoResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
-                        const geoData = await geoResponse.json();
-                        const city = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.municipality;
-                        const country = geoData.address.country;
-                        let locationString = city && country ? `${city}, ${country}` : country || "Lieu inconnu";
-                        adDetailLocation.innerHTML = `<i class="fa-solid fa-map-marker-alt"></i> ${sanitizeHTML(locationString)}`;
-                    } catch (geoError) {
-                        adDetailLocation.innerHTML = `<i class="fa-solid fa-map-marker-alt"></i> ${sanitizeHTML(ad.location?.address || `Coords: ${lat.toFixed(4)}, ${lon.toFixed(4)}`)}`;
-                    }
-                } else {
-                    adDetailLocation.innerHTML = `<i class="fa-solid fa-map-marker-alt"></i> Localisation non spécifiée`;
-                }
-            }
-            
+            if (adDetailLocation) adDetailLocation.innerHTML = `<i class="fa-solid fa-map-marker-alt"></i> ${sanitizeHTML(ad.location?.address || "Lieu non précisé")}`;
+            if (adDetailDate) adDetailDate.innerHTML = `<i class="fa-solid fa-calendar-days"></i> Publiée ${formatDate(ad.createdAt || new Date())}`;
+
             setupAdDetailCarousel(ad.imageUrls || []);
 
-            // Informations sur le vendeur...
+            if (adDetailDescriptionWrapper && toggleDescriptionBtn) {
+                adDetailDescriptionWrapper.classList.remove('expanded');
+                toggleDescriptionBtn.textContent = 'Lire la suite';
+                setTimeout(checkDescriptionOverflow, 100);
+            }
+
             if (ad.userId) {
                 if (adDetailSellerAvatar) {
                     adDetailSellerAvatar.src = ad.userId.avatarUrl && !ad.userId.avatarUrl.endsWith('avatar-default.svg') ? ad.userId.avatarUrl : 'avatar-default.svg';
@@ -900,7 +934,6 @@ async function loadAndDisplayAdDetails(adId) {
                 if (adDetailSellerName) adDetailSellerName.textContent = sanitizeHTML(ad.userId.name);
                 if (adDetailSellerInfo) adDetailSellerInfo.dataset.sellerId = ad.userId._id;
                 if (adDetailSellerSince) {
-                    // Vérifie d'abord l'existence du champ sellerId.createdAt (nouveau format)
                     const sellerSince = ad?.userId?.createdAt;
                     if (sellerSince) {
                         const formattedDate = formatDate(
@@ -918,10 +951,8 @@ async function loadAndDisplayAdDetails(adId) {
                 if (adDetailSellerInfo) adDetailSellerInfo.classList.add('hidden');
             }
 
-            const currentUser = state.getCurrentUser();
-            // Gestion du bouton favori...
+            const userFavorites = state.get('favorites') || [];
             if (adDetailFavoriteBtn) {
-                const userFavorites = state.get('favorites') || [];
                 const isFavorite = userFavorites.some(favAd => favAd === ad._id || favAd._id === ad._id);
                 adDetailFavoriteBtn.classList.toggle('active', isFavorite);
                 adDetailFavoriteBtn.setAttribute('aria-pressed', isFavorite.toString());
@@ -929,36 +960,27 @@ async function loadAndDisplayAdDetails(adId) {
                 adDetailFavoriteBtn.dataset.adId = ad._id;
             }
 
-            // ================== DÉBUT DE LA CORRECTION ==================
-            // On déplace la logique du bouton "Y aller" ICI,
-            // pour qu'elle ait accès à la variable 'ad' qui vient d'être définie.
             const navigateBtn = document.getElementById('ad-detail-navigate-btn');
             if (navigateBtn) {
-                // On clone et remplace le bouton pour supprimer les anciens écouteurs d'événements
                 const newNavigateBtn = navigateBtn.cloneNode(true);
                 navigateBtn.parentNode.replaceChild(newNavigateBtn, navigateBtn);
-                
-                // On ajoute le nouvel écouteur
                 newNavigateBtn.addEventListener('click', () => {
-                    // La variable 'ad' est maintenant accessible ici
                     if (ad && ad.location && ad.location.coordinates) {
                         const [lon, lat] = ad.location.coordinates;
-                        // URL Google Maps corrigée et plus fiable
                         const mapsUrl = `https://maps.google.com/?q=${lat},${lon}`;
                         window.open(mapsUrl, '_blank');
                     } else {
-                        showToast("Coordonnées de l'annonce non disponibles.", "error");
+                        showToast("Coordonnées de l'annonce non disponibles.", 'error');
                     }
                 });
             }
-            // =================== FIN DE LA CORRECTION ===================
 
             if (adDetailOwnerActions && currentUser && ad.userId && ad.userId._id === currentUser._id) {
                 adDetailOwnerActions.classList.remove('hidden');
             } else if (adDetailOwnerActions) {
                 adDetailOwnerActions.classList.add('hidden');
             }
-            
+
             if (adDetailContactSellerBtn && currentUser && ad.userId && ad.userId._id === currentUser._id) {
                 adDetailContactSellerBtn.classList.add('hidden');
             } else if (adDetailContactSellerBtn) {
@@ -969,15 +991,15 @@ async function loadAndDisplayAdDetails(adId) {
             if (adDetailContent) adDetailContent.classList.remove('hidden');
 
         } else {
-            showToast(response.message || "Impossible de charger les détails de l'annonce.", "error");
+            showToast(response.message || "Impossible de charger les détails de l'annonce.", 'error');
             if (adDetailLoader) adDetailLoader.innerHTML = `<p class="text-danger text-center">${sanitizeHTML(response.message) || "Erreur de chargement de l'annonce."}</p>`;
         }
     } catch (error) {
         console.error(`Erreur lors du chargement de l'annonce ${adId}:`, error);
-        showToast(error.message || "Erreur de chargement des détails.", "error");
+        showToast(error.message || "Erreur de chargement des détails.", 'error');
         if (adDetailLoader) {
             adDetailLoader.classList.remove('hidden');
-            adDetailLoader.innerHTML = `<p class="text-danger text-center">Oups ! Une erreur est survenue lors du chargement. (${sanitizeHTML(error.message)})</p>`;
+            adDetailLoader.innerHTML = `<p class="text-danger text-center">Oups! Une erreur est survenue lors du chargement. (${sanitizeHTML(error.message)})</p>`;
         }
         if (adDetailContent) adDetailContent.classList.add('hidden');
     }
@@ -1033,7 +1055,6 @@ function setupAdDetailCarousel(imageUrls) {
 
     const isPlaceholder = imageUrls.length === 0;
 
-    // Création des slides
     images.forEach((url, index) => {
         const slide = document.createElement('div');
         slide.className = 'carousel-item';
@@ -1043,9 +1064,7 @@ function setupAdDetailCarousel(imageUrls) {
 
         const img = document.createElement('img');
         img.src = url;
-        img.alt = isPlaceholder
-            ? 'Image non disponible'
-            : `Image ${index + 1} de l'annonce`;
+        img.alt = `Image ${index + 1} de l'annonce`;
         img.onerror = () => {
             img.src = 'https://placehold.co/600x400/e0e0e0/757575?text=Image+indisponible';
             img.alt = 'Image indisponible';
@@ -1069,10 +1088,8 @@ function setupAdDetailCarousel(imageUrls) {
         }
     });
 
-    // Affichage initial
     goToAdDetailSlide(0, images.length);
 
-    // Boutons navigation
     adDetailCarouselPrevBtn.onclick = () => {
         if (currentAdDetailCarouselSlide > 0) {
             goToAdDetailSlide(currentAdDetailCarouselSlide - 1, images.length);
@@ -1084,7 +1101,6 @@ function setupAdDetailCarousel(imageUrls) {
         }
     };
 
-    // Affichage conditionnel
     const showControls = images.length > 1 && !isPlaceholder;
     adDetailCarouselPrevBtn.classList.toggle('hidden', !showControls);
     adDetailCarouselNextBtn.classList.toggle('hidden', !showControls);
@@ -1124,6 +1140,12 @@ function goToAdDetailSlide(index, totalSlides) {
     if (adDetailCarouselTrack) {
         adDetailCarouselTrack.style.transform = `translateX(-${currentAdDetailCarouselSlide * 100}%)`;
     }
+    if (adDetailImageCounter && totalSlides > 1) {
+        adDetailImageCounter.textContent = `${currentAdDetailCarouselSlide + 1} / ${totalSlides}`;
+        adDetailImageCounter.classList.remove('hidden');
+    } else if (adDetailImageCounter) {
+        adDetailImageCounter.classList.add('hidden');
+    }
     updateAdDetailCarouselUI(totalSlides);
 }
 
@@ -1135,19 +1157,6 @@ function openImageViewer(startIndex) {
     imageViewerModal.setAttribute('aria-hidden', 'false');
 }
 
-function closeImageViewer() {
-    if (!imageViewerModal) return;
-    imageViewerModal.classList.add('hidden');
-    imageViewerModal.setAttribute('aria-hidden', 'true');
-}
-
-function handleImageViewerKeydown(event) {
-    if (event.key === 'Escape' && imageViewerModal && imageViewerModal.getAttribute('aria-hidden') === 'false') {
-        event.stopPropagation();
-        event.preventDefault();
-        closeImageViewer();
-    }
-}
 
 function showViewerImage(index) {
     if (!viewerImages.length) return;
