@@ -192,28 +192,27 @@ function setupEventListeners() {
             document.dispatchEvent(new CustomEvent('mapmarket:openModal', {
                 detail: {
                     modalId: 'confirmation-modal',
-                    title: 'Supprimer la conversation',
-                    message: 'Cette action masquera la conversation de votre liste. Vous pourrez la restaurer si un nouveau message est envoyé. Voulez-vous continuer ?',
-                    confirmButtonText: 'Supprimer pour moi',
+                    title: 'Masquer la conversation',
+                    message: 'Cette action masquera la conversation de votre liste. Elle réapparaîtra si vous ou votre interlocuteur envoyez un nouveau message. Continuer ?',
+                    confirmButtonText: 'Masquer',
                     cancelButtonText: 'Annuler',
                     isDestructive: true,
                     onConfirm: async () => {
-                        toggleGlobalLoader(true, "Suppression en cours...");
+                        toggleGlobalLoader(true, "Masquage en cours...");
                         try {
                             const response = await secureFetch(`${API_MESSAGES_URL}/threads/${threadIdToDelete}/local`, {
                                 method: 'DELETE'
                             }, false);
 
                             if (response && response.success) {
-                                showToast("Conversation masquée avec succès.", "success");
-                                // Revenir à la liste des threads, qui se mettra à jour
-                                showThreadList();
+                                showToast("Conversation masquée de votre liste.", "success");
+                                showThreadList(); // Revenir à la liste qui sera mise à jour
                             } else {
-                                throw new Error(response.message || 'La suppression a échoué.');
+                                throw new Error(response.message || 'Impossible de masquer la conversation.');
                             }
 
                         } catch (error) {
-                            showToast(error.message || 'Une erreur est survenue lors de la suppression.', 'error');
+                            showToast(error.message, 'error');
                         } finally {
                             toggleGlobalLoader(false);
                         }
@@ -315,55 +314,52 @@ function showThreadList() {
  * @param {string|null} threadId - L'ID du thread, ou null pour une nouvelle discussion.
  * @param {object} recipient - L'objet de l'autre participant.
  */
-async function openChatView(threadId, recipient, threadData) {
+async function openChatView(threadId, recipient, threadData = null) {
     activeThreadId = threadId;
     currentRecipient = recipient;
-    newChatContext = threadId ? null : {
-        recipientId: recipient.id || recipient._id,
-        adId: recipient.adId
-    };
     allMessagesLoaded = false;
     isLoadingHistory = false;
 
-    // Mise à jour UI
+    // Contexte pour une nouvelle discussion
+    if (!threadId && threadData && threadData.ad) {
+        newChatContext = {
+            recipientId: recipient.id || recipient._id,
+            adId: threadData.ad._id || threadData.ad.id
+        };
+    } else {
+        newChatContext = null;
+    }
+
+    // --- Mise à jour UI ---
     chatRecipientAvatar.src = recipient?.avatarUrl || 'avatar-default.svg';
     chatRecipientName.textContent = sanitizeHTML(recipient?.name || 'Nouveau contact');
 
+    // -- Mise à jour du bandeau de l'annonce --
     const chatAdSummary = document.getElementById('chat-ad-summary');
-    const chatAdThumbnail = document.getElementById('chat-ad-thumbnail');
-    const chatAdLink = document.getElementById('chat-ad-link');
-    const chatAdPrice = document.getElementById('chat-ad-price');
+    const adForSummary = threadData?.ad;
 
-    if (chatAdSummary && threadData && threadData.ad) {
+    if (chatAdSummary && adForSummary) {
         chatAdSummary.classList.remove('hidden');
+        const thumb = document.getElementById('chat-ad-thumbnail');
+        const link = document.getElementById('chat-ad-link');
+        const price = document.getElementById('chat-ad-price');
 
-        if (chatAdThumbnail) {
-            const imageUrl = (threadData.ad.imageUrls && threadData.ad.imageUrls.length > 0)
-                ? threadData.ad.imageUrls[0]
-                : 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
-            chatAdThumbnail.src = imageUrl;
-            chatAdThumbnail.alt = `Miniature de ${sanitizeHTML(threadData.ad.title)}`;
-        }
-
-        if (chatAdLink) {
-            chatAdLink.textContent = sanitizeHTML(threadData.ad.title);
-            chatAdLink.href = `#ad-detail-${threadData.ad._id}`;
-            chatAdLink.onclick = (e) => {
-                e.preventDefault();
-                document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'messages-modal' } }));
-                setTimeout(() => {
-                    document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: threadData.ad._id } }));
-                }, 100);
-            };
-        }
-
-        if (chatAdPrice) {
-            chatAdPrice.textContent = formatPrice(threadData.ad.price);
-        }
-
+        if(thumb) thumb.src = (adForSummary.imageUrls && adForSummary.imageUrls[0]) ? adForSummary.imageUrls[0] : 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
+        if(link) link.textContent = sanitizeHTML(adForSummary.title);
+        if(price) price.textContent = formatPrice(adForSummary.price);
+        
+        link.onclick = (e) => {
+            e.preventDefault();
+            document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'messages-modal' } }));
+            setTimeout(() => {
+                 document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: adForSummary._id } }));
+            }, 100);
+        };
     } else if (chatAdSummary) {
         chatAdSummary.classList.add('hidden');
     }
+
+    // --- Fin mise à jour bandeau ---
 
     threadListView.classList.remove('active-view');
     chatView.classList.add('active-view');
@@ -652,17 +648,20 @@ function handleThreadsTabClick(e) {
  */
 async function sendMessage(overrideText) {
     const text = overrideText !== undefined ? overrideText : chatMessageInput.value.trim();
-    if (!text && !tempImageFile) {
-        showToast("Veuillez saisir un message ou sélectionner une image", "warning");
-        return;
-    }
-
-    if (!activeThreadId && (!currentRecipient || !currentRecipient.id || !currentRecipient.adId)) {
-        showToast("Erreur: Impossible d'envoyer le message - informations de destinataire manquantes.", "error");
-        return;
-    }
-
     const hasImage = Boolean(tempImageFile);
+
+    if (!text && !hasImage) {
+        showToast("Veuillez saisir un message ou sélectionner une image.", "warning");
+        return;
+    }
+
+    // Valider le contexte du chat
+    if (!activeThreadId && !newChatContext) {
+        showToast("Erreur: Impossible d'envoyer le message, contexte de discussion manquant.", "error");
+        console.error("sendMessage a été appelé sans activeThreadId ni newChatContext.");
+        return;
+    }
+
     let payload;
     let endpoint;
     let requestOptions = { method: 'POST' };
@@ -671,58 +670,55 @@ async function sendMessage(overrideText) {
         endpoint = `${API_MESSAGES_URL}/messages/image`;
         payload = new FormData();
         payload.append('image', tempImageFile);
-        // --- DÉBUT DE LA CORRECTION ---
-        // Toujours ajouter le champ texte, même s'il est vide.
-        payload.append('text', text);
-        // --- FIN DE LA CORRECTION ---
-    } else {
-        endpoint = `${API_MESSAGES_URL}/messages`;
-        payload = { text: text };
-    }
+        payload.append('text', text); // Le texte (même vide) est ajouté au FormData
 
-    if (activeThreadId) {
-        if (hasImage) payload.append('threadId', activeThreadId);
-        else payload.threadId = activeThreadId;
-    } else if (newChatContext) {
-        if (hasImage) {
+        if (activeThreadId) {
+            payload.append('threadId', activeThreadId);
+        } else if (newChatContext) {
             payload.append('recipientId', newChatContext.recipientId);
             payload.append('adId', newChatContext.adId);
-        } else {
+        }
+        requestOptions.body = payload;
+        // Pour FormData, le navigateur définit le Content-Type automatiquement, il ne faut PAS le spécifier ici.
+
+    } else { // Si c'est un message texte uniquement
+        endpoint = `${API_MESSAGES_URL}/messages`;
+        payload = { text };
+
+        if (activeThreadId) {
+            payload.threadId = activeThreadId;
+        } else if (newChatContext) {
             payload.recipientId = newChatContext.recipientId;
             payload.adId = newChatContext.adId;
         }
-    }
 
-    if (hasImage) {
-        requestOptions.body = payload; // FormData va directement dans le body
-    } else {
         requestOptions.body = JSON.stringify(payload);
         requestOptions.headers = { 'Content-Type': 'application/json' };
     }
-    
-    // Nettoyage immédiat de l'UI pour une meilleure réactivité
+
+    // Nettoyage immédiat de l'UI
+    const messageInputBeforeSend = chatMessageInput.value; // Garder la valeur au cas où l'envoi échoue
     chatMessageInput.value = '';
     removeImagePreview();
     stopTypingEvent();
 
     try {
-        const response = await secureFetch(endpoint, requestOptions, true);
+        const response = await secureFetch(endpoint, requestOptions, false); // Loader non bloquant
 
         if (!response.success) {
-            showToast(response.message || "Erreur d'envoi", "error");
-            return;
+             throw new Error(response.message || "Erreur lors de l'envoi du message.");
         }
 
-        // Si c'était une nouvelle discussion, mettre à jour le contexte local
         if (!activeThreadId && response.data?.threadId) {
             activeThreadId = response.data.threadId;
-            newChatContext = null; // Le contexte de nouvelle discussion n'est plus nécessaire
-            loadThreads(currentTabRole); // Recharger les threads pour inclure le nouveau
+            newChatContext = null;
+            loadThreads(currentTabRole);
         }
-
     } catch (error) {
         console.error("Erreur d'envoi de message:", error);
-        // Le toast est déjà géré par secureFetch
+        showToast(error.message, "error");
+        chatMessageInput.value = messageInputBeforeSend; // Restaurer le texte en cas d'échec
+        // La restauration de l'image est plus complexe, pour l'instant on la laisse supprimée de la preview.
     }
 }
 function handleImageFileSelection(event) {
@@ -854,33 +850,25 @@ function setupInfiniteScroll() {
  * @param {CustomEvent} event - L'événement contenant les détails { adId, recipientId }.
  */
 async function handleInitiateChatEvent(event) {
-    const { adId, recipientId, recipientName, recipientAvatar } = event.detail;
-    if (!recipientId || !adId) {
-        showToast("Informations manquantes pour démarrer la conversation", "error");
-        return;
-    }
+    const { recipientId, adId, adData, recipientName, recipientAvatar } = event.detail;
+    if (!recipientId || !adId) return showToast("Informations manquantes.", "error");
 
     toggleGlobalLoader(true, "Ouverture de la discussion...");
     try {
-        // Préparer l'objet recipient avec toutes les infos nécessaires
-        currentRecipient = {
+        const recipientInfo = {
             id: recipientId,
             _id: recipientId,
-            name: recipientName || 'Nouveau contact',
-            avatarUrl: recipientAvatar || 'avatar-default.svg',
-            adId: adId // Ajout crucial de l'ID d'annonce
+            name: recipientName || adData?.userId?.name || 'Vendeur',
+            avatarUrl: recipientAvatar || adData?.userId?.avatarUrl || 'avatar-default.svg',
         };
 
-        newChatContext = { recipientId, adId };
+        const threadInfo = { ad: adData };
 
-        // Préparer la vue de chat immédiatement
-        openChatView(null, currentRecipient, null);
+        openChatView(null, recipientInfo, threadInfo); // On passe threadInfo qui contient adData
         
-        // Ouvrir la modale
         document.dispatchEvent(new CustomEvent('mapmarket:openModal', { 
             detail: { modalId: 'messages-modal' } 
         }));
-
     } catch (error) {
         showToast(error.message, "error");
     } finally {
