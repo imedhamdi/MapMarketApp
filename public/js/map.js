@@ -14,7 +14,8 @@ import {
     sanitizeHTML,
     formatPrice,
     getQueryParam,
-    debounce
+    debounce,
+    calculateDistance
 } from './utils.js';
 
 let mapInstance = null; // Instance de la carte Leaflet
@@ -494,6 +495,9 @@ function handleMapClick(event) {
         state.setMapState({ tempMarkerPosition: { lat: latlng.lat, lng: latlng.lng } });
         const eventName = isPlacingAdMarker ? 'mapMarket:adMarkerPlaced' : 'mapMarket:alertMarkerPlaced';
         document.dispatchEvent(new CustomEvent(eventName, { detail: { latlng } }));
+    } else {
+        const previewCard = document.getElementById('ad-preview-card');
+        if (previewCard) previewCard.classList.add('hidden');
     }
 }
 
@@ -551,22 +555,8 @@ export function displayAdsOnMap(ads) {
 
         if (lat != null && lng != null && adId) {
             const marker = L.marker([lat, lng], { icon: adIconConfig(ad), alt: sanitizeHTML(ad.title) });
-
-            const popupContent = `
-                <div class="map-popup-content">
-                    <h4>${sanitizeHTML(ad.title)}</h4>
-                    <p class="price">${ad.price != null ? sanitizeHTML(formatPrice(ad.price)) : 'Prix non spécifié'}</p>
-                    <p class="category">${sanitizeHTML(ad.categoryLabel || ad.category || '')}</p>
-                    <button class="btn btn-sm btn-primary view-ad-detail-btn" data-ad-id="${adId}">Voir détails</button>
-                </div>`;
-            marker.bindPopup(popupContent);
-
-            marker.on('popupopen', (e) => {
-                const popupNode = e.popup.getElement();
-                // Utiliser la délégation d'événement ou s'assurer que le bouton est cliquable
-                popupNode.querySelector(`.view-ad-detail-btn`)?.addEventListener('click', () => {
-                     document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: adId } }));
-                });
+            marker.on('click', () => {
+                showAdPreviewCard(ad);
             });
             adMarkersLayer.addLayer(marker);
             adMarkersById[adId] = marker; // Stocker le marqueur par ID
@@ -577,6 +567,66 @@ export function displayAdsOnMap(ads) {
     if(listViewContainer && !listViewContainer.classList.contains('hidden')) {
         renderAdsInListView();
     }
+}
+
+function showAdPreviewCard(ad) {
+    const card = document.getElementById('ad-preview-card');
+    const image = document.getElementById('preview-card-image');
+    const title = document.getElementById('preview-card-title');
+    const price = document.getElementById('preview-card-price');
+    const category = document.getElementById('preview-card-category');
+    const distance = document.getElementById('preview-card-distance');
+    const favoriteBtn = document.getElementById('preview-card-favorite-btn');
+    if (!card) return;
+
+    card.dataset.adId = ad._id || ad.id || '';
+
+    if (image) {
+        image.src = (ad.imageUrls && ad.imageUrls[0]) || 'https://placehold.co/96x96/e0e0e0/757575?text=Ad';
+        image.alt = `Image de ${sanitizeHTML(ad.title)}`;
+    }
+    if (title) title.textContent = sanitizeHTML(ad.title);
+    if (price) price.textContent = ad.price != null ? formatPrice(ad.price) : 'N/A';
+
+    const categories = state.getCategories ? state.getCategories() : [];
+    const catObj = categories.find(c => c.id === ad.category);
+    const catLabel = ad.categoryLabel || catObj?.name || ad.category || '';
+    if (category) category.textContent = catLabel;
+
+    if (distance) {
+        const userPos = state.getMapState()?.userPosition;
+        const lat = ad.latitude ?? ad.location?.coordinates?.[1];
+        const lng = ad.longitude ?? ad.location?.coordinates?.[0];
+        if (userPos && lat != null && lng != null) {
+            const dist = calculateDistance(userPos.lat, userPos.lng, lat, lng);
+            distance.textContent = `${dist.toFixed(1)} km`;
+        } else {
+            distance.textContent = '';
+        }
+    }
+
+    if (favoriteBtn) {
+        const favIds = state.get('favorites') || [];
+        const adId = ad._id || ad.id;
+        const isFav = favIds.includes(adId);
+        favoriteBtn.classList.toggle('active', isFav);
+        favoriteBtn.setAttribute('aria-pressed', isFav.toString());
+        const icon = favoriteBtn.querySelector('i');
+        if (icon) icon.className = isFav ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
+        favoriteBtn.onclick = (e) => {
+            e.stopPropagation();
+            document.dispatchEvent(new CustomEvent('mapMarket:toggleFavorite', {
+                detail: { adId: adId, setFavorite: !isFav, sourceButton: favoriteBtn }
+            }));
+        };
+    }
+
+    card.onclick = (e) => {
+        if (e.target.closest('#preview-card-favorite-btn')) return;
+        document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: ad._id || ad.id } }));
+    };
+
+    card.classList.remove('hidden');
 }
 
 export function displayAlertsOnMap(alerts) {
