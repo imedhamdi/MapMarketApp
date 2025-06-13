@@ -1,27 +1,34 @@
-// js/search.js
-
+// public/js/search.js
 import * as state from './state.js';
+import { sanitizeHTML } from './utils.js';
 
-const RECENT_KEY = 'mapMarketRecentSearches';
+const RECENT_SEARCHES_KEY = 'mapMarketRecentSearches';
+const MAX_RECENT_SEARCHES = 4;
 const BODY_ACTIVE_CLASS = 'search-overlay-active';
 
-export function init() {
-    const headerShowSearchBtn = document.getElementById('header-show-search-btn');
-    const searchBarWrapper = document.getElementById('header-search-bar-wrapper');
-    const closeSearchBarBtn = document.getElementById('close-search-bar-btn');
-    const mainSearchInput = document.getElementById('main-search-input');
-    const mainSearchButton = document.getElementById('main-search-button');
+let searchOverlay, showSearchBtn, closeSearchBtn, searchInput, mainSearchButton;
 
-    if (!headerShowSearchBtn || !searchBarWrapper || !closeSearchBarBtn || !mainSearchInput) {
-        console.warn('Search overlay: éléments manquants.');
+let recentSearchesContainer, trendingCategoriesContainer;
+
+export function init() {
+    searchOverlay = document.getElementById('header-search-bar-wrapper');
+    showSearchBtn = document.getElementById('header-show-search-btn');
+    closeSearchBtn = document.getElementById('close-search-bar-btn');
+    searchInput = document.getElementById('main-search-input');
+    mainSearchButton = document.getElementById('main-search-button');
+    recentSearchesContainer = document.getElementById('recent-searches');
+    trendingCategoriesContainer = document.getElementById('trending-categories');
+
+    if (!searchOverlay || !showSearchBtn || !closeSearchBtn || !searchInput) {
+        console.warn('Search overlay: un ou plusieurs éléments DOM sont manquants.');
         return;
     }
 
-    headerShowSearchBtn.addEventListener('click', openOverlay);
-    closeSearchBarBtn.addEventListener('click', closeOverlay);
+    showSearchBtn.addEventListener('click', openSearchOverlay);
+    closeSearchBtn.addEventListener('click', closeSearchOverlay);
     mainSearchButton?.addEventListener('click', executeSearch);
 
-    mainSearchInput.addEventListener('keydown', (e) => {
+    searchInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             executeSearch();
@@ -29,99 +36,129 @@ export function init() {
     });
 
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && !searchBarWrapper.classList.contains('hidden')) {
-            closeOverlay();
+        if (event.key === 'Escape' && !searchOverlay.classList.contains('hidden')) {
+            closeSearchOverlay();
         }
     });
+    console.log('Module Search initialisé.');
+}
 
+function openSearchOverlay() {
+    searchOverlay.classList.remove('hidden');
+    searchOverlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add(BODY_ACTIVE_CLASS);
+    showSearchBtn.setAttribute('aria-expanded', 'true');
     renderRecentSearches();
     renderTrendingCategories();
+    searchInput.focus();
+}
 
-    function openOverlay() {
-        searchBarWrapper.classList.remove('hidden');
-        searchBarWrapper.setAttribute('aria-hidden', 'false');
-        document.body.classList.add(BODY_ACTIVE_CLASS);
-        headerShowSearchBtn.setAttribute('aria-expanded', 'true');
-        renderRecentSearches();
-        renderTrendingCategories();
-        mainSearchInput.focus();
-    }
-
-    function closeOverlay() {
-        searchBarWrapper.classList.add('hidden');
-        searchBarWrapper.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove(BODY_ACTIVE_CLASS);
-        headerShowSearchBtn.setAttribute('aria-expanded', 'false');
-        headerShowSearchBtn.focus();
-    }
-
-    function executeSearch() {
-        const term = mainSearchInput.value.trim();
-        if (!term) return;
-        saveSearchTerm(term);
-        const current = state.get('filters');
-        state.set('filters', { ...current, keywords: term });
-        document.dispatchEvent(new CustomEvent('mapMarket:filtersApplied', { detail: state.get('filters') }));
-        closeOverlay();
+function closeSearchOverlay() {
+    searchOverlay.classList.add('hidden');
+    searchOverlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove(BODY_ACTIVE_CLASS);
+    showSearchBtn.setAttribute('aria-expanded', 'false');
+    if (document.activeElement === searchInput || searchOverlay.contains(document.activeElement)) {
+       showSearchBtn.focus();
     }
 }
 
-export function saveSearchTerm(term) {
+function executeSearch() {
+    const term = searchInput.value.trim();
     if (!term) return;
-    const items = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
-    const trimmed = term.trim();
-    const existingIdx = items.indexOf(trimmed);
-    if (existingIdx !== -1) items.splice(existingIdx, 1);
-    items.unshift(trimmed);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(items.slice(0, 3)));
+
+    saveSearchTerm(term);
+    const currentFilters = state.get('filters');
+    state.set('filters', { ...currentFilters, keywords: term });
+    document.dispatchEvent(new CustomEvent('mapMarket:filtersApplied', { detail: state.get('filters') }));
+    closeSearchOverlay();
 }
 
-export function renderRecentSearches() {
-    const container = document.getElementById('recent-searches');
-    if (!container) return;
-    container.innerHTML = '';
-    const searches = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
-    if (!searches.length) {
-        container.classList.add('hidden');
+function saveSearchTerm(term) {
+    if (!term) return;
+    let searches = [];
+    try {
+        searches = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
+    } catch(e) {
+        console.error("Impossible de parser les recherches récentes:", e);
+        searches = [];
+    }
+    
+    // Supprimer le terme s'il existe déjà pour le remonter en tête
+    const lowerCaseTerm = term.toLowerCase();
+    searches = searches.filter(s => s.toLowerCase() !== lowerCaseTerm);
+    searches.unshift(term);
+    
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(searches.slice(0, MAX_RECENT_SEARCHES)));
+}
+
+function renderRecentSearches() {
+    if (!recentSearchesContainer) return;
+    let searches = [];
+    try {
+        searches = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
+    } catch(e) {
+        searches = [];
+    }
+
+    recentSearchesContainer.innerHTML = '';
+    if (searches.length === 0) {
+        recentSearchesContainer.classList.add('hidden');
         return;
     }
-    container.classList.remove('hidden');
-    const fragment = document.createDocumentFragment();
+    
+    recentSearchesContainer.classList.remove('hidden');
+    const title = document.createElement('h4');
+    title.textContent = 'Recherches Récentes';
+    recentSearchesContainer.appendChild(title);
+    
+    const list = document.createElement('div');
+    list.className = 'suggestion-list';
+    
     searches.forEach(term => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'recent-search-item';
-        btn.textContent = term;
+        btn.className = 'suggestion-item';
+        btn.innerHTML = `<i class="fa-solid fa-history"></i> <span>${sanitizeHTML(term)}</span>`;
         btn.addEventListener('click', () => {
-            const input = document.getElementById('main-search-input');
-            if (input) input.value = term;
-            document.getElementById('main-search-button')?.click();
+            searchInput.value = term;
+            executeSearch();
         });
-        fragment.appendChild(btn);
+        list.appendChild(btn);
     });
-    container.appendChild(fragment);
+    recentSearchesContainer.appendChild(list);
 }
 
-export function renderTrendingCategories() {
-    const container = document.getElementById('trending-categories');
-    if (!container) return;
-    container.innerHTML = '';
+function renderTrendingCategories() {
+    if (!trendingCategoriesContainer) return;
     const categories = state.getCategories();
-    const fragment = document.createDocumentFragment();
-    categories.forEach(cat => {
+    trendingCategoriesContainer.innerHTML = '';
+    if (!categories || categories.length === 0) {
+        trendingCategoriesContainer.classList.add('hidden');
+        return;
+    }
+
+    trendingCategoriesContainer.classList.remove('hidden');
+    const title = document.createElement('h4');
+    title.textContent = 'Catégories Populaires';
+    trendingCategoriesContainer.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.className = 'trending-categories-section'; // Utilise la classe du conteneur pour le style des "chips"
+
+    categories.slice(0, 8).forEach(cat => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'trend-chip';
-        btn.textContent = cat.name;
         btn.dataset.categoryId = cat.id;
+        btn.innerHTML = `<i class="${cat.icon || 'fa-solid fa-tag'}"></i> ${sanitizeHTML(cat.name)}`;
         btn.addEventListener('click', () => {
-            const filters = state.get('filters');
-            state.set('filters', { ...filters, category: cat.id });
+            const currentFilters = state.get('filters');
+            state.set('filters', { ...currentFilters, category: cat.id, keywords: '' });
             document.dispatchEvent(new CustomEvent('mapMarket:filtersApplied', { detail: state.get('filters') }));
-            const closeBtn = document.getElementById('close-search-bar-btn');
-            closeBtn?.click();
+            closeSearchOverlay();
         });
-        fragment.appendChild(btn);
+        grid.appendChild(btn);
     });
-    container.appendChild(fragment);
+    trendingCategoriesContainer.appendChild(grid);
 }
