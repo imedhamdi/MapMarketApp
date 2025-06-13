@@ -171,18 +171,12 @@ app.use('/api/settings', settingRoutes);
 app.get('/favicon.ico', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
 });
-app.use('/avatars', express.static(path.join(__dirname, '/uploads/avatars')));
 // Catch-all SPA (doit être après toutes les routes API et fichiers statiques)
-
-
-// Sert le dossier 'uploads' (qui contient 'avatars') sous la route '/uploads'
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('*', (req, res, next) => {
   if (
     req.originalUrl.startsWith('/api') ||
     req.originalUrl.startsWith('/uploads') ||
     req.originalUrl.startsWith('/favicon.ico') ||
-    req.originalUrl.startsWith('/avatars') ||
     req.originalUrl.match(/\.(js|css|png|jpg|jpeg|svg|ico|json|webmanifest|webp|mp3|mp4)$/)
   ) {
     return next();

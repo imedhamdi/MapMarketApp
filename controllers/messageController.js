@@ -224,7 +224,8 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
         return next(new AppError('recipientId et adId sont requis pour démarrer une nouvelle discussion.', 400));
     }
 
-    if (!text && !req.file) {
+    // Vérifie qu'il y a du texte non vide ou une image à envoyer
+    if ((!text || text.trim() === '') && !req.file) {
         return next(new AppError('Un message doit contenir du texte ou une image.', 400));
     }
 
