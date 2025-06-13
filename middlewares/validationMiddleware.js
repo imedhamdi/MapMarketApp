@@ -170,10 +170,12 @@ const createMessageSchema = Joi.object({
         then: Joi.optional(),
         otherwise: Joi.required()
     }),
-    // Le texte est optionnel et peut être une chaîne vide ;
-    // la présence d'au moins un contenu (texte ou image) sera vérifiée dans le contrôleur
-    text: Joi.string().trim().max(2000).allow('').optional()
-}).xor('threadId', 'recipientId');
+    // Règle corrigée : le texte est requis pour cette route, ne peut être vide.
+    text: Joi.string().trim().min(1).max(2000).required().messages({
+        'string.empty': 'Le message ne peut pas être vide.',
+        'any.required': 'Le contenu du message est requis.'
+    })
+}).xor('threadId', 'recipientId'); // Assure que soit threadId, soit recipientId est fourni, mais pas les deux.
 
 // Schémas pour les alertes
 const createAlertSchema = Joi.object({

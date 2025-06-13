@@ -220,27 +220,26 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
     let currentThreadId = threadId;
     let isNewThread = false;
 
-    if (!currentThreadId && (!recipientId || !adId)) {
-        return next(new AppError('recipientId et adId sont requis pour démarrer une nouvelle discussion.', 400));
-    }
-
-    // Vérifie qu'il y a du texte non vide ou une image à envoyer
+    // **CORRECTION AJOUTÉE : Vérification de sécurité en amont**
     if ((!text || text.trim() === '') && !req.file) {
         return next(new AppError('Un message doit contenir du texte ou une image.', 400));
     }
 
+    if (!currentThreadId && (!recipientId || !adId)) {
+        return next(new AppError('recipientId et adId sont requis pour démarrer une nouvelle discussion.', 400));
+    }
+
     // --- Vérification de blocage ---
     let finalRecipientId = recipientId;
-
     if (currentThreadId) {
-        const tempThread = await Thread.findById(currentThreadId).populate('participants.user', 'blockedUsers');
+        const tempThread = await Thread.findById(currentThreadId).populate('participants.user', 'blockedUsers name');
         if (!tempThread) return next(new AppError('Thread non trouvé.', 404));
         const otherParticipant = tempThread.participants.find(p => p.user._id.toString() !== senderId);
         if (!otherParticipant) return next(new AppError('Destinataire non trouvé dans le thread.', 404));
         finalRecipientId = otherParticipant.user._id.toString();
 
         if (req.user.blockedUsers?.includes(finalRecipientId)) {
-            return next(new AppError(`Vous avez bloqué cet utilisateur.`, 403));
+            return next(new AppError(`Vous avez bloqué ${otherParticipant.user.name}.`, 403));
         }
         if (otherParticipant.user.blockedUsers?.includes(senderId)) {
             return next(new AppError('Cet utilisateur vous a bloqué.', 403));
@@ -266,7 +265,7 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
     const messageData = {
         threadId: currentThreadId,
         senderId,
-        text: text || null,
+        text: text ? text.trim() : null,
     };
 
     if (req.file) {
@@ -278,7 +277,7 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
 
     const updatedThread = await Thread.findById(currentThreadId)
         .populate('participants.user', 'name avatarUrl isOnline lastSeen')
-        .populate('ad', 'title');
+        .populate('ad', 'title imageUrls price');
 
     if (ioInstance && updatedThread) {
         updatedThread.participants.forEach(participant => {
@@ -297,7 +296,8 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
         success: true,
         message: 'Message envoyé avec succès.',
         data: {
-            message: mapMessageImageUrls(req, populatedMessage.toObject())
+            message: mapMessageImageUrls(req, populatedMessage.toObject()),
+            threadId: currentThreadId // Renvoyer l'ID du thread est utile pour le client
         }
     });
 });
