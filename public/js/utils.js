@@ -1,4 +1,5 @@
 // js/utils.js
+import * as state from './state.js';
 
 /**
  * @file utils.js
@@ -262,15 +263,20 @@ export function validateForm(form, formRules) {
  * @param {string} [locale='fr-FR'] - La locale pour le formatage.
  * @returns {string} - Le prix formaté.
  */
-export function formatPrice(price, currency = 'EUR', locale = 'fr-FR') {
+export function formatPrice(price, currency = 'EUR', locale) {
     if (typeof price !== 'number' || isNaN(price)) {
         return 'N/A';
     }
+    const finalLocale = locale || (state.get('ui.language') === 'fr' ? 'fr-FR' : 'en-US');
     try {
-        return new Intl.NumberFormat(locale, { style: 'currency', currency: currency }).format(price);
+        return new Intl.NumberFormat(finalLocale, {
+            style: 'currency',
+            currency: currency,
+            currencyDisplay: 'symbol'
+        }).format(price);
     } catch (e) {
-        console.error("Erreur de formatage du prix:", e);
-        return `${price} ${currency}`; // Fallback
+        console.error(`Erreur de formatage du prix pour la devise ${currency}:`, e);
+        return `${price.toFixed(2)} ${currency}`;
     }
 }
 
