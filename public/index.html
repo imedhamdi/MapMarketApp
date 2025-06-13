@@ -641,11 +641,12 @@
                 </div>
             </div>
 
-            <div id="ad-detail-modal" class="modal-overlay" role="dialog" aria-modal="true"
+            <div id="ad-detail-modal" class="modal-overlay modal-bottom-sheet" role="dialog" aria-modal="true"
                 aria-labelledby="ad-detail-modal-title-content" aria-hidden="true" tabindex="-1" data-ad-id="">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h2 id="ad-detail-modal-title-content" class="modal-title">Détail de l'annonce</h2>
+                        <div class="modal-handle"></div>
                         <button class="modal-close-btn" data-dismiss-modal="ad-detail-modal" type="button"
                             aria-label="Fermer le détail de l'annonce">
                             <i class="fa-solid fa-times"></i>
@@ -662,6 +663,7 @@
                                 aria-label="Images de l'annonce">
                                 <div id="ad-detail-carousel-track" class="carousel-track">
                                 </div>
+                                <div id="ad-detail-image-counter" class="carousel-image-counter"></div>
                                 <button id="ad-detail-carousel-prev-btn" type="button"
                                     class="carousel-nav carousel-prev hidden" aria-label="Image précédente"><i
                                         class="fa-solid fa-chevron-left"></i></button>
@@ -675,15 +677,18 @@
 
                             <h3 id="ad-detail-item-title" class="ad-title"></h3>
                             <p id="ad-detail-price" class="ad-price"></p>
-                            <p id="ad-detail-category-location" class="ad-meta-info">
-                                <span id="ad-detail-category"><i class="fa-solid fa-tag"></i> </span>
-                                <span id="ad-detail-location"><i class="fa-solid fa-map-marker-alt"></i> </span>
-                                <span id="ad-detail-date"><i class="fa-solid fa-calendar-days"></i> </span>
-                            </p>
+                            <div id="ad-detail-meta-container" class="ad-meta-info">
+                                <span id="ad-detail-category" class="meta-badge"><i class="fa-solid fa-tag"></i> </span>
+                                <span id="ad-detail-location" class="meta-badge"><i class="fa-solid fa-map-marker-alt"></i> </span>
+                                <span id="ad-detail-date" class="meta-badge"><i class="fa-solid fa-calendar-days"></i> </span>
+                            </div>
 
                             <section aria-labelledby="ad-detail-description-title">
                                 <h4 id="ad-detail-description-title" data-i18n="adDetail.description">Description</h4>
-                                <p id="ad-detail-description-text" class="ad-description"></p>
+                                <div id="ad-detail-description-wrapper" class="collapsible-description">
+                                    <p id="ad-detail-description-text" class="ad-description"></p>
+                                </div>
+                                <button id="toggle-description-btn" type="button" class="btn btn-link" style="display: none;">Lire la suite...</button>
                             </section>
 
                             <section id="ad-detail-seller-info-section" aria-labelledby="ad-detail-seller-title">
@@ -704,18 +709,6 @@
                             </section>
 
 
-                            <div id="ad-detail-actions-container" class="actions-toolbar">
-                                <button data-favorite-btn data-ad-id="" id="ad-detail-favorite-btn" type="button"
-                                    class="btn btn-icon action-btn" aria-pressed="false"
-                                    aria-label="Ajouter aux favoris">
-                                    <i class="fa-regular fa-heart"></i>
-                                </button>
-                                <button id="ad-detail-contact-seller-btn" type="button"
-                                    class="btn btn-primary action-btn" data-i18n="adDetail.contactSeller"><i
-                                        class="fa-solid fa-comments"></i> Contacter</button>
-                                <button id="ad-detail-navigate-btn" type="button" class="btn btn-primary action-btn"><i
-                                        class="fa-solid fa-route"></i> Y aller</button>
-                            </div>
 
                             <div id="ad-detail-owner-actions" class="owner-actions-toolbar hidden">
                                 <button id="ad-detail-edit-ad-btn" type="button" class="btn btn-secondary action-btn"
@@ -726,6 +719,18 @@
                                         class="fa-solid fa-trash"></i> Supprimer</button>
                             </div>
                         </article>
+                    </div>
+                    <div id="ad-detail-actions-container" class="actions-toolbar">
+                        <button data-favorite-btn data-ad-id="" id="ad-detail-favorite-btn" type="button"
+                            class="btn btn-icon action-btn" aria-pressed="false"
+                            aria-label="Ajouter aux favoris">
+                            <i class="fa-regular fa-heart"></i>
+                        </button>
+                        <button id="ad-detail-contact-seller-btn" type="button"
+                            class="btn btn-primary action-btn" data-i18n="adDetail.contactSeller"><i
+                                class="fa-solid fa-comments"></i> Contacter</button>
+                        <button id="ad-detail-navigate-btn" type="button" class="btn btn-primary action-btn"><i
+                                class="fa-solid fa-route"></i> Y aller</button>
                     </div>
                 </div>
             </div>

@@ -3105,3 +3105,146 @@ body.dark-mode .chat-ad-summary:hover {
 .chat-actions-toolbar button {
     flex: 1;
 }
+
+/* ============================================= */
+/* ==   STYLES POUR LA MODALE D'ANNONCE V2      == */
+/* ============================================= */
+
+/* 1. Comportement de la Bottom Sheet */
+.modal-overlay.modal-bottom-sheet {
+    align-items: flex-end; /* Aligner la modale en bas */
+    padding: 0; /* Pas de padding sur l'overlay lui-même */
+}
+
+.modal-bottom-sheet .modal-content {
+    width: 100%;
+    max-width: 100%;
+    height: 90vh; /* Hauteur par défaut de la feuille */
+    max-height: 90vh;
+    margin: 0;
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0; /* Coins arrondis seulement en haut */
+    transform: translateY(100%); /* Position initiale cachée en bas */
+    transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1); /* Animation de glissement */
+}
+
+.modal-overlay[aria-hidden="false"].modal-bottom-sheet .modal-content {
+    transform: translateY(0); /* Position visible */
+}
+
+.modal-bottom-sheet .modal-header {
+    cursor: grab; /* Indique qu'on peut "saisir" l'en-tête */
+    position: relative; /* Pour le positionnement du handle */
+    padding-top: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+}
+
+.modal-handle {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background-color: var(--gray-300);
+    border-radius: var(--border-radius-full);
+}
+
+body.dark-mode .modal-handle {
+    background-color: var(--gray-600);
+}
+
+/* 2. Barre d'actions "collante" */
+#ad-detail-actions-container {
+    position: sticky; /* ou position: fixed si la modale scroll tout le body */
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--component-bg);
+    padding: var(--spacing-md);
+    border-top: 1px solid var(--border-color);
+    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.05);
+    z-index: 10;
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+body.dark-mode #ad-detail-actions-container {
+    background-color: var(--gray-800);
+    border-top: 1px solid var(--gray-700);
+}
+
+#ad-detail-actions-container .btn {
+    flex-grow: 1;
+}
+
+#ad-detail-actions-container #ad-detail-favorite-btn {
+    flex-grow: 0; /* Le bouton favori ne prend que sa propre largeur */
+    flex-basis: 50px;
+}
+
+/* 3. Nouveaux éléments d'information */
+.carousel-image-counter {
+    position: absolute;
+    bottom: var(--spacing-md);
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    font-size: 0.8rem;
+    font-weight: 500;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.ad-meta-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin: var(--spacing-md) 0;
+}
+
+.meta-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    background-color: var(--gray-100);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    font-size: 0.85rem;
+    color: var(--gray-700);
+}
+
+body.dark-mode .meta-badge {
+    background-color: var(--gray-700);
+    color: var(--gray-200);
+}
+
+.meta-badge i {
+    color: var(--gray-500);
+}
+
+/* Description extensible */
+.collapsible-description {
+    position: relative;
+    max-height: 80px; /* Hauteur max avant de cacher le texte */
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out;
+}
+.collapsible-description::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    background: linear-gradient(to top, var(--modal-bg), transparent);
+    pointer-events: none;
+}
+.collapsible-description.expanded {
+    max-height: 1000px; /* Valeur suffisamment grande */
+}
+.collapsible-description.expanded::after {
+    display: none;
+}
