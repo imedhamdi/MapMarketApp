@@ -895,7 +895,20 @@ async function loadAndDisplayAdDetails(adId) {
                 }
                 if (adDetailSellerName) adDetailSellerName.textContent = sanitizeHTML(ad.userId.name);
                 if (adDetailSellerInfo) adDetailSellerInfo.dataset.sellerId = ad.userId._id;
-                if (adDetailSellerSince) adDetailSellerSince.textContent = `Membre depuis ${formatDate(ad.userId.createdAt, { month: 'long', year: 'numeric' })}`;
+                if (adDetailSellerSince) {
+                    // Vérifie d'abord l'existence du champ sellerId.createdAt (nouveau format)
+                    const sellerSince = ad?.sellerId?.createdAt || ad?.userId?.createdAt;
+                    if (sellerSince) {
+                        const formattedDate = formatDate(
+                            sellerSince,
+                            { day: 'numeric', month: 'long', year: 'numeric' },
+                            'fr-FR'
+                        );
+                        adDetailSellerSince.textContent = `Membre depuis le ${formattedDate}`;
+                    } else {
+                        adDetailSellerSince.textContent = '';
+                    }
+                }
                 if (adDetailSellerAdsCount) adDetailSellerAdsCount.textContent = `${ad.userId.stats?.adsPublished || 0} annonce(s) active(s)`;
             } else {
                 if (adDetailSellerInfo) adDetailSellerInfo.classList.add('hidden');
