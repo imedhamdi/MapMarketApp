@@ -1,6 +1,6 @@
 // controllers/messageController.js
 const Thread = require('../models/threadModel');
-const mongoose = require('mongoose'); 
+const mongoose = require('mongoose');
 const Message = require('../models/messageModel');
 const User = require('../models/userModel');
 const Ad = require('../models/adModel');
@@ -49,54 +49,43 @@ exports.initiateOrGetThread = asyncHandler(async (req, res, next) => {
     const { recipientId, adId } = req.body;
     const initiatorId = req.user.id;
 
-    if (!recipientId) {
-        return next(new AppError('L\'ID du destinataire est requis.', 400));
+    if (!recipientId || !adId) {
+        return next(new AppError('Les champs recipientId et adId sont requis pour démarrer une discussion.', 400));
     }
     if (recipientId === initiatorId) {
-        return next(new AppError('Vous ne pouvez pas démarrer une discussion avec vous-même.', 400));
+        return next(new AppError('Vous ne pouvez pas discuter avec vous-même.', 400));
     }
 
-    // Vérifier si le destinataire existe et n'est pas bloqué/ne bloque pas
     const recipient = await User.findById(recipientId);
-    if (!recipient) {
-        return next(new AppError('Destinataire non trouvé.', 404));
+    if (!recipient) return next(new AppError('Destinataire introuvable.', 404));
+    if (req.user.blockedUsers?.includes(recipientId)) {
+        return next(new AppError(`Vous avez bloqué ${recipient.name}.`, 403));
     }
-    if (req.user.blockedUsers && req.user.blockedUsers.includes(recipientId)) {
-        return next(new AppError(`Vous avez bloqué cet utilisateur. Débloquez ${recipient.name} pour démarrer une discussion.`, 403));
-    }
-    if (recipient.blockedUsers && recipient.blockedUsers.includes(initiatorId)) {
-        return next(new AppError('Cet utilisateur vous a bloqué. Vous ne pouvez pas démarrer de discussion.', 403));
+    if (recipient.blockedUsers?.includes(initiatorId)) {
+        return next(new AppError('Cet utilisateur vous a bloqué.', 403));
     }
 
-    let ad = null;
-    if (adId) {
-        ad = await Ad.findById(adId);
-        if (!ad) return next(new AppError('Annonce non trouvée.', 404));
-    }
+    const ad = await Ad.findById(adId);
+    if (!ad) return next(new AppError('Annonce introuvable.', 404));
 
-    // Utiliser la méthode statique du modèle Thread
     let thread = await Thread.findOrCreateThread(initiatorId, recipientId, adId);
 
-    // Populate les participants et l'annonce pour la réponse
     thread = await Thread.findById(thread._id)
         .populate('participants.user', 'name avatarUrl')
         .populate('ad', 'title imageUrls price');
 
-    // Réinitialiser locallyDeletedAt pour les deux participants s'ils ouvrent le thread
     thread.participants.forEach(p => {
         p.locallyDeletedAt = undefined;
     });
     await thread.save({ validateBeforeSave: false });
 
-
-    res.status(200).json({ // 200 si trouvé, 201 si créé (findOrCreate gère cela)
+    res.status(200).json({
         success: true,
-        message: 'Thread récupéré ou initié avec succès.',
-        data: {
-            thread
-        }
+        message: 'Thread récupéré ou créé.',
+        data: { thread }
     });
 });
+
 
 
 /**
@@ -108,13 +97,8 @@ exports.getMyThreads = asyncHandler(async (req, res, next) => {
     const userId = new mongoose.Types.ObjectId(req.user.id);
 
     const threads = await Thread.aggregate([
-        // Stage 1: Match threads where the current user is a participant
         { $match: { 'participants.user': userId } },
-
-        // Stage 2: Sort by the most recently updated
         { $sort: { updatedAt: -1 } },
-
-        // Stage 3: Add a field to get the current user's participant data
         {
             $addFields: {
                 currentUserParticipant: {
@@ -125,8 +109,6 @@ exports.getMyThreads = asyncHandler(async (req, res, next) => {
                 }
             }
         },
-
-        // Stage 4: Filter out threads that the user has locally deleted and that have no new messages
         {
             $match: {
                 $or: [
@@ -135,8 +117,6 @@ exports.getMyThreads = asyncHandler(async (req, res, next) => {
                 ]
             }
         },
-
-        // Stage 5: Populate participant and ad details
         {
             $lookup: {
                 from: 'users',
@@ -155,17 +135,18 @@ exports.getMyThreads = asyncHandler(async (req, res, next) => {
                 pipeline: [{ $project: { title: 1, imageUrls: 1 } }]
             }
         },
-
-        // Stage 6: Reshape the final output
         {
             $project: {
                 _id: 1,
-                participants: '$participantDetails', // Replace with populated details
-                ad: { $arrayElemAt: ['$adDetails', 0] },
+                participants: '$participantDetails',
+                ad: {
+                    _id: { $arrayElemAt: ['$adDetails._id', 0] },
+                    title: { $arrayElemAt: ['$adDetails.title', 0] },
+                    image: { $arrayElemAt: ['$adDetails.imageUrls', 0] }
+                },
                 lastMessage: 1,
                 createdAt: 1,
-                updatedAt: 1,
-                // You might need to map unread counts correctly if they are needed here
+                updatedAt: 1
             }
         }
     ]);
@@ -173,9 +154,7 @@ exports.getMyThreads = asyncHandler(async (req, res, next) => {
     res.status(200).json({
         success: true,
         results: threads.length,
-        data: {
-            threads: threads
-        }
+        data: { threads }
     });
 });
 
@@ -235,20 +214,22 @@ exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
  * POST /api/messages/messages/image (pour image, géré par Multer avant)
  */
 exports.sendMessage = asyncHandler(async (req, res, next) => {
-    const { threadId, recipientId, text } = req.body;
+    const { threadId, recipientId, text, adId } = req.body;
     const senderId = req.user.id;
     let currentThreadId = threadId;
     let isNewThread = false;
 
-    if (!currentThreadId && !recipientId) {
-        return next(new AppError('Un ID de thread ou un ID de destinataire est requis.', 400));
-    }
-    if (!text && !req.file) { // req.file vient de Multer pour les images
-        return next(new AppError('Un message ne peut pas être vide (texte ou image requis).', 400));
+    if (!currentThreadId && (!recipientId || !adId)) {
+        return next(new AppError('Pour créer une discussion, recipientId et adId sont requis.', 400));
     }
 
-    // Vérifier le blocage avant d'envoyer
+    if (!text && !req.file) {
+        return next(new AppError('Un message ne peut pas être vide.', 400));
+    }
+
+    // --- Vérification de blocage ---
     let finalRecipientId = recipientId;
+
     if (currentThreadId) {
         const tempThread = await Thread.findById(currentThreadId).populate('participants.user', 'blockedUsers');
         if (!tempThread) return next(new AppError('Thread non trouvé.', 404));
@@ -256,74 +237,59 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
         if (!otherParticipant) return next(new AppError('Destinataire non trouvé dans le thread.', 404));
         finalRecipientId = otherParticipant.user._id.toString();
 
-        if (req.user.blockedUsers && req.user.blockedUsers.includes(finalRecipientId)) {
+        if (req.user.blockedUsers?.includes(finalRecipientId)) {
             return next(new AppError(`Vous avez bloqué cet utilisateur.`, 403));
         }
-        if (otherParticipant.user.blockedUsers && otherParticipant.user.blockedUsers.includes(senderId)) {
+        if (otherParticipant.user.blockedUsers?.includes(senderId)) {
             return next(new AppError('Cet utilisateur vous a bloqué.', 403));
         }
-    } else if (recipientId) { // Nouveau thread
+    } else {
         const recipientUser = await User.findById(recipientId);
         if (!recipientUser) return next(new AppError('Destinataire non trouvé.', 404));
-        if (req.user.blockedUsers && req.user.blockedUsers.includes(recipientId)) {
+        if (req.user.blockedUsers?.includes(recipientId)) {
             return next(new AppError(`Vous avez bloqué cet utilisateur.`, 403));
         }
-        if (recipientUser.blockedUsers && recipientUser.blockedUsers.includes(senderId)) {
+        if (recipientUser.blockedUsers?.includes(senderId)) {
             return next(new AppError('Cet utilisateur vous a bloqué.', 403));
         }
     }
 
-
-    // Si pas de threadId, c'est un nouveau message direct, trouver ou créer le thread
-    if (!currentThreadId && recipientId) {
-        const adId = req.body.adId || null; // adId est optionnel pour initier un chat
+    // --- Création du thread si nécessaire ---
+    if (!currentThreadId && recipientId && adId) {
         const thread = await Thread.findOrCreateThread(senderId, recipientId, adId);
         currentThreadId = thread._id;
-        isNewThread = !thread.lastMessage; // Considérer comme nouveau si pas de dernier message
+        isNewThread = !thread.lastMessage;
     }
 
     const messageData = {
         threadId: currentThreadId,
         senderId,
-        text: text || null, // Peut être null si c'est une image
+        text: text || null,
     };
 
-    if (req.file) { // Si une image est uploadée (via /messages/image)
+    if (req.file) {
         messageData.imageUrl = path.join('messages', req.file.filename).replace(/\\/g, '/');
     }
 
     const newMessage = await Message.create(messageData);
     const populatedMessage = await Message.findById(newMessage._id).populate('senderId', 'name avatarUrl');
 
-    // Mettre à jour le thread (lastMessage, unreadCounts) - le hook post-save de Message le fait déjà.
-    // Mais on a besoin des infos du thread mis à jour pour Socket.IO.
     const updatedThread = await Thread.findById(currentThreadId)
         .populate('participants.user', 'name avatarUrl isOnline lastSeen')
         .populate('ad', 'title');
 
-    // Émission Socket.IO
     if (ioInstance && updatedThread) {
         updatedThread.participants.forEach(participant => {
-            const userSocketRoom = `user_${participant.user._id.toString()}`;
-            // Envoyer l'événement de nouveau message
+            const userSocketRoom = `user_${participant.user._id}`;
             ioInstance.of('/chat').to(userSocketRoom).emit('newMessage', {
                 message: mapMessageImageUrls(req, populatedMessage.toObject()),
-                thread: updatedThread.toObject() // Envoyer le thread mis à jour (avec unreadCount)
+                thread: updatedThread.toObject()
             });
-            // Si c'est un nouveau thread pour ce participant (ou réactivé)
             if (isNewThread || (participant.locallyDeletedAt && participant.locallyDeletedAt < updatedThread.updatedAt)) {
                 ioInstance.of('/chat').to(userSocketRoom).emit('newThread', updatedThread.toObject());
             }
         });
     }
-
-    // Optionnel : Notification par email (simulée)
-    // const recipient = updatedThread.participants.find(p => p.user._id.toString() !== senderId).user;
-    // const sender = await User.findById(senderId);
-    // if (recipient && sender && recipient.settings?.notifications?.emailEnabled) {
-    //    logger.info(`SIMULATION: Envoi email à ${recipient.email} pour nouveau message de ${sender.name}`);
-    // }
-
 
     res.status(201).json({
         success: true,
@@ -333,6 +299,7 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
         }
     });
 });
+
 
 /**
  * Marquer les messages d'un thread comme lus par l'utilisateur connecté.

@@ -1360,9 +1360,14 @@ function handleContactSellerFromDetail() {
         return;
     }
 
+    // ✅ CORRECTION : C'est ici que le dispatch doit être parfait.
     document.dispatchEvent(new CustomEvent('mapMarket:initiateChat', {
-        detail: { adId: adId, recipientId: sellerId }
+        detail: { 
+            adId: adId, 
+            recipientId: sellerId 
+        }
     }));
+    // On ferme la modale de détail pour afficher celle des messages.
     document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'ad-detail-modal' } }));
 }
 

@@ -36,12 +36,13 @@ let newMessagesSound;
 let socket = null;
 let activeThreadId = null;
 let currentRecipient = null;
+// ✅ NOUVEL ÉTAT : Contexte pour une nouvelle discussion (non liée à un thread existant)
+let newChatContext = null; 
 let messageObserver = null;
 let isLoadingHistory = false;
 let allMessagesLoaded = false;
 let typingTimer = null;
 let tempImageFile = null;
-
 /**
  * Initialise le module de messagerie.
  */
@@ -91,7 +92,7 @@ function initializeUI() {
         chatTypingIndicator, chatInputArea, chatMessageInput, sendChatMessageBtn, messagesNavBadge,
         navMessagesBtn, chatAttachImageBtn, chatImageUploadInput, chatImagePreviewContainer
     };
-    
+
     let allFound = true;
     for (const key in elementsToFind) {
         const element = document.getElementById(elementsToFind[key]);
@@ -103,7 +104,7 @@ function initializeUI() {
         eval(`${key} = element;`);
     }
 
-    if(allFound) {
+    if (allFound) {
         try {
             newMessagesSound = new Audio('/sounds/new_message_notification.mp3');
             newMessagesSound.load();
@@ -120,7 +121,7 @@ function initializeUI() {
 function setupEventListeners() {
     state.subscribe('currentUserChanged', handleUserChangeForSocket);
     document.addEventListener('mapMarket:initiateChat', handleInitiateChatEvent);
-    
+
     navMessagesBtn.addEventListener('click', openThreadListView);
     backToThreadsBtn.addEventListener('click', showThreadList);
     sendChatMessageBtn.addEventListener('click', sendMessage);
@@ -161,14 +162,14 @@ function connectSocket() {
     socket.on('connect', () => {
         console.log('Socket.IO connecté au namespace /chat:', socket.id);
         const currentUser = state.getCurrentUser();
-        if(currentUser) {
+        if (currentUser) {
             socket.emit('joinUserRoom', { userId: currentUser._id });
         }
     });
 
     socket.on('disconnect', (reason) => console.log('Socket.IO déconnecté:', reason));
     socket.on('connect_error', (err) => showToast(`Erreur de messagerie: ${err.message}`, 'error'));
-    
+
     // Écoute des événements serveur
     socket.on('newMessage', handleNewMessageReceived);
     socket.on('typing', handleTypingEventReceived);
@@ -217,8 +218,10 @@ function showThreadList() {
 }
 
 /**
- * Ouvre la vue de chat pour une conversation spécifique.
- * @param {string} threadId - L'ID du thread.
+ * ✅ FONCTION CORRIGÉE ET FIABILISÉE
+ * Ouvre la vue de chat. Nettoie systématiquement le contexte de nouvelle discussion
+ * si un thread existant est ouvert, évitant ainsi les conflits d'état.
+ * @param {string|null} threadId - L'ID du thread, ou null pour une nouvelle discussion.
  * @param {object} recipient - L'objet de l'autre participant.
  */
 async function openChatView(threadId, recipient) {
@@ -227,30 +230,31 @@ async function openChatView(threadId, recipient) {
     allMessagesLoaded = false;
     isLoadingHistory = false;
 
-    // Mise à jour de l'en-tête du chat
     chatRecipientAvatar.src = recipient.avatarUrl || 'avatar-default.svg';
     chatRecipientName.textContent = sanitizeHTML(recipient.name);
 
-    // Basculer les vues
     threadListView.classList.remove('active-view');
     chatView.classList.add('active-view');
-    
-    // Réinitialisation de l'état du chat
+
     chatMessagesContainer.innerHTML = '';
     chatMessageInput.value = '';
-    chatMessageInput.focus();
     removeImagePreview();
-    
+    chatMessageInput.focus();
+
     if (threadId) {
+        // ⚠️ MODIFICATION CRUCIALE : S'il s'agit d'un thread existant, on vide le contexte.
+        newChatContext = null;
+        
         markThreadAsRead(threadId);
         await loadMessageHistory(threadId, true);
-        setupInfiniteScroll(); // Mettre en place le scroll infini après le premier chargement
+        setupInfiniteScroll();
     } else {
-        // Cas d'une nouvelle conversation sans message
-        chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message !</p>`;
+        // C'est une NOUVELLE conversation, on affiche un message d'accueil.
+        chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message à ${sanitizeHTML(recipient.name)} !</p>`;
         chatHistoryLoader.classList.remove('hidden');
     }
 }
+
 
 /**
  * Nettoie l'interface de la messagerie lors de la déconnexion.
@@ -290,7 +294,7 @@ async function loadThreads() {
 function renderThreadList(threadsData) {
     if (!threadListUl || !threadItemTemplate) return;
     threadListUl.innerHTML = '';
-    
+
     const currentUser = state.getCurrentUser();
     if (!currentUser) {
         noThreadsPlaceholder.classList.remove('hidden');
@@ -315,10 +319,10 @@ function renderThreadList(threadsData) {
         li.dataset.threadId = thread._id;
         li.querySelector('.thread-avatar').src = recipient.avatarUrl || 'avatar-default.svg';
         li.querySelector('.thread-user').textContent = sanitizeHTML(recipient.name);
-        
+
         let previewText = thread.lastMessage?.text ? sanitizeHTML(thread.lastMessage.text) : (thread.lastMessage?.imageUrl ? '[Image]' : 'Début de la conversation');
         li.querySelector('.thread-preview').textContent = previewText;
-        
+
         li.querySelector('.thread-time').textContent = thread.lastMessage ? formatDate(thread.lastMessage.createdAt, { hour: '2-digit', minute: '2-digit' }) : '';
         const unreadBadge = li.querySelector('.unread-badge');
         const unreadCount = thread.participants.find(p => p.user === currentUser._id)?.unreadCount || 0;
@@ -350,17 +354,17 @@ async function loadMessageHistory(threadId, isInitialLoad = false) {
         const url = `${API_MESSAGES_URL}/threads/${threadId}/messages?limit=20&before=${beforeTimestamp}`;
         const response = await secureFetch(url, {}, false);
         const messages = response?.data?.messages || [];
-        
+
         if (messages.length < 20) {
             allMessagesLoaded = true;
-            if(isInitialLoad && messages.length === 0) {
-                 chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message !</p>`;
+            if (isInitialLoad && messages.length === 0) {
+                chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message !</p>`;
             } else {
                 chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Début de la conversation</p>`;
             }
         }
         renderMessages(messages, 'prepend');
-    } catch(error) {
+    } catch (error) {
         showToast("Erreur de chargement de l'historique.", "error");
     } finally {
         isLoadingHistory = false;
@@ -377,7 +381,7 @@ async function loadMessageHistory(threadId, isInitialLoad = false) {
  */
 function renderMessages(messages, method) {
     if (!messages || messages.length === 0) return;
-    
+
     const fragment = document.createDocumentFragment();
     const currentUserId = state.getCurrentUser()._id;
 
@@ -403,7 +407,7 @@ function renderMessages(messages, method) {
         } else {
             textEl.innerHTML = sanitizeHTML(msg.text || '').replace(/\n/g, '<br>');
         }
-        
+
         timeEl.textContent = formatDate(msg.createdAt, { hour: '2-digit', minute: '2-digit' });
         fragment.appendChild(clone);
     });
@@ -431,7 +435,9 @@ function handleInputKeypress(e) {
 }
 
 /**
- * Fonction principale pour l'envoi de messages (texte et/ou image).
+ * ✅ FONCTION CORRIGÉE ET ROBUSTE
+ * Fonction principale pour l'envoi de messages. Utilise `newChatContext`
+ * pour obtenir adId lors de la création d'un nouveau thread.
  */
 async function sendMessage() {
     const text = chatMessageInput.value.trim();
@@ -440,67 +446,82 @@ async function sendMessage() {
         return;
     }
 
-    // Déterminer le payload et l'endpoint selon qu'une image est jointe ou non
     let endpoint;
     const options = { method: 'POST' };
 
-    if (tempImageFile) {
-        endpoint = `${API_MESSAGES_URL}/messages/image`;
-        const formData = new FormData();
-        if (activeThreadId) {
-            formData.append('threadId', activeThreadId);
-        } else if (currentRecipient?._id) {
-            formData.append('recipientId', currentRecipient._id);
-            if (currentRecipient.adId) formData.append('adId', currentRecipient.adId);
+    // Détermine si on est dans un nouveau thread ou un thread existant
+    const isNewThread = !activeThreadId;
+    
+    // ✅ CORRECTION CRITIQUE : Logique de construction du payload rendue robuste.
+    const getPayloadData = () => {
+        if (isNewThread) {
+            // Pour un nouveau thread, on a besoin de recipientId et adId.
+            // On les récupère de `currentRecipient` et de notre nouvelle variable `newChatContext`.
+            if (!currentRecipient?._id || !newChatContext?.adId) {
+                // Cette erreur est celle que vous voyez. Elle se déclenche car newChatContext est vide.
+                // Avec les corrections, `newChatContext` sera bien peuplé.
+                showToast("Erreur critique : destinataire ou annonce manquant pour démarrer.", "error");
+                throw new Error("Missing recipient or adId for new chat.");
+            }
+            return {
+                recipientId: currentRecipient._id,
+                adId: newChatContext.adId
+            };
         } else {
-            return showToast("Erreur: discussion non identifiée.", 'error');
+            // Pour un thread existant, seul threadId est nécessaire.
+            return { threadId: activeThreadId };
         }
-        if (text) formData.append('text', text);
-        formData.append('image', tempImageFile, tempImageFile.name);
-        options.body = formData; // secureFetch retirera le Content-Type pour FormData
-    } else {
-        endpoint = `${API_MESSAGES_URL}/messages`;
-        const payload = { text };
-        if (activeThreadId) {
-            payload.threadId = activeThreadId;
-        } else if (currentRecipient?._id) {
-            payload.recipientId = currentRecipient._id;
-            if (currentRecipient.adId) payload.adId = currentRecipient.adId;
-        } else {
-            return showToast("Erreur: discussion non identifiée.", 'error');
-        }
-        options.body = payload;
-    }
-
-    stopTypingEvent(); // Arrêter d'envoyer l'événement 'typing'
-
+    };
+    
     try {
+        const payloadData = getPayloadData();
+
+        if (tempImageFile) {
+            endpoint = `${API_MESSAGES_URL}/messages/image`;
+            const formData = new FormData();
+            Object.entries(payloadData).forEach(([key, value]) => formData.append(key, value));
+            if (text) formData.append('text', text);
+            formData.append('image', tempImageFile, tempImageFile.name);
+            options.body = formData;
+
+        } else {
+            endpoint = `${API_MESSAGES_URL}/messages`;
+            options.body = { text, ...payloadData };
+        }
+
+        stopTypingEvent();
+
+        // On utilise secureFetch qui gère l'envoi de JSON ou FormData.
         const response = await secureFetch(endpoint, options);
 
         if (!response?.success) {
             throw new Error(response?.message || "Erreur d'envoi du message.");
         }
         
-        // La mise à jour de l'UI se fait via l'événement socket 'newMessage' reçu du serveur
-        // pour rester synchronisé, y compris pour nos propres messages.
-        // Cela garantit que ce qui est affiché est bien ce qui a été persisté.
+        // Si c'était un nouveau thread, la réponse du backend nous donne le threadId.
+        if (isNewThread && response.data?.message?.threadId) {
+             activeThreadId = response.data.message.threadId;
+             newChatContext = null; // Le contexte a été utilisé, on le nettoie.
+             // On peut recharger l'historique pour afficher le message "Début de la conversation".
+             await loadMessageHistory(activeThreadId, true);
+        }
 
-        // Réinitialiser les champs après l'envoi
         chatMessageInput.value = '';
-        chatMessageInput.style.height = 'auto'; // Réinitialiser la hauteur du textarea
+        chatMessageInput.style.height = 'auto';
         removeImagePreview();
-        
+
     } catch (error) {
-        showToast(error.message, 'error');
+        if (error.message !== "Missing recipient or adId for new chat.") {
+            showToast(error.message || "L'envoi a échoué", 'error');
+        }
     }
 }
-
 function handleImageFileSelection(event) {
     const file = event.target.files[0];
     if (!file) return;
     if (!VALID_IMAGE_TYPES.includes(file.type)) return showToast("Format d'image non valide.", "error");
     if (file.size > MAX_IMAGE_SIZE_BYTES) return showToast(`L'image est trop grande (max ${MAX_IMAGE_SIZE_MB}MB).`, "error");
-    
+
     tempImageFile = file;
     displayImagePreview(file);
 }
@@ -531,8 +552,8 @@ function removeImagePreview() {
 
 function handleNewMessageReceived({ message, thread }) {
     // Recharger la liste des conversations pour qu'elle remonte en haut
-    if(threadListView.classList.contains('active-view')) {
-       loadThreads();
+    if (threadListView.classList.contains('active-view')) {
+        loadThreads();
     }
 
     if (activeThreadId === message.threadId) {
@@ -541,10 +562,10 @@ function handleNewMessageReceived({ message, thread }) {
     } else {
         const sender = thread.participants.find(p => p.user._id === message.senderId);
         if (sender && sender.user._id !== state.getCurrentUser()._id) {
-             showToast(`Nouveau message de ${sanitizeHTML(sender.user.name)}`, 'info');
-             if (newMessagesSound) newMessagesSound.play().catch(e => console.warn('Erreur lecture son:', e));
-             // Mettre à jour le badge global
-             loadThreads(); // Recharge pour mettre à jour les compteurs
+            showToast(`Nouveau message de ${sanitizeHTML(sender.user.name)}`, 'info');
+            if (newMessagesSound) newMessagesSound.play().catch(e => console.warn('Erreur lecture son:', e));
+            // Mettre à jour le badge global
+            loadThreads(); // Recharge pour mettre à jour les compteurs
         }
     }
 }
@@ -625,22 +646,30 @@ function setupInfiniteScroll() {
  */
 async function handleInitiateChatEvent(event) {
     const { adId, recipientId } = event.detail;
-    if (!recipientId) return;
+
+    if (!recipientId || !adId) {
+        showToast("Impossible d’initier la discussion : annonce ou destinataire manquant.", "error");
+        return;
+    }
 
     toggleGlobalLoader(true, 'Ouverture de la discussion...');
     try {
-        // Contrairement à la version précédente, on n'appelle pas '/initiate' ici.
-        // On prépare juste l'UI et le premier message sera envoyé par l'utilisateur.
+        // Le `secureFetch` pour obtenir les détails du destinataire est bon.
         const recipientResponse = await secureFetch(`/api/users/${recipientId}`, {}, false);
-        if(!recipientResponse?.success || !recipientResponse.data?.user) {
-            throw new Error("Impossible de trouver les informations du destinataire.");
+        if (!recipientResponse?.success || !recipientResponse.data?.user) {
+            throw new Error("Impossible de trouver le destinataire.");
         }
-        
+
         const recipient = recipientResponse.data.user;
-        if(adId) recipient.adId = adId; // Attacher l'adId pour le premier message
+
+        // ✅ CORRECTION MAJEURE : On stocke adId dans notre variable d'état dédiée.
+        newChatContext = { adId: adId };
 
         connectSocket();
-        await openChatView(null, recipient); // Ouvre avec threadId=null pour une nouvelle conversation
+        // On ouvre la vue de chat SANS threadId, ce qui indique une nouvelle conversation.
+        await openChatView(null, recipient);
+
+        // On ouvre la modale des messages.
         document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'messages-modal' } }));
 
     } catch (error) {
@@ -649,6 +678,9 @@ async function handleInitiateChatEvent(event) {
         toggleGlobalLoader(false);
     }
 }
+
+
+
 
 function toggleChatOptionsMenu() {
     const isHidden = chatOptionsMenu.classList.toggle('hidden');
