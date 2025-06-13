@@ -46,7 +46,7 @@ let adDetailDescriptionText, adDetailSellerInfo, adDetailSellerAvatar, adDetailS
 let adDetailSellerSince, adDetailSellerAdsCount;
 let adDetailActionsContainer, adDetailFavoriteBtn, adDetailContactSellerBtn, adDetailReportBtn;
 let adDetailOwnerActions, adDetailEditAdBtn, adDetailDeleteAdBtn;
-let imageViewerModal, viewerImage, viewerPrevBtn, viewerNextBtn;
+let imageViewerModal, viewerImage, viewerPrevBtn, viewerNextBtn, closeImageViewerBtn;
 let viewerImages = [];
 let viewerIndex = 0;
 
@@ -114,9 +114,13 @@ function initAdsUI() {
     viewerImage = document.getElementById('viewer-image');
     viewerPrevBtn = document.getElementById('viewer-prev');
     viewerNextBtn = document.getElementById('viewer-next');
+    closeImageViewerBtn = document.getElementById('close-image-viewer-btn');
 
     viewerPrevBtn?.addEventListener('click', () => showViewerImage(viewerIndex - 1));
     viewerNextBtn?.addEventListener('click', () => showViewerImage(viewerIndex + 1));
+    closeImageViewerBtn?.addEventListener('click', closeImageViewer);
+
+    document.addEventListener('keydown', handleImageViewerKeydown, true);
 
     // Modale "Mes Annonces"
     myAdsModal = document.getElementById('my-ads-modal');
@@ -1127,7 +1131,22 @@ function openImageViewer(startIndex) {
     if (!imageViewerModal || !viewerImage) return;
     viewerIndex = startIndex;
     showViewerImage(viewerIndex);
-    document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'image-viewer-modal' } }));
+    imageViewerModal.classList.remove('hidden');
+    imageViewerModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeImageViewer() {
+    if (!imageViewerModal) return;
+    imageViewerModal.classList.add('hidden');
+    imageViewerModal.setAttribute('aria-hidden', 'true');
+}
+
+function handleImageViewerKeydown(event) {
+    if (event.key === 'Escape' && imageViewerModal && imageViewerModal.getAttribute('aria-hidden') === 'false') {
+        event.stopPropagation();
+        event.preventDefault();
+        closeImageViewer();
+    }
 }
 
 function showViewerImage(index) {
