@@ -138,7 +138,7 @@ function initAdsUI() {
     adDetailDescriptionWrapper = document.getElementById('ad-detail-description-wrapper');
     adDetailDescriptionText = document.getElementById('ad-detail-description-text');
     toggleDescriptionBtn = document.getElementById('toggle-description-btn');
-    adDetailSellerInfo = document.getElementById('ad-detail-seller-info');
+    adDetailSellerInfo = document.getElementById('sticky-seller-info');
     adDetailSellerAvatar = document.getElementById('ad-detail-seller-avatar');
     adDetailSellerName = document.getElementById('ad-detail-seller-name');
     adDetailSellerSince = document.getElementById('ad-detail-seller-since');

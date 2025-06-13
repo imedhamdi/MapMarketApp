@@ -706,22 +706,6 @@
                                 <button id="toggle-description-btn" type="button" class="btn btn-link" style="display: none;">Lire la suite...</button>
                             </section>
 
-                            <section id="ad-detail-seller-info-section" aria-labelledby="ad-detail-seller-title">
-                                <h4 id="ad-detail-seller-title" data-i18n="adDetail.sellerInfo">Informations sur le
-                                    vendeur</h4>
-                                <div id="ad-detail-seller-info" class="seller-card" data-seller-id="">
-                                    <img id="ad-detail-seller-avatar" src="avatar-default.svg" alt="Avatar du vendeur"
-                                        class="seller-avatar"
-                                        onerror="this.src='https://placehold.co/64x64/e0e0e0/757575?text=Seller';">
-                                    <div class="seller-details">
-                                        <span id="ad-detail-seller-name" class="seller-name font-semibold"></span>
-                                        <div id="ad-detail-seller-rating" class="star-rating-display"
-                                            aria-label="Note moyenne du vendeur"></div>
-                                        <p id="ad-detail-seller-since" class="seller-extra"></p>
-                                        <p id="ad-detail-seller-ads-count" class="seller-extra"></p>
-                                    </div>
-                                </div>
-                            </section>
 
 
 
@@ -735,17 +719,25 @@
                             </div>
                         </article>
                     </div>
-                    <div id="ad-detail-actions-container" class="actions-toolbar">
-                        <button data-favorite-btn data-ad-id="" id="ad-detail-favorite-btn" type="button"
-                            class="btn btn-icon action-btn" aria-pressed="false"
-                            aria-label="Ajouter aux favoris">
-                            <i class="fa-regular fa-heart"></i>
-                        </button>
-                        <button id="ad-detail-contact-seller-btn" type="button"
-                            class="btn btn-primary action-btn" data-i18n="adDetail.contactSeller"><i
-                                class="fa-solid fa-comments"></i> Contacter</button>
-                        <button id="ad-detail-navigate-btn" type="button" class="btn btn-primary action-btn"><i
-                                class="fa-solid fa-route"></i> Y aller</button>
+                    <div id="ad-detail-actions-container" class="actions-toolbar sticky-footer-bar">
+                        <div id="sticky-seller-info" class="sticky-seller-info" role="button" tabindex="0" aria-label="Voir le profil de l'utilisateur">
+                            <img id="ad-detail-seller-avatar" src="avatar-default.svg" alt="Avatar du vendeur" class="seller-avatar-small" onerror="this.src='https://placehold.co/40x40/e0e0e0/757575?text=User';">
+                            <div class="seller-details-small">
+                                <span id="ad-detail-seller-name" class="seller-name-small">Nom du vendeur</span>
+                                <span id="ad-detail-seller-since" class="seller-extra-small">Membre depuis...</span>
+                            </div>
+                        </div>
+                        <div id="sticky-action-buttons" class="sticky-action-buttons">
+                            <button data-favorite-btn data-ad-id="" id="ad-detail-favorite-btn" type="button" class="btn btn-icon action-btn" aria-pressed="false" aria-label="Ajouter aux favoris">
+                                <i class="fa-regular fa-heart"></i>
+                            </button>
+                            <button id="ad-detail-contact-seller-btn" type="button" class="btn btn-primary action-btn">
+                                <i class="fa-solid fa-comments"></i> Contacter
+                            </button>
+                            <button id="ad-detail-navigate-btn" type="button" class="btn btn-secondary action-btn" aria-label="Y aller">
+                                <i class="fa-solid fa-route"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
