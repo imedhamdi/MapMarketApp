@@ -12,6 +12,7 @@ import {
     showToast,
     toggleGlobalLoader,
     sanitizeHTML,
+    formatPrice,
     getQueryParam,
     debounce
 } from './utils.js';
@@ -20,8 +21,8 @@ let mapInstance = null; // Instance de la carte Leaflet
 let userMarker = null; // Marqueur pour la position de l'utilisateur
 let tempMarker = null; // Marqueur temporaire pour la création d'annonce/alerte
 let adMarkersLayer = null; // Layer group pour les marqueurs d'annonces (pour clustering)
+let adMarkersById = {}; // Stocke les marqueurs par ID
 let alertMarkersLayer = null; // Layer group pour les marqueurs/zones d'alertes
-let adMarkersById = {};
 
 let listViewContainer, adsListView, toggleViewBtn;
 
@@ -171,16 +172,17 @@ export function init() {
 
         if (toggleViewBtn && listViewContainer) {
             toggleViewBtn.addEventListener('click', () => {
-                const hidden = listViewContainer.classList.toggle('hidden');
-                listViewContainer.setAttribute('aria-hidden', hidden.toString());
+                const isHidden = listViewContainer.classList.toggle('hidden');
+                listViewContainer.setAttribute('aria-hidden', isHidden.toString());
                 const icon = toggleViewBtn.querySelector('i');
-                if (!hidden) {
-                    renderAdsInListView();
+                
+                if (!isHidden) { // Si la liste est maintenant visible
+                    renderAdsInListView(); // Peupler la liste avec les annonces visibles sur la carte
                     toggleViewBtn.setAttribute('aria-label', 'Afficher la carte');
-                    if (icon) { icon.classList.remove('fa-list'); icon.classList.add('fa-map'); }
-                } else {
+                    if (icon) { icon.className = 'fa-solid fa-map'; }
+                } else { // Si la carte est maintenant visible
                     toggleViewBtn.setAttribute('aria-label', 'Afficher la liste des annonces');
-                    if (icon) { icon.classList.remove('fa-map'); icon.classList.add('fa-list'); }
+                    if (icon) { icon.className = 'fa-solid fa-list'; }
                 }
             });
         }
@@ -534,59 +536,47 @@ export function removeTempMarker() {
 export function displayAdsOnMap(ads) {
     if (!mapInstance || !adMarkersLayer) return;
     adMarkersLayer.clearLayers();
-    adMarkersById = {};
+    adMarkersById = {}; // Vider l'objet à chaque mise à jour
+
     if (!ads || ads.length === 0) {
+        // Si la vue liste est affichée, s'assurer qu'elle montre le message "aucune annonce"
+        if(listViewContainer && !listViewContainer.classList.contains('hidden')) renderAdsInListView();
         return;
     }
+
     ads.forEach(ad => {
         const lat = ad.latitude ?? ad.location?.coordinates?.[1];
         const lng = ad.longitude ?? ad.location?.coordinates?.[0];
-        if (lat != null && lng != null) {
-            const marker = L.marker([lat, lng], { icon: adIconConfig(ad), alt: sanitizeHTML(ad.title) });
-            const priceTxt = ad.price != null
-                ? sanitizeHTML(
-                    state.getLanguage() === 'fr'
-                        ? ad.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
-                        : ad.price.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
-                  )
-                : 'Prix non spécifié';
-            const categoryTxt = sanitizeHTML(ad.categoryLabel || ad.category || '');
-            const adId = ad._id || ad.id;
+        const adId = ad._id || ad.id;
 
-            marker.bindPopup(`
+        if (lat != null && lng != null && adId) {
+            const marker = L.marker([lat, lng], { icon: adIconConfig(ad), alt: sanitizeHTML(ad.title) });
+
+            const popupContent = `
                 <div class="map-popup-content">
                     <h4>${sanitizeHTML(ad.title)}</h4>
-                    <p class="price">${priceTxt}</p>
-                    <p class="category">${categoryTxt}</p>
-                    <button class="btn btn-sm btn-primary view-ad-detail-btn" data-ad-id="${adId}" aria-label="Voir les détails de ${sanitizeHTML(ad.title)}">Voir détails</button>
-                </div>
-            `);
+                    <p class="price">${ad.price != null ? sanitizeHTML(formatPrice(ad.price)) : 'Prix non spécifié'}</p>
+                    <p class="category">${sanitizeHTML(ad.categoryLabel || ad.category || '')}</p>
+                    <button class="btn btn-sm btn-primary view-ad-detail-btn" data-ad-id="${adId}">Voir détails</button>
+                </div>`;
+            marker.bindPopup(popupContent);
 
             marker.on('popupopen', (e) => {
                 const popupNode = e.popup.getElement();
-                const btn = popupNode.querySelector(`.view-ad-detail-btn[data-ad-id="${adId}"]`);
-                if (btn) {
-                    btn.replaceWith(btn.cloneNode(true));
-                    popupNode.querySelector(`.view-ad-detail-btn[data-ad-id="${adId}"]`).addEventListener('click', () => {
-                        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'ad-detail-modal' } }));
-                        document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: adId } }));
-                    });
-                }
+                // Utiliser la délégation d'événement ou s'assurer que le bouton est cliquable
+                popupNode.querySelector(`.view-ad-detail-btn`)?.addEventListener('click', () => {
+                     document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: adId } }));
+                });
             });
-            marker.on('add', () => {
-                const el = marker.getElement();
-                if (el) {
-                    el.classList.add('map-marker-animate');
-                    setTimeout(() => el.classList.remove('map-marker-animate'), 600);
-                }
-            });
-
             adMarkersLayer.addLayer(marker);
-            adMarkersById[adId] = marker;
-        } else {
-            console.warn(`Annonce "${ad.title}" (ID: ${ad._id || ad.id}) n'a pas de coordonnées valides.`);
+            adMarkersById[adId] = marker; // Stocker le marqueur par ID
         }
     });
+    
+    // Mettre à jour la vue liste si elle est actuellement affichée
+    if(listViewContainer && !listViewContainer.classList.contains('hidden')) {
+        renderAdsInListView();
+    }
 }
 
 export function displayAlertsOnMap(alerts) {
@@ -614,46 +604,57 @@ export function renderAdsInListView() {
     adsListView.innerHTML = '';
     const bounds = mapInstance.getBounds();
     const ads = state.get('ads') || [];
-    const visible = ads.filter(ad => {
+    
+    const visibleAds = ads.filter(ad => {
         const lat = ad.latitude ?? ad.location?.coordinates?.[1];
         const lng = ad.longitude ?? ad.location?.coordinates?.[0];
         return lat != null && lng != null && bounds.contains([lat, lng]);
     });
 
-    const template = document.getElementById('my-ad-item-template');
-    if (!template) return;
+    const adItemTemplate = document.getElementById('my-ad-item-template');
+    if (visibleAds.length === 0 || !adItemTemplate) {
+        adsListView.innerHTML = '<li class="placeholder-message" style="background: none; border: none;"><i class="fa-solid fa-box-open"></i> Aucune annonce dans cette zone. Déplacez la carte ou dézoomez.</li>';
+        return;
+    }
 
-    visible.forEach(ad => {
-        const clone = template.content.firstElementChild.cloneNode(true);
+    visibleAds.forEach(ad => {
         const adId = ad._id || ad.id;
-        clone.dataset.adId = adId;
-        const img = clone.querySelector('img');
+        const clone = adItemTemplate.content.cloneNode(true);
+        const listItem = clone.querySelector('li');
+        listItem.dataset.adId = adId;
+
+        const img = listItem.querySelector('.item-image');
         if (img) {
             img.src = (ad.imageUrls && ad.imageUrls[0]) || 'https://placehold.co/80x80/e0e0e0/757575?text=Ad';
+            img.alt = `Image pour ${ad.title}`;
         }
-        const titleEl = clone.querySelector('.item-title');
-        if (titleEl) titleEl.textContent = ad.title;
-        const priceEl = clone.querySelector('.item-price');
-        if (priceEl) {
-            priceEl.textContent = ad.price != null ? (state.getLanguage() === 'fr'
-                ? ad.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
-                : ad.price.toLocaleString('en-US', { style: 'currency', currency: 'USD' })) : 'N/A';
-        }
-        const actions = clone.querySelector('.my-ad-actions');
-        if (actions) actions.remove();
 
-        clone.addEventListener('mouseenter', () => {
-            const marker = adMarkersById[adId];
-            const el = marker && marker.getElement();
-            if (el) el.classList.add('map-marker-custom--highlighted');
+        const title = listItem.querySelector('.item-title');
+        if (title) title.textContent = ad.title;
+        
+        const price = listItem.querySelector('.item-price');
+        if(price) price.textContent = formatPrice(ad.price);
+
+        // Retirer les actions d'édition/suppression car ce ne sont pas les annonces de l'utilisateur
+        listItem.querySelector('.my-ad-actions')?.remove();
+
+        listItem.addEventListener('click', () => {
+            document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: adId } }));
         });
-        clone.addEventListener('mouseleave', () => {
+
+        // Interaction avec la carte
+        listItem.addEventListener('mouseenter', () => {
             const marker = adMarkersById[adId];
-            const el = marker && marker.getElement();
-            if (el) el.classList.remove('map-marker-custom--highlighted');
+            if (marker && marker.getElement()) {
+                marker.getElement().classList.add('map-marker-custom--highlighted');
+                marker.openPopup();
+            }
         });
-        clone.addEventListener('click', () => {
-            document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId } }));
+        listItem.addEventListener('mouseleave', () => {
+            const marker = adMarkersById[adId];
+            if (marker && marker.getElement()) {
+                marker.getElement().classList.remove('map-marker-custom--highlighted');
+            }
         });
         adsListView.appendChild(clone);
     });
