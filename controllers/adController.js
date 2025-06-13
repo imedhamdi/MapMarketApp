@@ -262,22 +262,25 @@ exports.getAdById = asyncHandler(async (req, res, next) => {
     ad.viewCount = (ad.viewCount || 0) + 1;
     await ad.save({ validateBeforeSave: false });
 
-    let adToReturn = mapImageUrls(req, ad.toObject());
-
     if (ad && ad.userId) {
         const adsPublishedCount = await Ad.countDocuments({ userId: ad.userId._id, status: 'online' });
+        // Crée une copie modifiable de l'objet ad
         const adObject = ad.toObject();
+
+        // S'assurer que le sous-objet stats existe
         if (!adObject.userId.stats) {
             adObject.userId.stats = {};
         }
         adObject.userId.stats.adsPublished = adsPublishedCount;
-        adToReturn = mapImageUrls(req, adObject);
+
+        // Mettre à jour la variable `ad` utilisée par le reste de la fonction
+        Object.assign(ad, adObject);
     }
 
     res.status(200).json({
         success: true,
         data: {
-            ad: adToReturn,
+            ad: mapImageUrls(req, ad.toObject()),
         },
     });
 });

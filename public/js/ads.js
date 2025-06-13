@@ -43,7 +43,7 @@ let adDetailModal, adDetailBodyContent, adDetailLoader, adDetailContent;
 let adDetailCarouselTrack, adDetailCarouselPrevBtn, adDetailCarouselNextBtn, adDetailCarouselDotsContainer;
 let adDetailItemTitle, adDetailPrice, adDetailCategory, adDetailLocation, adDetailDate;
 let adDetailDescriptionText, adDetailSellerInfo, adDetailSellerAvatar, adDetailSellerName;
-let adDetailSellerSince, adDetailSellerAdsCount, adDetailViewProfileBtn;
+let adDetailSellerSince, adDetailSellerAdsCount;
 let adDetailActionsContainer, adDetailFavoriteBtn, adDetailContactSellerBtn, adDetailReportBtn;
 let adDetailOwnerActions, adDetailEditAdBtn, adDetailDeleteAdBtn;
 let imageViewerModal, viewerImage, viewerPrevBtn, viewerNextBtn;
@@ -101,7 +101,6 @@ function initAdsUI() {
     adDetailSellerName = document.getElementById('ad-detail-seller-name');
     adDetailSellerSince = document.getElementById('ad-detail-seller-since');
     adDetailSellerAdsCount = document.getElementById('ad-detail-seller-ads-count');
-    adDetailViewProfileBtn = document.getElementById('ad-detail-view-profile-btn');
     // adDetailSellerRating = document.getElementById('ad-detail-seller-rating'); // Pour les avis futurs
     adDetailActionsContainer = document.getElementById('ad-detail-actions-container');
     adDetailFavoriteBtn = document.getElementById('ad-detail-favorite-btn');
@@ -898,14 +897,6 @@ async function loadAndDisplayAdDetails(adId) {
                 if (adDetailSellerInfo) adDetailSellerInfo.dataset.sellerId = ad.userId._id;
                 if (adDetailSellerSince) adDetailSellerSince.textContent = `Membre depuis ${formatDate(ad.userId.createdAt, { month: 'long', year: 'numeric' })}`;
                 if (adDetailSellerAdsCount) adDetailSellerAdsCount.textContent = `${ad.userId.stats?.adsPublished || 0} annonce(s) active(s)`;
-                if (adDetailViewProfileBtn) {
-                    const newBtn = adDetailViewProfileBtn.cloneNode(true);
-                    adDetailViewProfileBtn.replaceWith(newBtn);
-                    adDetailViewProfileBtn = newBtn;
-                    adDetailViewProfileBtn.addEventListener('click', () => {
-                        document.dispatchEvent(new CustomEvent('mapMarket:viewPublicProfile', { detail: { userId: ad.userId._id } }));
-                    });
-                }
             } else {
                 if (adDetailSellerInfo) adDetailSellerInfo.classList.add('hidden');
             }
