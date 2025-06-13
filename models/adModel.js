@@ -22,6 +22,14 @@ const adSchema = new mongoose.Schema({
         required: [true, 'Le prix est requis.'],
         min: [0, 'Le prix ne peut pas être négatif.'],
     },
+    currency: {
+        type: String,
+        required: [true, 'La devise est requise.'],
+        default: 'EUR',
+        uppercase: true,
+        trim: true,
+        maxlength: 3
+    },
     category: {
         type: String, // Ou mongoose.Schema.ObjectId si vous avez un modèle Category
         required: [true, 'La catégorie est requise.'],

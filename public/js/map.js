@@ -586,7 +586,7 @@ function showAdPreviewCard(ad) {
         image.alt = `Image de ${sanitizeHTML(ad.title)}`;
     }
     if (title) title.textContent = sanitizeHTML(ad.title);
-    if (price) price.textContent = ad.price != null ? formatPrice(ad.price) : 'N/A';
+    if (price) price.textContent = ad.price != null ? formatPrice(ad.price, ad.currency) : 'N/A';
 
     const categories = state.getCategories ? state.getCategories() : [];
     const catObj = categories.find(c => c.id === ad.category);
@@ -683,7 +683,7 @@ export function renderAdsInListView() {
         if (title) title.textContent = ad.title;
         
         const price = listItem.querySelector('.item-price');
-        if(price) price.textContent = formatPrice(ad.price);
+        if(price) price.textContent = formatPrice(ad.price, ad.currency);
 
         // Retirer les actions d'édition/suppression car ce ne sont pas les annonces de l'utilisateur
         listItem.querySelector('.my-ad-actions')?.remove();

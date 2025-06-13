@@ -346,7 +346,7 @@ async function openChatView(threadId, recipient, threadData = null) {
 
         if(thumb) thumb.src = (adForSummary.imageUrls && adForSummary.imageUrls[0]) ? adForSummary.imageUrls[0] : 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
         if(link) link.textContent = sanitizeHTML(adForSummary.title);
-        if(price) price.textContent = formatPrice(adForSummary.price);
+        if(price) price.textContent = formatPrice(adForSummary.price, adForSummary.currency);
         
         link.onclick = (e) => {
             e.preventDefault();

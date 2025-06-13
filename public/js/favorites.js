@@ -246,7 +246,7 @@ function renderFavoritesListWithData(favoriteAdsData) {
             img.alt = `Image de ${sanitizeHTML(ad.title)}`;
         }
         if (title) title.textContent = sanitizeHTML(ad.title);
-        if (price) price.textContent = ad.price != null ? formatPrice(ad.price) : 'N/A';
+        if (price) price.textContent = ad.price != null ? formatPrice(ad.price, ad.currency) : 'N/A';
         const categoryObj = state.getCategories().find(c => c.id === ad.category);
         if (category) category.textContent = categoryObj ? sanitizeHTML(categoryObj.name) : sanitizeHTML(ad.category);
 

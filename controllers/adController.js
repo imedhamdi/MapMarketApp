@@ -6,9 +6,25 @@ const { logger } = require('../config/winston');
 const fs = require('fs');
 const path = require('path');
 const APIFeatures = require('../utils/apiFeatures'); // Utilitaire pour filtres, tri, pagination (à créer)
+const fetch = require('node-fetch'); // NOTE : Assurez-vous que node-fetch est installé ou utilisez l'API fetch native de Node 18+
 
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+// Fonction d'aide pour récupérer la devise à partir du code pays
+const getCurrencyFromCountryCode = (countryCode) => {
+    const currencyMap = {
+        'fr': 'EUR', 'de': 'EUR', 'es': 'EUR', 'it': 'EUR', // Europe
+        'us': 'USD', // États-Unis
+        'gb': 'GBP', // Royaume-Uni
+        'tn': 'TND', // Tunisie
+        'ma': 'MAD', // Maroc
+        'dz': 'DZD', // Algérie
+        'ca': 'CAD', // Canada
+        // Ajoutez d'autres pays et devises au besoin
+    };
+    return currencyMap[countryCode.toLowerCase()] || 'EUR';
 };
 
 // Helper pour construire les URLs des images
@@ -101,11 +117,28 @@ exports.createAd = asyncHandler(async (req, res, next) => {
 
     logger.info('BACKEND: Toutes les validations des champs de base sont passées.');
 
+    // --- Début de la détection de devise ---
+    let adCurrency = 'EUR';
+    try {
+        const geoResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${parsedLat}&lon=${parsedLng}&accept-language=en`);
+        if (geoResponse.ok) {
+            const geoData = await geoResponse.json();
+            if (geoData && geoData.address && geoData.address.country_code) {
+                adCurrency = getCurrencyFromCountryCode(geoData.address.country_code);
+                logger.info(`Devise détectée pour l'annonce : ${adCurrency} (via country_code: ${geoData.address.country_code})`);
+            }
+        }
+    } catch (geoError) {
+        logger.warn(`Échec du géocodage inversé pour la détection de devise. Utilisation de la devise par défaut. Erreur: ${geoError.message}`);
+    }
+    // --- Fin de la détection de devise ---
+
     // 3. Préparation de l'objet adData pour la création
     const adData = {
         title: title.trim(),
         description: description.trim(),
         price: parsedPrice,
+        currency: adCurrency,
         category: category.trim(), // Devrait être un ID de catégorie valide
         location: {
             type: 'Point',
@@ -304,11 +337,26 @@ exports.updateAd = asyncHandler(async (req, res, next) => {
 
     // Gérer la mise à jour des coordonnées si fournies
     if (req.body.latitude && req.body.longitude) {
+        const newLat = parseFloat(req.body.latitude);
+        const newLng = parseFloat(req.body.longitude);
         updates.location = {
             type: 'Point',
-            coordinates: [parseFloat(req.body.longitude), parseFloat(req.body.latitude)],
+            coordinates: [newLng, newLat],
             address: req.body.locationAddress || ad.location.address // Conserver l'ancienne adresse si non fournie
         };
+        // Détection de devise si la localisation change
+        try {
+            const geoResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${newLat}&lon=${newLng}&accept-language=en`);
+            if (geoResponse.ok) {
+                const geoData = await geoResponse.json();
+                if (geoData && geoData.address && geoData.address.country_code) {
+                    updates.currency = getCurrencyFromCountryCode(geoData.address.country_code);
+                    logger.info(`Devise détectée pour la mise à jour : ${updates.currency} (via country_code: ${geoData.address.country_code})`);
+                }
+            }
+        } catch (geoError) {
+            logger.warn(`Échec du géocodage inversé lors de la mise à jour pour la détection de devise. Erreur: ${geoError.message}`);
+        }
     } else if (req.body.locationAddress && (!req.body.latitude || !req.body.longitude)) {
         // Si seule l'adresse change, il faudrait potentiellement géocoder pour mettre à jour les coordonnées
         // Pour l'instant, on met juste à jour le texte de l'adresse
