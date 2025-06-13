@@ -13,7 +13,8 @@ import {
     secureFetch,
     toggleGlobalLoader,
     sanitizeHTML,
-    formatDate
+    formatDate,
+    formatPrice
 } from './utils.js';
 
 // --- Constantes ---
@@ -269,7 +270,7 @@ function showThreadList() {
  * @param {string|null} threadId - L'ID du thread, ou null pour une nouvelle discussion.
  * @param {object} recipient - L'objet de l'autre participant.
  */
-async function openChatView(threadId, recipient) {
+async function openChatView(threadId, recipient, threadData) {
     activeThreadId = threadId;
     currentRecipient = recipient;
     newChatContext = threadId ? null : {
@@ -282,6 +283,42 @@ async function openChatView(threadId, recipient) {
     // Mise à jour UI
     chatRecipientAvatar.src = recipient?.avatarUrl || 'avatar-default.svg';
     chatRecipientName.textContent = sanitizeHTML(recipient?.name || 'Nouveau contact');
+
+    const chatAdSummary = document.getElementById('chat-ad-summary');
+    const chatAdThumbnail = document.getElementById('chat-ad-thumbnail');
+    const chatAdLink = document.getElementById('chat-ad-link');
+    const chatAdPrice = document.getElementById('chat-ad-price');
+
+    if (chatAdSummary && threadData && threadData.ad) {
+        chatAdSummary.classList.remove('hidden');
+
+        if (chatAdThumbnail) {
+            const imageUrl = (threadData.ad.imageUrls && threadData.ad.imageUrls.length > 0)
+                ? threadData.ad.imageUrls[0]
+                : 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
+            chatAdThumbnail.src = imageUrl;
+            chatAdThumbnail.alt = `Miniature de ${sanitizeHTML(threadData.ad.title)}`;
+        }
+
+        if (chatAdLink) {
+            chatAdLink.textContent = sanitizeHTML(threadData.ad.title);
+            chatAdLink.href = `#ad-detail-${threadData.ad._id}`;
+            chatAdLink.onclick = (e) => {
+                e.preventDefault();
+                document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'messages-modal' } }));
+                setTimeout(() => {
+                    document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: threadData.ad._id } }));
+                }, 100);
+            };
+        }
+
+        if (chatAdPrice) {
+            chatAdPrice.textContent = formatPrice(threadData.ad.price);
+        }
+
+    } else if (chatAdSummary) {
+        chatAdSummary.classList.add('hidden');
+    }
 
     threadListView.classList.remove('active-view');
     chatView.classList.add('active-view');
@@ -375,7 +412,7 @@ function renderThreadList(threadsData) {
         unreadBadge.textContent = unreadCount;
         unreadBadge.classList.toggle('hidden', unreadCount === 0);
 
-        li.addEventListener('click', () => openChatView(thread._id, recipient));
+        li.addEventListener('click', () => openChatView(thread._id, recipient, thread));
         threadListUl.appendChild(clone);
     });
 }
@@ -792,7 +829,7 @@ async function handleInitiateChatEvent(event) {
         newChatContext = { recipientId, adId };
 
         // Préparer la vue de chat immédiatement
-        openChatView(null, currentRecipient);
+        openChatView(null, currentRecipient, null);
         
         // Ouvrir la modale
         document.dispatchEvent(new CustomEvent('mapmarket:openModal', { 
