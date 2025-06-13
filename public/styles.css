@@ -3248,3 +3248,58 @@ body.dark-mode .meta-badge {
 .collapsible-description.expanded::after {
     display: none;
 }
+
+/* ============================================= */
+/* ==   AMÉLIORATION VISUELLE DES BADGES        == */
+/* ============================================= */
+
+.meta-badge {
+    /* Styles de base déjà présents, on ajoute les couleurs spécifiques */
+    font-weight: 500;
+}
+
+/* Couleur pour la catégorie (basée sur la couleur primaire) */
+#ad-detail-category {
+    background-color: rgba(var(--primary-color-rgb), 0.1);
+    color: var(--primary-color);
+}
+#ad-detail-category i {
+    color: var(--primary-color);
+}
+
+/* Couleur pour la localisation (basée sur la couleur de succès/vert) */
+#ad-detail-location {
+    background-color: rgba(34, 197, 94, 0.1); /* Vert */
+    color: #15803d; /* Vert foncé */
+}
+#ad-detail-location i {
+    color: #15803d;
+}
+
+/* Couleur pour la distance (basée sur la couleur accent/orange) */
+#ad-detail-distance {
+    background-color: rgba(245, 158, 11, 0.1); /* Orange */
+    color: #b45309; /* Orange foncé */
+}
+#ad-detail-distance i {
+    color: #b45309;
+}
+
+/* Couleur pour la date (basée sur le gris neutre) */
+#ad-detail-date {
+    background-color: var(--gray-200);
+    color: var(--gray-600);
+}
+#ad-detail-date i {
+    color: var(--gray-500);
+}
+
+/* Styles pour le mode sombre */
+body.dark-mode #ad-detail-category { background-color: rgba(var(--primary-color-rgb), 0.2); color: var(--primary-color-light); }
+body.dark-mode #ad-detail-category i { color: var(--primary-color-light); }
+body.dark-mode #ad-detail-location { background-color: rgba(74, 222, 128, 0.2); color: #a3e635; }
+body.dark-mode #ad-detail-location i { color: #a3e635; }
+body.dark-mode #ad-detail-distance { background-color: rgba(251, 191, 36, 0.2); color: #facc15; }
+body.dark-mode #ad-detail-distance i { color: #facc15; }
+body.dark-mode #ad-detail-date { background-color: var(--gray-700); color: var(--gray-300); }
+body.dark-mode #ad-detail-date i { color: var(--gray-400); }
