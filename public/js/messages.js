@@ -29,6 +29,8 @@ let messagesModal, threadListView, chatView, threadListUl, threadItemTemplate, n
 let backToThreadsBtn, chatRecipientAvatar, chatRecipientName, chatOptionsBtn, chatOptionsMenu, blockUserChatBtn, deleteChatBtn;
 let chatMessagesContainer, chatMessageTemplate, chatHistoryLoader, chatTypingIndicator;
 let chatInputArea, chatMessageInput, sendChatMessageBtn, chatAttachImageBtn, chatImageUploadInput, chatImagePreviewContainer;
+let chatMakeOfferBtn, chatShareLocationBtn, chatMeetBtn, offerModal, submitOfferBtn, appointmentModal, submitAppointmentBtn;
+let threadsTabs;
 let messagesNavBadge, navMessagesBtn;
 let newMessagesSound;
 
@@ -43,6 +45,7 @@ let isLoadingHistory = false;
 let allMessagesLoaded = false;
 let typingTimer = null;
 let tempImageFile = null;
+let currentTabRole = 'purchases';
 /**
  * Initialise le module de messagerie.
  */
@@ -82,7 +85,15 @@ function initializeUI() {
         navMessagesBtn: 'nav-messages-btn',
         chatAttachImageBtn: 'chat-attach-image-btn',
         chatImageUploadInput: 'chat-image-upload-input',
-        chatImagePreviewContainer: 'chat-image-preview-container'
+        chatImagePreviewContainer: 'chat-image-preview-container',
+        chatMakeOfferBtn: 'chat-make-offer-btn',
+        chatShareLocationBtn: 'chat-share-location-btn',
+        chatMeetBtn: 'chat-meet-btn',
+        offerModal: 'offer-modal',
+        submitOfferBtn: 'submit-offer-btn',
+        appointmentModal: 'appointment-modal',
+        submitAppointmentBtn: 'submit-appointment-btn',
+        threadsTabs: 'threads-tabs'
     };
 
     const elements = {
@@ -90,7 +101,9 @@ function initializeUI() {
         backToThreadsBtn, chatRecipientAvatar, chatRecipientName, chatOptionsBtn, chatOptionsMenu,
         blockUserChatBtn, deleteChatBtn, chatMessagesContainer, chatMessageTemplate, chatHistoryLoader,
         chatTypingIndicator, chatInputArea, chatMessageInput, sendChatMessageBtn, messagesNavBadge,
-        navMessagesBtn, chatAttachImageBtn, chatImageUploadInput, chatImagePreviewContainer
+        navMessagesBtn, chatAttachImageBtn, chatImageUploadInput, chatImagePreviewContainer,
+        chatMakeOfferBtn, chatShareLocationBtn, chatMeetBtn, offerModal, submitOfferBtn,
+        appointmentModal, submitAppointmentBtn, threadsTabs
     };
 
     let allFound = true;
@@ -131,6 +144,38 @@ function setupEventListeners() {
     document.addEventListener('click', closeOptionsMenuOnClickOutside, true);
     chatAttachImageBtn.addEventListener('click', () => chatImageUploadInput.click());
     chatImageUploadInput.addEventListener('change', handleImageFileSelection);
+    threadsTabs?.addEventListener('click', handleThreadsTabClick);
+    chatMakeOfferBtn?.addEventListener('click', () => {
+        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'offer-modal', triggerElement: chatMakeOfferBtn } }));
+    });
+    submitOfferBtn?.addEventListener('click', () => {
+        const input = document.getElementById('offer-amount');
+        const amount = input?.value.trim();
+        if (!amount) { showToast('Montant invalide', 'warning'); return; }
+        sendMessage(`[OFFRE_PROPOSEE]:${amount}`);
+        document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'offer-modal' } }));
+    });
+    chatShareLocationBtn?.addEventListener('click', () => {
+        if (!navigator.geolocation) {
+            showToast('Géolocalisation non supportée', 'error');
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(pos => {
+            const { latitude, longitude } = pos.coords;
+            sendMessage(`[POSITION_PARTAGEE]:${latitude},${longitude}`);
+        }, () => showToast('Impossible de récupérer la position', 'error'));
+    });
+    chatMeetBtn?.addEventListener('click', () => {
+        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'appointment-modal', triggerElement: chatMeetBtn } }));
+    });
+    submitAppointmentBtn?.addEventListener('click', () => {
+        const date = document.getElementById('appointment-date')?.value;
+        const time = document.getElementById('appointment-time')?.value;
+        const location = document.getElementById('appointment-location')?.value?.trim();
+        if (!date || !time || !location) { showToast('Informations RDV manquantes', 'warning'); return; }
+        sendMessage(`[RDV_PROPOSE]:${date}|${time}|${location}`);
+        document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'appointment-modal' } }));
+    });
 }
 
 // --- GESTION DE LA CONNEXION SOCKET.IO ---
@@ -173,7 +218,7 @@ function connectSocket() {
     // Écoute des événements serveur
     socket.on('newMessage', handleNewMessageReceived);
     socket.on('typing', handleTypingEventReceived);
-    socket.on('newThread', loadThreads); // Un nouveau thread a été créé nous impliquant
+    socket.on('newThread', () => loadThreads(currentTabRole)); // Un nouveau thread a été créé nous impliquant
     socket.on('messagesRead', handleMessagesReadByOther); // L'autre participant a lu nos messages
 }
 
@@ -214,7 +259,7 @@ function showThreadList() {
     chatView.classList.remove('active-view');
     threadListView.classList.add('active-view');
     if (chatOptionsMenu) chatOptionsMenu.classList.add('hidden');
-    loadThreads();
+    loadThreads(currentTabRole);
 }
 
 /**
@@ -275,11 +320,11 @@ function clearMessagesUI() {
 /**
  * Récupère les conversations de l'utilisateur depuis l'API.
  */
-async function loadThreads() {
+async function loadThreads(role = 'purchases') {
     if (!threadListUl) return;
     threadListUl.innerHTML = '<div class="loader-container"><div class="spinner"></div></div>';
     try {
-        const response = await secureFetch(`${API_MESSAGES_URL}/threads`, {}, false);
+        const response = await secureFetch(`${API_MESSAGES_URL}/threads?role=${role}`, {}, false);
         renderThreadList(response?.data?.threads || []);
     } catch (error) {
         console.error("Erreur chargement threads:", error);
@@ -405,8 +450,79 @@ function renderMessages(messages, method) {
             img.alt = 'Image envoyée';
             textEl.innerHTML = '';
             textEl.appendChild(img);
-        } else {
-            textEl.innerHTML = sanitizeHTML(msg.text || '').replace(/\n/g, '<br>');
+        } else if (msg.text) {
+            if (msg.text.startsWith('[OFFRE_PROPOSEE]:')) {
+                const amount = msg.text.split(':')[1];
+                const tpl = document.getElementById('offer-card-template');
+                if (tpl) {
+                    const card = tpl.content.firstElementChild.cloneNode(true);
+                    card.querySelector('.offer-amount').textContent = amount;
+                    if (!isSentByMe) {
+                        card.querySelector('.offer-accept-btn')?.addEventListener('click', () => sendMessage(`[OFFRE_ACCEPTEE]:${amount}`));
+                        card.querySelector('.offer-decline-btn')?.addEventListener('click', () => sendMessage(`[OFFRE_REFUSEE]:${amount}`));
+                    } else {
+                        card.querySelector('.offer-actions')?.remove();
+                    }
+                    textEl.innerHTML = '';
+                    textEl.appendChild(card);
+                } else {
+                    textEl.textContent = `Offre proposée: ${amount}`;
+                }
+            } else if (msg.text.startsWith('[POSITION_PARTAGEE]:')) {
+                const coords = msg.text.split(':')[1].split(',');
+                const tpl = document.getElementById('location-card-template');
+                if (tpl) {
+                    const card = tpl.content.firstElementChild.cloneNode(true);
+                    card.querySelector('.location-coords').textContent = `${coords[0]}, ${coords[1]}`;
+                    card.querySelector('.location-map-link').href = `https://maps.google.com/?q=${coords[0]},${coords[1]}`;
+                    textEl.innerHTML = '';
+                    textEl.appendChild(card);
+                } else {
+                    textEl.textContent = `Position partagée: ${coords[0]}, ${coords[1]}`;
+                }
+            } else if (msg.text.startsWith('[RDV_PROPOSE]:')) {
+                const data = msg.text.split(':')[1];
+                const [date, time, loc] = data.split('|');
+                const tpl = document.getElementById('appointment-card-template');
+                if (tpl) {
+                    const card = tpl.content.firstElementChild.cloneNode(true);
+                    card.querySelector('.appointment-date').textContent = date;
+                    card.querySelector('.appointment-time').textContent = time;
+                    card.querySelector('.appointment-location').textContent = loc;
+                    if (!isSentByMe) {
+                        card.querySelector('.appointment-confirm-btn')?.addEventListener('click', () => sendMessage(`[RDV_CONFIRME]:${date}|${time}|${loc}`));
+                        card.querySelector('.appointment-cancel-btn')?.addEventListener('click', () => sendMessage(`[RDV_ANNULE]:${date}|${time}|${loc}`));
+                    } else {
+                        card.querySelector('.appointment-actions')?.remove();
+                    }
+                    textEl.innerHTML = '';
+                    textEl.appendChild(card);
+                } else {
+                    textEl.textContent = `RDV proposé: ${date} ${time} @ ${loc}`;
+                }
+            } else if (msg.text.startsWith('[OFFRE_ACCEPTEE]:')) {
+                const amount = msg.text.split(':')[1];
+                const card = chatMessagesContainer.querySelector('.offer-card:last-child .offer-status');
+                if (card) card.textContent = 'Acceptée';
+                textEl.textContent = `Offre acceptée: ${amount}`;
+            } else if (msg.text.startsWith('[OFFRE_REFUSEE]:')) {
+                const amount = msg.text.split(':')[1];
+                const card = chatMessagesContainer.querySelector('.offer-card:last-child .offer-status');
+                if (card) card.textContent = 'Refusée';
+                textEl.textContent = `Offre refusée: ${amount}`;
+            } else if (msg.text.startsWith('[RDV_CONFIRME]:')) {
+                const data = msg.text.split(':')[1];
+                const card = chatMessagesContainer.querySelector('.appointment-card:last-child .appointment-status');
+                if (card) card.textContent = 'Confirmé';
+                textEl.textContent = `RDV confirmé: ${data}`;
+            } else if (msg.text.startsWith('[RDV_ANNULE]:')) {
+                const data = msg.text.split(':')[1];
+                const card = chatMessagesContainer.querySelector('.appointment-card:last-child .appointment-status');
+                if (card) card.textContent = 'Annulé';
+                textEl.textContent = `RDV annulé: ${data}`;
+            } else {
+                textEl.innerHTML = sanitizeHTML(msg.text).replace(/\n/g, '<br>');
+            }
         }
 
         timeEl.textContent = formatDate(msg.createdAt, { hour: '2-digit', minute: '2-digit' });
@@ -435,14 +551,25 @@ function handleInputKeypress(e) {
     }
 }
 
+function handleThreadsTabClick(e) {
+    const btn = e.target.closest('[data-tab]');
+    if (!btn) return;
+    threadsTabs.querySelectorAll('[data-tab]').forEach(b => {
+        b.classList.remove('active');
+    });
+    btn.classList.add('active');
+    currentTabRole = btn.dataset.tab || 'purchases';
+    loadThreads(currentTabRole);
+}
+
 /**
  * ✅ FONCTION CORRIGÉE ET ROBUSTE
  * Fonction principale pour l'envoi de messages. Utilise le contexte courant
  * (thread existant ou newChatContext) pour fournir les informations requises
  * par l'API.
  */
-async function sendMessage() {
-    const text = chatMessageInput.value.trim();
+async function sendMessage(overrideText) {
+    const text = overrideText !== undefined ? overrideText : chatMessageInput.value.trim();
     if (!text && !tempImageFile) {
         showToast("Veuillez saisir un message ou sélectionner une image", "warning");
         return;
@@ -505,7 +632,7 @@ async function sendMessage() {
         if (!activeThreadId && response.data?.threadId) {
             activeThreadId = response.data.threadId;
             // Recharger la liste des threads
-            await loadThreads();
+            await loadThreads(currentTabRole);
             // Mettre à jour le thread actif
             const thread = response.data.thread;
             if (thread) {
@@ -555,7 +682,7 @@ function removeImagePreview() {
 function handleNewMessageReceived({ message, thread }) {
     // Recharger la liste des conversations pour qu'elle remonte en haut
     if (threadListView.classList.contains('active-view')) {
-        loadThreads();
+        loadThreads(currentTabRole);
     }
 
     if (activeThreadId === message.threadId) {
@@ -567,7 +694,7 @@ function handleNewMessageReceived({ message, thread }) {
             showToast(`Nouveau message de ${sanitizeHTML(sender.user.name)}`, 'info');
             if (newMessagesSound) newMessagesSound.play().catch(e => console.warn('Erreur lecture son:', e));
             // Mettre à jour le badge global
-            loadThreads(); // Recharge pour mettre à jour les compteurs
+            loadThreads(currentTabRole); // Recharge pour mettre à jour les compteurs
         }
     }
 }
@@ -613,7 +740,7 @@ function markThreadAsRead(threadId) {
         socket.emit('markThreadRead', { threadId });
     }
     // Mettre à jour le compteur local immédiatement
-    loadThreads();
+    loadThreads(currentTabRole);
 }
 
 function updateGlobalUnreadCount(count) {
