@@ -1914,14 +1914,8 @@ h4 {
     border-left: 0;
 }
 
-.chat-message[data-sender-id="me"] + .chat-message[data-sender-id="me"] {
+.chat-message.is-consecutive {
     margin-top: 2px;
-    border-top-right-radius: var(--border-radius-xs);
-}
-
-.chat-message:not([data-sender-id="me"])+.chat-message:not([data-sender-id="me"]) {
-    margin-top: 2px;
-    border-top-left-radius: var(--border-radius-xs);
 }
 
 .message-time {
@@ -1949,6 +1943,13 @@ h4 {
     margin-right: auto;
     text-align: center;
     box-shadow: none;
+}
+
+.date-separator {
+    text-align: center;
+    margin: var(--spacing-sm) 0;
+    color: var(--gray-500);
+    font-size: 0.85rem;
 }
 
 .chat-input-footer {

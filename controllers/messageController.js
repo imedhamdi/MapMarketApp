@@ -215,7 +215,7 @@ exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
  * POST /api/messages/messages/image (pour image, géré par Multer avant)
  */
 exports.sendMessage = asyncHandler(async (req, res, next) => {
-    const { threadId, recipientId, text, adId } = req.body;
+    const { threadId, recipientId, text, adId, type, metadata } = req.body;
     const senderId = req.user.id;
     let currentThreadId = threadId;
     let isNewThread = false;
@@ -264,11 +264,40 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
    const messageData = {
         threadId: currentThreadId,
         senderId,
-        // Cast du contenu en chaîne pour éviter les erreurs de type côté base de données
-        text: typeof text === 'string' ? text : String(text || ''),
     };
+    let parsedMeta = metadata;
+
     if (req.file) {
+        messageData.type = 'image';
         messageData.imageUrl = path.join('messages', req.file.filename).replace(/\\/g, '/');
+    } else {
+        messageData.type = type || 'text';
+        messageData.text = typeof text === 'string' ? text : String(text || '');
+    }
+
+    if (typeof parsedMeta === 'string') {
+        try { parsedMeta = JSON.parse(parsedMeta); } catch (e) { parsedMeta = null; }
+    }
+
+    if (messageData.type === 'offer') {
+        if (!parsedMeta || typeof parsedMeta.amount !== 'number' || !parsedMeta.currency) {
+            return next(new AppError('Détails de l\'offre invalides.', 400));
+        }
+        parsedMeta.status = 'pending';
+        messageData.metadata = parsedMeta;
+    } else if (messageData.type === 'appointment') {
+        if (!parsedMeta || !parsedMeta.date || !parsedMeta.location) {
+            return next(new AppError('Informations de rendez-vous manquantes.', 400));
+        }
+        parsedMeta.status = 'pending';
+        messageData.metadata = parsedMeta;
+    } else if (messageData.type === 'location') {
+        if (!parsedMeta || parsedMeta.latitude === undefined || parsedMeta.longitude === undefined) {
+            return next(new AppError('Coordonnées manquantes.', 400));
+        }
+        messageData.metadata = parsedMeta;
+    } else if (parsedMeta) {
+        messageData.metadata = parsedMeta;
     }
 
     const newMessage = await Message.create(messageData);
@@ -380,6 +409,68 @@ exports.deleteThreadLocally = asyncHandler(async (req, res, next) => {
         success: true,
         message: 'Conversation supprimée de votre vue.',
     });
+});
+
+exports.acceptOffer = asyncHandler(async (req, res, next) => {
+    const { messageId } = req.params;
+    const message = await Message.findById(messageId);
+    if (!message || message.type !== 'offer') {
+        return next(new AppError('Offre non trouvée.', 404));
+    }
+    message.metadata.status = 'accepted';
+    await message.save();
+
+    const systemMsg = await Message.create({
+        threadId: message.threadId,
+        senderId: req.user.id,
+        type: 'system',
+        text: 'Offre acceptée',
+        metadata: { offer: messageId }
+    });
+
+    const populatedSystem = await Message.findById(systemMsg._id).populate('senderId', 'name avatarUrl');
+    if (ioInstance) {
+        const thread = await Thread.findById(message.threadId).populate('participants.user', 'name avatarUrl isOnline lastSeen');
+        thread.participants.forEach(p => {
+            ioInstance.of('/chat').to(`user_${p.user._id}`).emit('newMessage', {
+                message: populatedSystem.toObject(),
+                thread: thread.toObject()
+            });
+        });
+    }
+
+    res.status(200).json({ success: true, message: 'Offre acceptée.' });
+});
+
+exports.declineOffer = asyncHandler(async (req, res, next) => {
+    const { messageId } = req.params;
+    const message = await Message.findById(messageId);
+    if (!message || message.type !== 'offer') {
+        return next(new AppError('Offre non trouvée.', 404));
+    }
+    message.metadata.status = 'declined';
+    await message.save();
+
+    const systemMsg = await Message.create({
+        threadId: message.threadId,
+        senderId: req.user.id,
+        type: 'system',
+        text: 'Offre refusée',
+        metadata: { offer: messageId }
+    });
+
+    const populatedSystem = await Message.findById(systemMsg._id).populate('senderId', 'name avatarUrl');
+    if (ioInstance) {
+        const thread = await Thread.findById(message.threadId).populate('participants.user', 'name avatarUrl isOnline lastSeen');
+        thread.participants.forEach(p => {
+            ioInstance.of('/chat').to(`user_${p.user._id}`).emit('newMessage', {
+                message: populatedSystem.toObject(),
+                thread: thread.toObject()
+            });
+        });
+    }
+
+    res.status(200).json({ success: true, message: 'Offre refusée.' });
 });
 
 

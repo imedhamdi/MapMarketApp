@@ -41,6 +41,11 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: 'avatar-default.svg', // Ou une URL placeholder complète
     },
+    isOnline: {
+        type: Boolean,
+        default: false
+    },
+    lastSeen: Date,
     role: {
         type: String,
         enum: ['user', 'admin', 'moderator'], // Définir les rôles possibles
