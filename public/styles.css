@@ -1914,8 +1914,54 @@ h4 {
     border-left: 0;
 }
 
-.chat-message.is-consecutive {
+
+.chat-message.is-first-in-group {
+    margin-top: var(--spacing-sm);
+}
+
+.chat-message.is-middle-in-group,
+.chat-message.is-last-in-group {
     margin-top: 2px;
+}
+
+.chat-message[data-sender-id="me"].is-first-in-group {
+    border-top-right-radius: var(--border-radius-lg);
+    border-bottom-right-radius: var(--border-radius-xs);
+}
+
+.chat-message[data-sender-id="me"].is-middle-in-group {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.chat-message[data-sender-id="me"].is-last-in-group {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: var(--border-radius-lg);
+}
+
+.chat-message[data-sender-id="me"].is-single-message {
+    border-top-right-radius: var(--border-radius-lg);
+    border-bottom-right-radius: var(--border-radius-lg);
+}
+
+.chat-message:not([data-sender-id="me"]).is-first-in-group {
+    border-top-left-radius: var(--border-radius-lg);
+    border-bottom-left-radius: var(--border-radius-xs);
+}
+
+.chat-message:not([data-sender-id="me"]).is-middle-in-group {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.chat-message:not([data-sender-id="me"]).is-last-in-group {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: var(--border-radius-lg);
+}
+
+.chat-message:not([data-sender-id="me"]).is-single-message {
+    border-top-left-radius: var(--border-radius-lg);
+    border-bottom-left-radius: var(--border-radius-lg);
 }
 
 .message-time {
@@ -3161,6 +3207,28 @@ body.dark-mode .chat-ad-summary:hover {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
+    position: relative;
+}
+
+.offer-card::before {
+    content: "\f0d6";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: var(--spacing-xs);
+}
+
+.appointment-card::before {
+    content: "\f073";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: var(--spacing-xs);
+}
+
+.location-card::before {
+    content: "\f3c5";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: var(--spacing-xs);
 }
 
 .offer-actions, .appointment-actions {

@@ -121,6 +121,10 @@ function initializeUI() {
         eval(`${key} = element;`);
     }
 
+    if (sendChatMessageBtn) {
+        sendChatMessageBtn.disabled = true;
+    }
+
     if (allFound) {
         try {
             newMessagesSound = new Audio('/sounds/new_message_notification.mp3');
@@ -143,7 +147,10 @@ function setupEventListeners() {
     backToThreadsBtn.addEventListener('click', showThreadList);
     sendChatMessageBtn.addEventListener('click', sendMessage);
     chatMessageInput.addEventListener('keypress', handleInputKeypress);
-    chatMessageInput.addEventListener('input', sendTypingEvent);
+    chatMessageInput.addEventListener('input', () => {
+        sendTypingEvent();
+        updateSendButtonState();
+    });
     chatOptionsBtn.addEventListener('click', toggleChatOptionsMenu);
     document.addEventListener('click', closeOptionsMenuOnClickOutside, true);
     chatComposerBtn?.addEventListener('click', toggleComposerMenu);
@@ -385,6 +392,7 @@ async function openChatView(threadId, recipient, threadData = null) {
     chatMessageInput.value = '';
     chatMessageInput.focus();
     removeImagePreview();
+    updateSendButtonState();
     
     if (threadId) {
         markThreadAsRead(threadId);
@@ -525,9 +533,8 @@ function renderMessages(messages, method) {
     const fragment = document.createDocumentFragment();
     const currentUserId = state.getCurrentUser()._id;
 
-    let lastSender = null;
     let lastDay = null;
-    messages.forEach(msg => {
+    messages.forEach((msg, index) => {
         const msgDate = new Date(msg.createdAt);
         const msgDayKey = msgDate.toDateString();
         if (lastDay && lastDay !== msgDayKey) {
@@ -547,9 +554,7 @@ function renderMessages(messages, method) {
 
         const isSentByMe = (msg.senderId?._id || msg.senderId) === currentUserId;
         messageEl.dataset.senderId = isSentByMe ? 'me' : 'other';
-        if (lastSender && lastSender === (msg.senderId?._id || msg.senderId)) {
-            messageEl.classList.add('is-consecutive');
-        }
+        // classes de groupage déterminées après insertion
 
         switch (msg.type) {
             case 'image':
@@ -631,7 +636,6 @@ function renderMessages(messages, method) {
             readEl.classList.add('hidden');
         }
         fragment.appendChild(clone);
-        lastSender = msg.senderId?._id || msg.senderId;
         lastDay = msgDayKey;
     });
 
@@ -645,6 +649,7 @@ function renderMessages(messages, method) {
         chatMessagesContainer.appendChild(fragment);
         scrollToBottom(chatMessagesContainer);
     }
+    updateMessageGrouping();
 }
 
 
@@ -744,6 +749,7 @@ async function sendMessage(custom) {
     chatMessageInput.value = '';
     removeImagePreview(); // Cette fonction gère aussi tempImageFile = null;
     stopTypingEvent();
+    updateSendButtonState();
 
     try {
         const response = await secureFetch(endpoint, requestOptions, false);
@@ -776,6 +782,7 @@ function handleImageFileSelection(event) {
 
     tempImageFile = file;
     displayImagePreview(file);
+    updateSendButtonState();
 }
 
 function displayImagePreview(file) {
@@ -797,6 +804,33 @@ function removeImagePreview() {
     chatImagePreviewContainer.innerHTML = '';
     chatImagePreviewContainer.classList.add('hidden');
     chatImageUploadInput.value = '';
+    updateSendButtonState();
+}
+
+function updateSendButtonState() {
+    const hasText = chatMessageInput.value.trim().length > 0;
+    const hasImage = !!tempImageFile;
+    if (sendChatMessageBtn) {
+        sendChatMessageBtn.disabled = !(hasText || hasImage);
+    }
+}
+
+function updateMessageGrouping() {
+    const messages = [...chatMessagesContainer.querySelectorAll('.chat-message:not(.system-message)')];
+    messages.forEach((el, idx) => {
+        el.classList.remove('is-first-in-group','is-middle-in-group','is-last-in-group','is-single-message');
+        const prev = messages[idx - 1];
+        const next = messages[idx + 1];
+        const sender = el.dataset.senderId;
+        const prevSender = prev?.dataset.senderId;
+        const nextSender = next?.dataset.senderId;
+        const isFirst = !prev || prevSender !== sender;
+        const isLast = !next || nextSender !== sender;
+        if (isFirst && isLast) el.classList.add('is-single-message');
+        else if (isFirst) el.classList.add('is-first-in-group');
+        else if (isLast) el.classList.add('is-last-in-group');
+        else el.classList.add('is-middle-in-group');
+    });
 }
 
 
