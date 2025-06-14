@@ -152,6 +152,7 @@ function setupEventListeners() {
         sendTypingEvent();
         updateSendButtonState();
     });
+    chatMessageInput.addEventListener('input', adjustTextareaHeight);
     chatOptionsBtn.addEventListener('click', toggleChatOptionsMenu);
     document.addEventListener('click', closeOptionsMenuOnClickOutside, true);
     chatComposerBtn?.addEventListener('click', toggleComposerMenu);
@@ -281,8 +282,21 @@ function connectSocket() {
     // Écoute des événements serveur
     socket.on('newMessage', handleNewMessageReceived);
     socket.on('typing', handleTypingEventReceived);
-    socket.on('newThread', () => loadThreads(currentTabRole)); // Un nouveau thread a été créé nous impliquant
-    socket.on('messagesRead', handleMessagesReadByOther); // L'autre participant a lu nos messages
+    socket.on('newThread', (newThreadData) => {
+        console.log('Nouveau thread reçu !', newThreadData);
+        loadThreads(currentTabRole);
+    });
+    socket.on('messagesRead', ({ threadId, readerId }) => {
+        if (activeThreadId === threadId) {
+            document.querySelectorAll('.chat-message[data-sender-id="me"]').forEach(msgEl => {
+                const statusContainer = msgEl.querySelector('.message-status-icons');
+                if (statusContainer) {
+                    statusContainer.innerHTML = '<i class="fa-solid fa-check-double" style="color: #4fc3f7;"></i>';
+                }
+            });
+        }
+        handleMessagesReadByOther({ threadId, readerId });
+    });
     socket.on('userStatusUpdate', handleUserStatusUpdate);
 }
 
@@ -352,7 +366,20 @@ async function openChatView(threadId, recipient, threadData = null) {
     chatRecipientAvatar.src = recipient?.avatarUrl || 'avatar-default.svg';
     chatRecipientName.textContent = sanitizeHTML(recipient?.name || 'Nouveau contact');
     if (chatRecipientStatus) {
-        chatRecipientStatus.textContent = recipient?.statusText || '';
+        if (recipient?.isOnline) {
+            chatRecipientStatus.textContent = 'en ligne';
+        } else if (recipient?.lastSeen) {
+            const diff = Date.now() - new Date(recipient.lastSeen).getTime();
+            const minutes = Math.floor(diff / 60000);
+            if (minutes < 1) chatRecipientStatus.textContent = 'vu à l\'instant';
+            else if (minutes < 60) chatRecipientStatus.textContent = `vu il y a ${minutes} minute${minutes>1?'s':''}`;
+            else {
+                const hours = Math.floor(minutes/60);
+                chatRecipientStatus.textContent = `vu il y a ${hours}h`;
+            }
+        } else {
+            chatRecipientStatus.textContent = '';
+        }
     }
 
     // -- Mise à jour du bandeau de l'annonce --
@@ -389,6 +416,7 @@ async function openChatView(threadId, recipient, threadData = null) {
     chatMessagesContainer.innerHTML = '';
     chatMessageInput.value = '';
     chatMessageInput.focus();
+    adjustTextareaHeight();
     removeImagePreview();
     updateSendButtonState();
     
@@ -905,6 +933,19 @@ function updateSendButtonState() {
     }
 }
 
+function adjustTextareaHeight() {
+    chatMessageInput.style.height = 'auto';
+    let scrollHeight = chatMessageInput.scrollHeight;
+    const maxHeight = 120;
+    if(scrollHeight > maxHeight) {
+        chatMessageInput.style.height = maxHeight + 'px';
+        chatMessageInput.style.overflowY = 'auto';
+    } else {
+        chatMessageInput.style.height = scrollHeight + 'px';
+        chatMessageInput.style.overflowY = 'hidden';
+    }
+}
+
 function updateMessageGrouping() {
     const messages = [...chatMessagesContainer.querySelectorAll('.chat-message:not(.system-message)')];
     messages.forEach((el, idx) => {
@@ -999,8 +1040,12 @@ function handleTypingEventReceived({ threadId, userName }) {
 
 function handleMessagesReadByOther({ threadId, readerId }) {
     if (threadId === activeThreadId) {
-        // Optionnel : Mettre à jour l'UI pour montrer que les messages ont été lus (double coche bleue, etc.)
-        console.log(`L'utilisateur ${readerId} a lu les messages dans ce thread.`);
+        document.querySelectorAll('.chat-message[data-sender-id="me"]').forEach(msgEl => {
+            const statusContainer = msgEl.querySelector('.message-status-icons');
+            if (statusContainer) {
+                statusContainer.innerHTML = '<i class="fa-solid fa-check-double" style="color: #4fc3f7;"></i>';
+            }
+        });
     }
 }
 
@@ -1060,20 +1105,17 @@ async function handleInitiateChatEvent(event) {
 
     toggleGlobalLoader(true, "Ouverture de la discussion...");
     try {
-        const recipientInfo = {
-            id: recipientId,
-            _id: recipientId,
-            name: recipientName || adData?.userId?.name || 'Vendeur',
-            avatarUrl: recipientAvatar || adData?.userId?.avatarUrl || 'avatar-default.svg',
-        };
-
-        const threadInfo = { ad: adData };
-
-        openChatView(null, recipientInfo, threadInfo); // On passe threadInfo qui contient adData
-        
-        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { 
-            detail: { modalId: 'messages-modal' } 
-        }));
+        const response = await secureFetch(`${API_MESSAGES_URL}/threads/initiate`, {
+            method: 'POST',
+            body: JSON.stringify({ recipientId, adId }),
+            headers: { 'Content-Type': 'application/json' }
+        }, false);
+        if (!response || !response.success) throw new Error(response?.message || 'Erreur');
+        const thread = response.data.thread;
+        const currentUser = state.getCurrentUser();
+        const recipient = thread.participants.find(p => p._id !== currentUser._id) || {};
+        openChatView(thread._id, recipient, thread);
+        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'messages-modal' } }));
     } catch (error) {
         showToast(error.message, "error");
     } finally {
