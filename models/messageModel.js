@@ -20,13 +20,20 @@ const messageSchema = new mongoose.Schema({
     //     ref: 'User',
     //     required: true,
     // },
+    type: {
+        type: String,
+        enum: ['text', 'image', 'offer', 'appointment', 'location', 'system'],
+        default: 'text'
+    },
+    metadata: {
+        type: mongoose.Schema.Types.Mixed
+    },
     text: {
         type: String,
         trim: true,
-        // Requis seulement si imageUrl n'est pas fourni
         validate: {
             validator: function(v) {
-                // Le message doit avoir soit du texte, soit une image
+                if (this.type && this.type !== 'text') return true;
                 return v || this.imageUrl;
             },
             message: 'Un message doit contenir du texte ou une image.'

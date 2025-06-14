@@ -160,9 +160,9 @@ function setupEventListeners() {
     });
     submitOfferBtn?.addEventListener('click', () => {
         const input = document.getElementById('offer-amount-input');
-        const amount = input?.value.trim();
+        const amount = parseFloat(input?.value);
         if (!amount) { showToast('Montant invalide', 'warning'); return; }
-        sendMessage(`[OFFRE_PROPOSEE]:${amount}`);
+        sendMessage({ type: 'offer', metadata: { amount, currency: 'EUR' } });
         document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'offer-modal' } }));
     });
     chatShareLocationBtn?.addEventListener('click', () => {
@@ -172,7 +172,7 @@ function setupEventListeners() {
         }
         navigator.geolocation.getCurrentPosition(pos => {
             const { latitude, longitude } = pos.coords;
-            sendMessage(`[POSITION_PARTAGEE]:${latitude},${longitude}`);
+            sendMessage({ type: 'location', metadata: { latitude, longitude } });
         }, () => showToast('Impossible de récupérer la position', 'error'));
         toggleComposerMenu(true);
     });
@@ -185,7 +185,8 @@ function setupEventListeners() {
         const time = document.getElementById('appointment-time')?.value;
         const location = document.getElementById('appointment-location')?.value?.trim();
         if (!date || !time || !location) { showToast('Informations RDV manquantes', 'warning'); return; }
-        sendMessage(`[RDV_PROPOSE]:${date}|${time}|${location}`);
+        const iso = new Date(`${date}T${time}`).toISOString();
+        sendMessage({ type: 'appointment', metadata: { date: iso, location, status: 'pending' } });
         document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'appointment-modal' } }));
     });
 
@@ -524,7 +525,17 @@ function renderMessages(messages, method) {
     const fragment = document.createDocumentFragment();
     const currentUserId = state.getCurrentUser()._id;
 
+    let lastSender = null;
+    let lastDay = null;
     messages.forEach(msg => {
+        const msgDate = new Date(msg.createdAt);
+        const msgDayKey = msgDate.toDateString();
+        if (lastDay && lastDay !== msgDayKey) {
+            const sep = document.createElement('div');
+            sep.className = 'date-separator';
+            sep.textContent = msgDate.toLocaleDateString();
+            fragment.appendChild(sep);
+        }
         const clone = chatMessageTemplate.content.cloneNode(true);
         const messageEl = clone.querySelector('.chat-message');
         const textEl = messageEl.querySelector('.message-text');
@@ -536,91 +547,81 @@ function renderMessages(messages, method) {
 
         const isSentByMe = (msg.senderId?._id || msg.senderId) === currentUserId;
         messageEl.dataset.senderId = isSentByMe ? 'me' : 'other';
+        if (lastSender && lastSender === (msg.senderId?._id || msg.senderId)) {
+            messageEl.classList.add('is-consecutive');
+        }
 
-        if (msg.imageUrl) {
-            const img = document.createElement('img');
-            img.src = msg.imageUrl;
-            img.className = 'chat-image-attachment';
-            img.alt = 'Image envoyée';
-            textEl.innerHTML = '';
-            textEl.appendChild(img);
-        } else if (msg.text) {
-            if (msg.text.startsWith('[OFFRE_PROPOSEE]:')) {
-                const amount = msg.text.split(':')[1];
-                const tpl = document.getElementById('offer-card-template');
-                if (tpl) {
-                    const card = tpl.content.firstElementChild.cloneNode(true);
-                    card.querySelector('.offer-amount').textContent = amount;
-                    if (!isSentByMe) {
-                        card.querySelector('.offer-accept-btn')?.addEventListener('click', () => sendMessage(`[OFFRE_ACCEPTEE]:${amount}`));
-                        card.querySelector('.offer-decline-btn')?.addEventListener('click', () => sendMessage(`[OFFRE_REFUSEE]:${amount}`));
+        switch (msg.type) {
+            case 'image':
+                if (msg.imageUrl) {
+                    const img = document.createElement('img');
+                    img.src = msg.imageUrl;
+                    img.className = 'chat-image-attachment';
+                    img.alt = 'Image envoyée';
+                    textEl.innerHTML = '';
+                    textEl.appendChild(img);
+                }
+                break;
+            case 'offer':
+                const offerTpl = document.getElementById('offer-card-template');
+                if (offerTpl) {
+                    const card = offerTpl.content.firstElementChild.cloneNode(true);
+                    card.querySelector('.offer-amount').textContent = msg.metadata.amount;
+                    card.querySelector('.offer-status').textContent = msg.metadata.status || '';
+                    if (!isSentByMe && msg.metadata.status === 'pending') {
+                        card.querySelector('.offer-accept-btn')?.addEventListener('click', () => handleOfferAction(msg._id, true));
+                        card.querySelector('.offer-decline-btn')?.addEventListener('click', () => handleOfferAction(msg._id, false));
                     } else {
                         card.querySelector('.offer-actions')?.remove();
                     }
                     textEl.innerHTML = '';
                     textEl.appendChild(card);
                 } else {
-                    textEl.textContent = `Offre proposée: ${amount}`;
+                    textEl.textContent = `Offre: ${msg.metadata.amount}`;
                 }
-            } else if (msg.text.startsWith('[POSITION_PARTAGEE]:')) {
-                const coords = msg.text.split(':')[1].split(',');
-                const tpl = document.getElementById('location-card-template');
-                if (tpl) {
-                    const card = tpl.content.firstElementChild.cloneNode(true);
-                    card.querySelector('.location-coords').textContent = `${coords[0]}, ${coords[1]}`;
-                    card.querySelector('.location-map-link').href = `https://maps.google.com/?q=${coords[0]},${coords[1]}`;
-                    textEl.innerHTML = '';
-                    textEl.appendChild(card);
-                } else {
-                    textEl.textContent = `Position partagée: ${coords[0]}, ${coords[1]}`;
-                }
-            } else if (msg.text.startsWith('[RDV_PROPOSE]:')) {
-                const data = msg.text.split(':')[1];
-                const [date, time, loc] = data.split('|');
-                const tpl = document.getElementById('appointment-card-template');
-                if (tpl) {
-                    const card = tpl.content.firstElementChild.cloneNode(true);
-                    card.querySelector('.appointment-date').textContent = date;
-                    card.querySelector('.appointment-time').textContent = time;
-                    card.querySelector('.appointment-location').textContent = loc;
-                    if (!isSentByMe) {
-                        card.querySelector('.appointment-confirm-btn')?.addEventListener('click', () => sendMessage(`[RDV_CONFIRME]:${date}|${time}|${loc}`));
-                        card.querySelector('.appointment-cancel-btn')?.addEventListener('click', () => sendMessage(`[RDV_ANNULE]:${date}|${time}|${loc}`));
+                break;
+            case 'appointment':
+                const appTpl = document.getElementById('appointment-card-template');
+                if (appTpl) {
+                    const card = appTpl.content.firstElementChild.cloneNode(true);
+                    card.querySelector('.appointment-date').textContent = new Date(msg.metadata.date).toLocaleDateString();
+                    card.querySelector('.appointment-time').textContent = new Date(msg.metadata.date).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+                    card.querySelector('.appointment-location').textContent = msg.metadata.location || '';
+                    card.querySelector('.appointment-status').textContent = msg.metadata.status || '';
+                    if (!isSentByMe && msg.metadata.status === 'pending') {
+                        card.querySelector('.appointment-confirm-btn')?.addEventListener('click', () => sendMessage());
+                        card.querySelector('.appointment-cancel-btn')?.addEventListener('click', () => sendMessage());
                     } else {
                         card.querySelector('.appointment-actions')?.remove();
                     }
                     textEl.innerHTML = '';
                     textEl.appendChild(card);
-                } else {
-                    textEl.textContent = `RDV proposé: ${date} ${time} @ ${loc}`;
                 }
-            } else if (msg.text.startsWith('[OFFRE_ACCEPTEE]:')) {
-                const amount = msg.text.split(':')[1];
-                const card = chatMessagesContainer.querySelector('.offer-card:last-child .offer-status');
-                if (card) card.textContent = 'Acceptée';
-                textEl.textContent = `Offre acceptée: ${amount}`;
+                break;
+            case 'location':
+                const locTpl = document.getElementById('location-card-template');
+                if (locTpl) {
+                    const card = locTpl.content.firstElementChild.cloneNode(true);
+                    card.querySelector('.location-coords').textContent = `${msg.metadata.latitude}, ${msg.metadata.longitude}`;
+                    card.querySelector('.location-map-link').href = `https://maps.google.com/?q=${msg.metadata.latitude},${msg.metadata.longitude}`;
+                    textEl.innerHTML = '';
+                    textEl.appendChild(card);
+                }
+                break;
+            case 'system':
+                const sysTpl = document.getElementById('system-message-template');
+                if (sysTpl) {
+                    const card = sysTpl.content.firstElementChild.cloneNode(true);
+                    card.textContent = sanitizeHTML(msg.text);
+                    textEl.innerHTML = '';
+                    textEl.appendChild(card);
+                } else {
+                    textEl.textContent = sanitizeHTML(msg.text);
+                }
                 messageEl.classList.add('system-message');
-            } else if (msg.text.startsWith('[OFFRE_REFUSEE]:')) {
-                const amount = msg.text.split(':')[1];
-                const card = chatMessagesContainer.querySelector('.offer-card:last-child .offer-status');
-                if (card) card.textContent = 'Refusée';
-                textEl.textContent = `Offre refusée: ${amount}`;
-                messageEl.classList.add('system-message');
-            } else if (msg.text.startsWith('[RDV_CONFIRME]:')) {
-                const data = msg.text.split(':')[1];
-                const card = chatMessagesContainer.querySelector('.appointment-card:last-child .appointment-status');
-                if (card) card.textContent = 'Confirmé';
-                textEl.textContent = `RDV confirmé: ${data}`;
-                messageEl.classList.add('system-message');
-            } else if (msg.text.startsWith('[RDV_ANNULE]:')) {
-                const data = msg.text.split(':')[1];
-                const card = chatMessagesContainer.querySelector('.appointment-card:last-child .appointment-status');
-                if (card) card.textContent = 'Annulé';
-                textEl.textContent = `RDV annulé: ${data}`;
-                messageEl.classList.add('system-message');
-            } else {
-                textEl.innerHTML = sanitizeHTML(msg.text).replace(/\n/g, '<br>');
-            }
+                break;
+            default:
+                textEl.innerHTML = sanitizeHTML(msg.text || '').replace(/\n/g, '<br>');
         }
 
         timeEl.textContent = formatDate(msg.createdAt, { hour: '2-digit', minute: '2-digit' });
@@ -630,6 +631,8 @@ function renderMessages(messages, method) {
             readEl.classList.add('hidden');
         }
         fragment.appendChild(clone);
+        lastSender = msg.senderId?._id || msg.senderId;
+        lastDay = msgDayKey;
     });
 
     if (method === 'prepend') {
@@ -674,10 +677,19 @@ function handleThreadsTabClick(e) {
 /**
  * ✅ FONCTION CORRIGÉE ET ROBUSTE
  * Gère l'envoi d'un message texte ou d'une image.
- * @param {string} [overrideText] - Texte optionnel à envoyer, utilisé pour les actions spéciales (offres, etc.).
+ * @param {object|string} [custom] - Texte ou objet personnalisé à envoyer.
  */
-async function sendMessage(overrideText) {
-    const text = overrideText !== undefined ? overrideText : chatMessageInput.value.trim();
+async function sendMessage(custom) {
+    let text = chatMessageInput.value.trim();
+    let type = 'text';
+    let meta = null;
+    if (typeof custom === 'string') {
+        text = custom;
+    } else if (typeof custom === 'object' && custom !== null) {
+        text = custom.text || '';
+        type = custom.type || type;
+        meta = custom.metadata || null;
+    }
     const hasImage = Boolean(tempImageFile);
 
     if (!text && !hasImage) {
@@ -695,9 +707,8 @@ async function sendMessage(overrideText) {
     let requestOptions = { method: 'POST' };
 
     // Construire le payload de base
-    let payload = {
-        text: text || '', // Toujours inclure le texte même vide si image
-    };
+    let payload = { text, type };
+    if (meta) payload.metadata = meta;
 
     if (activeThreadId) {
         payload.threadId = activeThreadId;
@@ -722,7 +733,7 @@ async function sendMessage(overrideText) {
     } else {
         // --- Logique pour un message texte simple (utilise JSON) ---
         endpoint = `${API_MESSAGES_URL}/messages`;
-        requestOptions.body = payload; // On passe l'objet JavaScript directement
+        requestOptions.body = payload; // L'en-tête JSON sera ajouté par secureFetch
         // L'en-tête 'Content-Type: application/json' sera ajouté par secureFetch
     }
 
@@ -824,6 +835,16 @@ function stopTypingEvent() {
         clearTimeout(typingTimer);
         typingTimer = null;
         socket.emit('typing', { threadId: activeThreadId, isTyping: false });
+    }
+}
+
+async function handleOfferAction(messageId, accept) {
+    const endpoint = `${API_MESSAGES_URL}/messages/${messageId}/offer/${accept ? 'accept' : 'decline'}`;
+    try {
+        const res = await secureFetch(endpoint, { method: 'POST' }, false);
+        if (!res || !res.success) throw new Error(res?.message || 'Erreur');
+    } catch (e) {
+        showToast(e.message, 'error');
     }
 }
 

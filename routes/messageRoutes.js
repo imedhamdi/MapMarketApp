@@ -26,6 +26,8 @@ router.post(
     validateSendMessageWithImage,            // 2. Joi valide le corps (threadId/recipientId/texte optionnel)
     messageController.sendMessage            // 3. Le contrôleur traite la requête
 );
+router.post('/messages/:messageId/offer/accept', messageController.acceptOffer);
+router.post('/messages/:messageId/offer/decline', messageController.declineOffer);
 
 
 // Route pour signaler un message

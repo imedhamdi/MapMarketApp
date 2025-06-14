@@ -247,9 +247,10 @@ io.of(SOCKET_NAMESPACE).on('connection', (socket) => {
     // L'objet `socket.user` est disponible.
     logger.info(`Socket.IO: Utilisateur authentifié connecté au namespace /chat: ${socket.id}, UserID: ${socket.user.id}`);
     
-    // Rejoindre la room personnelle pour recevoir des notifications ciblées
     socket.join(`user_${socket.user.id}`);
     logger.info(`Socket.IO: Socket ${socket.id} a rejoint la room user_${socket.user.id}`);
+    User.findByIdAndUpdate(socket.user.id, { isOnline: true }, { new: false }).exec();
+    io.of(SOCKET_NAMESPACE).to(`user_${socket.user.id}`).emit('userStatusUpdate', { userId: socket.user.id, statusText: 'en ligne' });
 
     // Gérer les autres événements Socket.IO
     socket.on('joinThreadRoom', ({ threadId }) => {
@@ -266,8 +267,10 @@ io.of(SOCKET_NAMESPACE).on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', (reason) => {
+    socket.on('disconnect', async (reason) => {
         logger.info(`Socket.IO: Utilisateur déconnecté du namespace /chat: ${socket.id}. Raison: ${reason}`);
+        await User.findByIdAndUpdate(socket.user.id, { isOnline: false, lastSeen: new Date() });
+        io.of(SOCKET_NAMESPACE).to(`user_${socket.user.id}`).emit('userStatusUpdate', { userId: socket.user.id, statusText: '' });
     });
 });
 
