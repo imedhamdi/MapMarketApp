@@ -573,7 +573,6 @@ function renderMessages(messages, method) {
         const textEl = messageEl.querySelector('.message-text');
         const timeEl = messageEl.querySelector('.message-time');
         const statusEl = messageEl.querySelector('.message-status-icons');
-        const readEl = messageEl.querySelector('.read-indicator');
 
         if (msg._id) messageEl.dataset.messageId = msg._id;
         if (msg.tempId) messageEl.dataset.tempId = msg.tempId;
@@ -658,32 +657,39 @@ function renderMessages(messages, method) {
 
         timeEl.textContent = formatDate(msg.createdAt, { hour: '2-digit', minute: '2-digit' });
 
-        if (isSentByMe) {
+        if (isSentByMe && statusEl) {
+            statusEl.innerHTML = '';
+            let icon;
+            let title = '';
+
             switch (msg.status) {
                 case 'sending':
-                    statusEl.innerHTML = '<i class="fa-regular fa-clock"></i>';
+                    icon = 'fa-regular fa-clock';
+                    title = 'Envoi en cours...';
                     messageEl.classList.add('sending-message');
                     break;
                 case 'sent':
-                    statusEl.innerHTML = '<i class="fa-solid fa-check"></i>';
+                    icon = 'fa-solid fa-check';
+                    title = 'Envoyé';
                     break;
                 case 'read':
-                    statusEl.innerHTML = '<i class="fa-solid fa-check-double"></i>';
+                    icon = 'fa-solid fa-check-double';
+                    title = 'Lu';
                     break;
                 case 'failed_to_send':
                 case 'failed':
-                    statusEl.innerHTML = '<i class="fa-solid fa-circle-exclamation text-danger"></i>';
+                    icon = 'fa-solid fa-circle-exclamation';
+                    title = 'Échec de l\'envoi';
                     messageEl.classList.add('message-failed');
+                    if(statusEl) statusEl.style.color = 'var(--danger-color)';
                     break;
-                default:
-                    statusEl.innerHTML = '';
             }
-        }
 
-        if (isSentByMe && msg.status === 'read') {
-            readEl.classList.remove('hidden');
-        } else {
-            readEl.classList.add('hidden');
+            if (icon) {
+                statusEl.innerHTML = `<i class="${icon}" title="${title}"></i>`;
+            }
+        } else if (statusEl) {
+            statusEl.innerHTML = '';
         }
         fragment.appendChild(clone);
         lastDay = msgDayKey;
