@@ -39,14 +39,14 @@ let newMessagesSound;
 let socket = null;
 let activeThreadId = null;
 let currentRecipient = null;
-// ✅ NOUVEL ÉTAT : Contexte pour une nouvelle discussion (non liée à un thread existant)
-let newChatContext = null; 
+let newChatContext = null; // Contexte pour une nouvelle discussion (non liée à un thread existant)
 let messageObserver = null;
 let isLoadingHistory = false;
 let allMessagesLoaded = false;
 let typingTimer = null;
 let tempImageFile = null;
 let currentTabRole = 'purchases';
+
 /**
  * Initialise le module de messagerie.
  */
@@ -328,11 +328,10 @@ function showThreadList() {
 }
 
 /**
- * ✅ FONCTION CORRIGÉE ET FIABILISÉE
- * Ouvre la vue de chat. Nettoie systématiquement le contexte de nouvelle discussion
- * si un thread existant est ouvert, évitant ainsi les conflits d'état.
+ * Ouvre la vue de chat pour un thread existant ou une nouvelle discussion.
  * @param {string|null} threadId - L'ID du thread, ou null pour une nouvelle discussion.
  * @param {object} recipient - L'objet de l'autre participant.
+ * @param {object} [threadData] - Données optionnelles du thread (pour les nouvelles discussions).
  */
 async function openChatView(threadId, recipient, threadData = null) {
     activeThreadId = threadId;
@@ -415,7 +414,6 @@ function clearMessagesUI() {
     currentRecipient = null;
     updateGlobalUnreadCount(0);
 }
-
 
 // --- LOGIQUE DE GESTION DES DONNÉES (API & RENDU) ---
 
@@ -652,7 +650,6 @@ function renderMessages(messages, method) {
     updateMessageGrouping();
 }
 
-
 // --- ACTIONS UTILISATEUR ET ENVOI ---
 
 function handleInputKeypress(e) {
@@ -674,14 +671,7 @@ function handleThreadsTabClick(e) {
 }
 
 /**
- * ✅ FONCTION CORRIGÉE ET ROBUSTE
- * Fonction principale pour l'envoi de messages. Utilise le contexte courant
- * (thread existant ou newChatContext) pour fournir les informations requises
- * par l'API.
- */
-/**
- * ✅ FONCTION CORRIGÉE ET ROBUSTE
- * Gère l'envoi d'un message texte ou d'une image.
+ * Fonction principale pour l'envoi de messages.
  * @param {object|string} [custom] - Texte ou objet personnalisé à envoyer.
  */
 async function sendMessage(custom) {
@@ -833,7 +823,6 @@ function updateMessageGrouping() {
     });
 }
 
-
 // --- GESTION DES ÉVÉNEMENTS SOCKET REÇUS ---
 
 function handleNewMessageReceived({ message, thread }) {
@@ -972,8 +961,6 @@ async function handleInitiateChatEvent(event) {
         toggleGlobalLoader(false);
     }
 }
-
-
 
 function toggleChatOptionsMenu() {
     const isHidden = chatOptionsMenu.classList.toggle('hidden');
