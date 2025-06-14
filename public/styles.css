@@ -1893,29 +1893,6 @@ h4 {
     border-bottom-left-radius: var(--border-radius-xs);
 }
 
-.chat-message[data-sender-id="me"]::after,
-.chat-message:not([data-sender-id="me"])::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    width: 0;
-    height: 0;
-    border: 8px solid transparent;
-}
-
-.chat-message[data-sender-id="me"]::after {
-    right: -8px;
-    border-left-color: var(--primary-color);
-    border-right: 0;
-}
-
-.chat-message:not([data-sender-id="me"])::after {
-    left: -8px;
-    border-right-color: var(--gray-200);
-    border-left: 0;
-}
-
-
 .chat-message.is-first-in-group {
     margin-top: var(--spacing-sm);
 }
@@ -1965,44 +1942,7 @@ h4 {
     border-bottom-left-radius: var(--border-radius-lg);
 }
 
-/* Cache la queue par défaut */
-.chat-message::after {
-    display: none;
-}
 
-/* Affiche la queue seulement pour le dernier message d'un groupe ou un message unique */
-.chat-message.is-last-in-group::after,
-.chat-message.is-single-message::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    width: 0;
-    height: 0;
-    border: 8px solid transparent;
-    display: block; /* Rendre la queue visible */
-}
-
-/* Positionne la queue à droite pour les messages envoyés */
-.chat-message[data-sender-id="me"].is-last-in-group::after,
-.chat-message[data-sender-id="me"].is-single-message::after {
-    right: -8px;
-    border-left-color: var(--primary-color);
-    border-right: 0;
-}
-
-/* Positionne la queue à gauche pour les messages reçus */
-.chat-message:not([data-sender-id="me"]).is-last-in-group::after,
-.chat-message:not([data-sender-id="me"]).is-single-message::after {
-    left: -8px;
-    border-right-color: var(--gray-200);
-    border-left: 0;
-}
-
-/* En mode sombre */
-body.dark-mode .chat-message:not([data-sender-id="me"]).is-last-in-group::after,
-body.dark-mode .chat-message:not([data-sender-id="me"]).is-single-message::after {
-    border-right-color: var(--gray-700);
-}
 
 /* Ajustements de border-radius pour un look de messagerie */
 .chat-message[data-sender-id="me"].is-first-in-group { border-bottom-right-radius: var(--border-radius-xs); }
@@ -3602,3 +3542,121 @@ body.dark-mode .owner-actions-panel {
 }
 
 /* Le style .btn-danger-outline est déjà dans votre CSS, parfait ! */
+
+/* ===== New & Improved Chat Styles ===== */
+
+/* 1. Meta container for time and status */
+.message-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    font-size: 0.75rem;
+    color: var(--gray-400);
+    margin-top: 4px;
+    gap: 4px;
+}
+
+.chat-message[data-sender-id="me"] .message-meta {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* 2. Status Icons (Read Receipts) */
+.message-status-icons {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+}
+
+.message-status-icons i {
+    font-size: 0.8em;
+}
+
+.message-status-icons .fa-check-double {
+    color: #4fc3f7;
+}
+
+.chat-message:not([data-sender-id="me"]) .message-status-icons {
+    display: none;
+}
+
+/* 3. SVG Message Bubble Tail */
+.message-tail {
+    position: absolute;
+    bottom: 0;
+    width: 12px;
+    height: 12px;
+    display: none;
+}
+
+.chat-message.is-last-in-group .message-tail,
+.chat-message.is-single-message .message-tail {
+    display: block;
+}
+
+.chat-message[data-sender-id="me"] .message-tail {
+    right: -10px;
+    color: var(--primary-color);
+}
+
+.chat-message:not([data-sender-id="me"]) .message-tail {
+    left: -10px;
+    transform: scaleX(-1);
+    color: var(--gray-200);
+}
+
+body.dark-mode .chat-message:not([data-sender-id="me"]) .message-tail {
+    color: var(--gray-700);
+}
+
+/* 4. Chat Header Reorganization Styles */
+.chat-header {
+    justify-content: space-between;
+}
+
+.chat-recipient {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-grow: 1;
+    min-width: 0;
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    border-radius: var(--border-radius-md);
+    transition: background-color var(--transition-duration-short);
+}
+
+.chat-recipient:hover, .chat-recipient:focus {
+    background-color: var(--gray-100);
+}
+body.dark-mode .chat-recipient:hover, body.dark-mode .chat-recipient:focus {
+    background-color: var(--gray-700);
+}
+
+.chat-recipient-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.chat-recipient-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.chat-header .chat-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0;
+}
+
+.chat-header-actions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}

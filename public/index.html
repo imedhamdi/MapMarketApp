@@ -1001,25 +1001,26 @@
 
                     <div id="chat-view" class="messages-view">
                         <div class="modal-header chat-header">
-                            <button id="back-to-threads-btn" type="button" class="btn btn-icon"
-                                aria-label="Retour aux discussions">
+                            <button id="back-to-threads-btn" type="button" class="btn btn-icon" aria-label="Retour aux discussions">
                                 <i class="fa-solid fa-arrow-left"></i>
                             </button>
-                            <img id="chat-recipient-avatar" src="avatar-default.svg" alt="Avatar de l'interlocuteur"
-                                class="chat-recipient-avatar"
-                                onerror="this.src='https://placehold.co/36x36/e0e0e0/757575?text=User';">
-                            <div class="chat-recipient-info">
-                                <h2 id="chat-recipient-name" class="modal-title chat-title"></h2>
-                                <span id="chat-recipient-status" class="chat-recipient-status"></span>
+
+                            <div id="chat-recipient-info-block" class="chat-recipient" role="button" tabindex="0" aria-label="Voir le profil de l'utilisateur">
+                                <img id="chat-recipient-avatar" src="avatar-default.svg" alt="Avatar de l'interlocuteur" class="chat-recipient-avatar" onerror="this.src='https://placehold.co/36x36/e0e0e0/757575?text=User';">
+                                <div class="chat-recipient-details">
+                                    <h2 id="chat-recipient-name" class="modal-title chat-title"></h2>
+                                    <span id="chat-recipient-status" class="chat-recipient-status"></span>
+                                </div>
                             </div>
-                            <button id="chat-options-btn" type="button" class="btn btn-icon"
-                                aria-label="Options du chat" aria-haspopup="true" aria-expanded="false">
-                                <i class="fa-solid fa-ellipsis-v"></i>
-                            </button>
-                            <div id="chat-options-menu" class="dropdown-menu hidden" role="menu">
-                                <button role="menuitem" id="block-user-chat-btn"
-                                    data-i18n="chat.blockUser">Bloquer</button>
-                                <button role="menuitem" id="delete-chat-btn" data-i18n="chat.delete">Supprimer</button>
+
+                            <div class="chat-header-actions">
+                                <button id="chat-options-btn" type="button" class="btn btn-icon" aria-label="Options du chat" aria-haspopup="true" aria-expanded="false">
+                                    <i class="fa-solid fa-ellipsis-v"></i>
+                                </button>
+                                <div id="chat-options-menu" class="dropdown-menu hidden" role="menu">
+                                    <button role="menuitem" id="block-user-chat-btn" data-i18n="chat.blockUser">Bloquer</button>
+                                    <button role="menuitem" id="delete-chat-btn" data-i18n="chat.delete">Supprimer</button>
+                                </div>
                             </div>
                         </div>
                         <div id="chat-ad-summary" class="chat-ad-summary">
@@ -1043,9 +1044,15 @@
                                 <div class="chat-message" data-message-id="">
                                     <div class="message-content">
                                         <p class="message-text"></p>
-                                        <time class="message-time"></time>
-                                        <div class="message-status-icons"></div>
-                                        <span class="read-indicator hidden">✔✔</span>
+                                        <div class="message-meta">
+                                            <time class="message-time"></time>
+                                            <span class="message-status-icons" aria-label="Statut du message"></span>
+                                        </div>
+                                    </div>
+                                    <div class="message-tail">
+                                        <svg viewBox="0 0 12 12" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M0 12V0C8.83445 0 12 3.16555 12 12H0Z"/>
+                                        </svg>
                                     </div>
                                 </div>
                             </template>
