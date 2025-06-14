@@ -170,8 +170,7 @@ function setupEventListeners() {
         const input = document.getElementById('offer-amount-input');
         const amount = parseFloat(input?.value);
         if (!amount) { showToast('Montant invalide', 'warning'); return; }
-        sendMessage({ type: 'offer', metadata: { amount, currency: 'EUR' } });
-        document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'offer-modal' } }));
+        sendOfferMessage(amount);
     });
     chatShareLocationBtn?.addEventListener('click', () => {
         if (!navigator.geolocation) {
@@ -180,7 +179,7 @@ function setupEventListeners() {
         }
         navigator.geolocation.getCurrentPosition(pos => {
             const { latitude, longitude } = pos.coords;
-            sendMessage({ type: 'location', metadata: { latitude, longitude } });
+            sendLocationMessage({ latitude, longitude });
         }, () => showToast('Impossible de récupérer la position', 'error'));
         toggleComposerMenu(true);
     });
@@ -194,8 +193,7 @@ function setupEventListeners() {
         const location = document.getElementById('appointment-location')?.value?.trim();
         if (!date || !time || !location) { showToast('Informations RDV manquantes', 'warning'); return; }
         const iso = new Date(`${date}T${time}`).toISOString();
-        sendMessage({ type: 'appointment', metadata: { date: iso, location, status: 'pending' } });
-        document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'appointment-modal' } }));
+        sendAppointmentMessage({ date: iso, location, status: 'pending' });
     });
 
     if (deleteChatBtn) {
@@ -696,46 +694,18 @@ function handleThreadsTabClick(e) {
     loadThreads(currentTabRole);
 }
 
-/**
- * Fonction principale pour l'envoi de messages.
- * @param {object|string} [custom] - Texte ou objet personnalisé à envoyer.
- */
-async function sendMessage(custom) {
-    let text = chatMessageInput.value.trim();
-    let type = 'text';
-    let meta = null;
-    if (typeof custom === 'string') {
-        text = custom;
-    } else if (typeof custom === 'object' && custom !== null) {
-        text = custom.text || '';
-        type = custom.type || type;
-        meta = custom.metadata || null;
-    }
-    const hasImage = Boolean(tempImageFile);
+// --- ENVOI INTERNE ---
+async function _sendPayload(payload, imageFile) {
+    const hasImage = Boolean(imageFile);
 
-    if (!text && !hasImage) {
-        showToast("Veuillez saisir un message ou sélectionner une image.", "warning");
-        return;
-    }
-
-    // Validation des champs requis
-    if (!activeThreadId && (!newChatContext || !newChatContext.recipientId || !newChatContext.adId)) {
-        showToast("Erreur: Impossible d'envoyer le message, contexte de discussion manquant.", "error");
-        return;
-    }
-
-    let endpoint;
-    let requestOptions = { method: 'POST' };
-
-    // --- Création du message optimiste ---
     const tempId = generateUUID();
     const tempMessage = {
         tempId,
-        threadId: activeThreadId,
-        text,
-        type,
-        metadata: meta || undefined,
-        imageUrl: hasImage ? URL.createObjectURL(tempImageFile) : undefined,
+        threadId: payload.threadId || null,
+        text: payload.text,
+        type: payload.type,
+        metadata: payload.metadata || undefined,
+        imageUrl: hasImage ? URL.createObjectURL(imageFile) : undefined,
         senderId: {
             _id: state.getCurrentUser()._id,
             name: 'Moi',
@@ -746,83 +716,151 @@ async function sendMessage(custom) {
     };
     renderMessages([tempMessage], 'append');
 
-    // Construire le payload de base
-    let payload = { text, type };
-    if (meta) payload.metadata = meta;
-
-    if (activeThreadId) {
-        payload.threadId = activeThreadId;
-    } else {
-        payload.recipientId = newChatContext.recipientId;
-        payload.adId = newChatContext.adId;
-    }
+    let endpoint;
+    const requestOptions = { method: 'POST' };
     if (hasImage) {
-        // --- Logique pour l'upload d'image (utilise FormData) ---
         endpoint = `${API_MESSAGES_URL}/messages/image`;
         const formData = new FormData();
-        formData.append('image', tempImageFile);
-
-        // Ajouter les autres champs du payload au FormData
+        formData.append('image', imageFile);
         for (const key in payload) {
             if (payload[key] !== undefined && payload[key] !== null) {
                 formData.append(key, payload[key]);
             }
         }
         requestOptions.body = formData;
-        // Pas de 'Content-Type' ici, le navigateur le gère pour FormData
     } else {
-        // --- Logique pour un message texte simple (utilise JSON) ---
         endpoint = `${API_MESSAGES_URL}/messages`;
-        requestOptions.body = payload; // L'en-tête JSON sera ajouté par secureFetch
-        // L'en-tête 'Content-Type: application/json' sera ajouté par secureFetch
+        requestOptions.body = payload;
     }
 
-    // Sauvegarder la valeur et l'image au cas où l'envoi échouerait
     const messageInputBeforeSend = chatMessageInput.value;
-    const imageFileBeforeSend = tempImageFile;
+    const imageFileBeforeSend = imageFile;
 
-    // Nettoyage immédiat de l'interface pour une meilleure réactivité
     chatMessageInput.value = '';
-    removeImagePreview(); // Cette fonction gère aussi tempImageFile = null;
+    removeImagePreview();
     stopTypingEvent();
     updateSendButtonState();
 
     try {
         const response = await secureFetch(endpoint, requestOptions, false);
-
         if (!response || !response.success) {
-            // L'erreur est déjà affichée par secureFetch, on restaure juste l'input.
-            throw new Error(response?.message || "Erreur lors de l'envoi du message.");
+            throw new Error(response?.message || 'Erreur lors de l\'envoi du message.');
         }
-
-        // Si c'était la création d'un nouveau thread, mettre à jour l'ID localement
         if (!activeThreadId && response.data?.threadId) {
             activeThreadId = response.data.threadId;
-            newChatContext = null; // Le contexte de "nouveau chat" n'est plus nécessaire
-            loadThreads(currentTabRole); // Recharger la liste des conversations
+            newChatContext = null;
+            loadThreads(currentTabRole);
         }
-
     } catch (error) {
-        console.error("Erreur d'envoi de message interceptée dans sendMessage:", error);
+        console.error('Erreur d\'envoi de message interceptée dans _sendPayload:', error);
         chatMessageInput.value = messageInputBeforeSend;
         if (imageFileBeforeSend) {
             tempImageFile = imageFileBeforeSend;
             displayImagePreview(imageFileBeforeSend);
         }
-
         const failedEl = chatMessagesContainer.querySelector(`.chat-message[data-temp-id="${tempId}"]`);
         if (failedEl) {
             failedEl.classList.add('message-failed');
             const statusC = failedEl.querySelector('.message-status-icons');
             if (statusC) {
                 statusC.innerHTML = '<i class="fa-solid fa-circle-exclamation text-danger"></i> <button type="button" class="resend-btn" aria-label="Renvoyer"><i class="fa-solid fa-rotate-right"></i></button>';
-                statusC.querySelector('.resend-btn').addEventListener('click', () => {
+                statusC.querySelector('.resend-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
                     failedEl.remove();
-                    sendMessage({ text, type, metadata: meta });
+                    _sendPayload(payload, imageFileBeforeSend);
                 });
             }
         }
     }
+}
+
+/**
+ * Fonction principale pour l'envoi de messages.
+ * @param {object|string} [custom] - Texte ou objet personnalisé à envoyer.
+ */
+async function sendMessage() {
+    const text = chatMessageInput.value.trim();
+    const imageFile = tempImageFile;
+
+    if (!text && !imageFile) {
+        showToast('Veuillez saisir un message ou sélectionner une image.', 'warning');
+        return;
+    }
+
+    const payload = {
+        text: text,
+        type: imageFile ? 'image' : 'text'
+    };
+
+    if (activeThreadId) {
+        payload.threadId = activeThreadId;
+    } else if (newChatContext) {
+        payload.recipientId = newChatContext.recipientId;
+        payload.adId = newChatContext.adId;
+    } else {
+        showToast('Contexte de discussion manquant.', 'error');
+        return;
+    }
+
+    await _sendPayload(payload, imageFile);
+}
+
+async function sendOfferMessage(amount) {
+    const val = parseFloat(amount);
+    if (!val) { showToast('Montant invalide', 'warning'); return; }
+    const payload = {
+        type: 'offer',
+        text: `Offre: ${formatPrice(val, 'EUR')}`,
+        metadata: { amount: val, currency: 'EUR', status: 'pending' }
+    };
+    if (activeThreadId) {
+        payload.threadId = activeThreadId;
+    } else if (newChatContext) {
+        payload.recipientId = newChatContext.recipientId;
+        payload.adId = newChatContext.adId;
+    } else {
+        showToast('Contexte de discussion manquant.', 'error');
+        return;
+    }
+    await _sendPayload(payload, null);
+    document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'offer-modal' } }));
+}
+
+async function sendLocationMessage(coords) {
+    if (!coords || typeof coords.latitude !== 'number' || typeof coords.longitude !== 'number') {
+        showToast('Coordonnées invalides', 'warning');
+        return;
+    }
+    const payload = { type: 'location', text: 'Localisation', metadata: coords };
+    if (activeThreadId) {
+        payload.threadId = activeThreadId;
+    } else if (newChatContext) {
+        payload.recipientId = newChatContext.recipientId;
+        payload.adId = newChatContext.adId;
+    } else {
+        showToast('Contexte de discussion manquant.', 'error');
+        return;
+    }
+    await _sendPayload(payload, null);
+}
+
+async function sendAppointmentMessage(appointmentData) {
+    if (!appointmentData?.date || !appointmentData?.location) {
+        showToast('Informations RDV manquantes', 'warning');
+        return;
+    }
+    const payload = { type: 'appointment', text: 'Rendez-vous', metadata: appointmentData };
+    if (activeThreadId) {
+        payload.threadId = activeThreadId;
+    } else if (newChatContext) {
+        payload.recipientId = newChatContext.recipientId;
+        payload.adId = newChatContext.adId;
+    } else {
+        showToast('Contexte de discussion manquant.', 'error');
+        return;
+    }
+    await _sendPayload(payload, null);
+    document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'appointment-modal' } }));
 }
 
 function handleImageFileSelection(event) {
