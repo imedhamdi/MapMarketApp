@@ -1871,11 +1871,12 @@ h4 {
 
 .chat-message {
     padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--border-radius-lg);
+    border-radius: var(--border-radius-lg); /* Un radius généreux par défaut */
     max-width: 75%;
     word-wrap: break-word;
     line-height: 1.4;
     position: relative;
+    box-shadow: var(--shadow-xs); /* Ajouter une ombre légère */
 }
 
 .chat-message[data-sender-id="me"] {
@@ -1963,6 +1964,54 @@ h4 {
     border-top-left-radius: var(--border-radius-lg);
     border-bottom-left-radius: var(--border-radius-lg);
 }
+
+/* Cache la queue par défaut */
+.chat-message::after {
+    display: none;
+}
+
+/* Affiche la queue seulement pour le dernier message d'un groupe ou un message unique */
+.chat-message.is-last-in-group::after,
+.chat-message.is-single-message::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    width: 0;
+    height: 0;
+    border: 8px solid transparent;
+    display: block; /* Rendre la queue visible */
+}
+
+/* Positionne la queue à droite pour les messages envoyés */
+.chat-message[data-sender-id="me"].is-last-in-group::after,
+.chat-message[data-sender-id="me"].is-single-message::after {
+    right: -8px;
+    border-left-color: var(--primary-color);
+    border-right: 0;
+}
+
+/* Positionne la queue à gauche pour les messages reçus */
+.chat-message:not([data-sender-id="me"]).is-last-in-group::after,
+.chat-message:not([data-sender-id="me"]).is-single-message::after {
+    left: -8px;
+    border-right-color: var(--gray-200);
+    border-left: 0;
+}
+
+/* En mode sombre */
+body.dark-mode .chat-message:not([data-sender-id="me"]).is-last-in-group::after,
+body.dark-mode .chat-message:not([data-sender-id="me"]).is-single-message::after {
+    border-right-color: var(--gray-700);
+}
+
+/* Ajustements de border-radius pour un look de messagerie */
+.chat-message[data-sender-id="me"].is-first-in-group { border-bottom-right-radius: var(--border-radius-xs); }
+.chat-message[data-sender-id="me"].is-middle-in-group { border-radius: var(--border-radius-lg) var(--border-radius-xs) var(--border-radius-xs) var(--border-radius-lg); }
+.chat-message[data-sender-id="me"].is-last-in-group { border-top-right-radius: var(--border-radius-xs); }
+
+.chat-message:not([data-sender-id="me"]).is-first-in-group { border-bottom-left-radius: var(--border-radius-xs); }
+.chat-message:not([data-sender-id="me"]).is-middle-in-group { border-radius: var(--border-radius-xs) var(--border-radius-lg) var(--border-radius-lg) var(--border-radius-xs); }
+.chat-message:not([data-sender-id="me"]).is-last-in-group { border-top-left-radius: var(--border-radius-xs); }
 
 .message-time {
     display: block;

@@ -215,7 +215,7 @@ exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
  * POST /api/messages/messages/image (pour image, géré par Multer avant)
  */
 exports.sendMessage = asyncHandler(async (req, res, next) => {
-    const { threadId, recipientId, text, adId, type, metadata } = req.body;
+    const { threadId, recipientId, text, adId, type, metadata, tempId } = req.body; // <-- Récupérer tempId
     const senderId = req.user.id;
     let currentThreadId = threadId;
     let isNewThread = false;
@@ -309,6 +309,10 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
         name: req.user.name,
         avatarUrl: req.user.avatarUrl
     };
+
+    if (tempId) {
+        populatedMessageForSocket.tempId = tempId; // <-- AJOUTER CETTE LIGNE
+    }
 
     if (ioInstance) {
         const threadForBroadcast = await Thread.findById(currentThreadId)
