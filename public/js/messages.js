@@ -27,10 +27,10 @@ const TYPING_TIMEOUT = 3000;
 
 // --- Éléments du DOM ---
 let messagesModal, threadListView, chatView, threadListUl, threadItemTemplate, noThreadsPlaceholder;
-let backToThreadsBtn, chatRecipientAvatar, chatRecipientName, chatOptionsBtn, chatOptionsMenu, blockUserChatBtn, deleteChatBtn;
+let backToThreadsBtn, chatRecipientAvatar, chatRecipientName, chatRecipientStatus, chatOptionsBtn, chatOptionsMenu, blockUserChatBtn, deleteChatBtn;
 let chatMessagesContainer, chatMessageTemplate, chatHistoryLoader, chatTypingIndicator;
 let chatInputArea, chatMessageInput, sendChatMessageBtn, chatAttachImageBtn, chatImageUploadInput, chatImagePreviewContainer;
-let chatMakeOfferBtn, chatShareLocationBtn, chatMeetBtn, offerModal, submitOfferBtn, appointmentModal, submitAppointmentBtn;
+let chatComposerBtn, chatComposerMenu, chatMakeOfferBtn, chatShareLocationBtn, chatMeetBtn, offerModal, submitOfferBtn, appointmentModal, submitAppointmentBtn;
 let threadsTabs;
 let messagesNavBadge, navMessagesBtn;
 let newMessagesSound;
@@ -71,6 +71,7 @@ function initializeUI() {
         backToThreadsBtn: 'back-to-threads-btn',
         chatRecipientAvatar: 'chat-recipient-avatar',
         chatRecipientName: 'chat-recipient-name',
+        chatRecipientStatus: 'chat-recipient-status',
         chatOptionsBtn: 'chat-options-btn',
         chatOptionsMenu: 'chat-options-menu',
         blockUserChatBtn: 'block-user-chat-btn',
@@ -84,6 +85,8 @@ function initializeUI() {
         sendChatMessageBtn: 'send-chat-message-btn',
         messagesNavBadge: 'messages-nav-badge',
         navMessagesBtn: 'nav-messages-btn',
+        chatComposerBtn: 'chat-composer-btn',
+        chatComposerMenu: 'chat-composer-menu',
         chatAttachImageBtn: 'chat-attach-image-btn',
         chatImageUploadInput: 'chat-image-upload-input',
         chatImagePreviewContainer: 'chat-image-preview-container',
@@ -99,10 +102,10 @@ function initializeUI() {
 
     const elements = {
         messagesModal, threadListView, chatView, threadListUl, threadItemTemplate, noThreadsPlaceholder,
-        backToThreadsBtn, chatRecipientAvatar, chatRecipientName, chatOptionsBtn, chatOptionsMenu,
+        backToThreadsBtn, chatRecipientAvatar, chatRecipientName, chatRecipientStatus, chatOptionsBtn, chatOptionsMenu,
         blockUserChatBtn, deleteChatBtn, chatMessagesContainer, chatMessageTemplate, chatHistoryLoader,
         chatTypingIndicator, chatInputArea, chatMessageInput, sendChatMessageBtn, messagesNavBadge,
-        navMessagesBtn, chatAttachImageBtn, chatImageUploadInput, chatImagePreviewContainer,
+        navMessagesBtn, chatComposerBtn, chatComposerMenu, chatAttachImageBtn, chatImageUploadInput, chatImagePreviewContainer,
         chatMakeOfferBtn, chatShareLocationBtn, chatMeetBtn, offerModal, submitOfferBtn,
         appointmentModal, submitAppointmentBtn, threadsTabs
     };
@@ -143,14 +146,20 @@ function setupEventListeners() {
     chatMessageInput.addEventListener('input', sendTypingEvent);
     chatOptionsBtn.addEventListener('click', toggleChatOptionsMenu);
     document.addEventListener('click', closeOptionsMenuOnClickOutside, true);
-    chatAttachImageBtn.addEventListener('click', () => chatImageUploadInput.click());
+    chatComposerBtn?.addEventListener('click', toggleComposerMenu);
+    document.addEventListener('click', closeComposerMenuOnClickOutside);
+    chatAttachImageBtn.addEventListener('click', () => {
+        chatImageUploadInput.click();
+        toggleComposerMenu(true);
+    });
     chatImageUploadInput.addEventListener('change', handleImageFileSelection);
     threadsTabs?.addEventListener('click', handleThreadsTabClick);
     chatMakeOfferBtn?.addEventListener('click', () => {
         document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'offer-modal', triggerElement: chatMakeOfferBtn } }));
+        toggleComposerMenu(true);
     });
     submitOfferBtn?.addEventListener('click', () => {
-        const input = document.getElementById('offer-amount');
+        const input = document.getElementById('offer-amount-input');
         const amount = input?.value.trim();
         if (!amount) { showToast('Montant invalide', 'warning'); return; }
         sendMessage(`[OFFRE_PROPOSEE]:${amount}`);
@@ -165,9 +174,11 @@ function setupEventListeners() {
             const { latitude, longitude } = pos.coords;
             sendMessage(`[POSITION_PARTAGEE]:${latitude},${longitude}`);
         }, () => showToast('Impossible de récupérer la position', 'error'));
+        toggleComposerMenu(true);
     });
     chatMeetBtn?.addEventListener('click', () => {
         document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'appointment-modal', triggerElement: chatMeetBtn } }));
+        toggleComposerMenu(true);
     });
     submitAppointmentBtn?.addEventListener('click', () => {
         const date = document.getElementById('appointment-date')?.value;
@@ -265,6 +276,7 @@ function connectSocket() {
     socket.on('typing', handleTypingEventReceived);
     socket.on('newThread', () => loadThreads(currentTabRole)); // Un nouveau thread a été créé nous impliquant
     socket.on('messagesRead', handleMessagesReadByOther); // L'autre participant a lu nos messages
+    socket.on('userStatusUpdate', handleUserStatusUpdate);
 }
 
 /**
@@ -333,6 +345,9 @@ async function openChatView(threadId, recipient, threadData = null) {
     // --- Mise à jour UI ---
     chatRecipientAvatar.src = recipient?.avatarUrl || 'avatar-default.svg';
     chatRecipientName.textContent = sanitizeHTML(recipient?.name || 'Nouveau contact');
+    if (chatRecipientStatus) {
+        chatRecipientStatus.textContent = recipient?.statusText || '';
+    }
 
     // -- Mise à jour du bandeau de l'annonce --
     const chatAdSummary = document.getElementById('chat-ad-summary');
@@ -514,6 +529,7 @@ function renderMessages(messages, method) {
         const messageEl = clone.querySelector('.chat-message');
         const textEl = messageEl.querySelector('.message-text');
         const timeEl = messageEl.querySelector('.message-time');
+        const readEl = messageEl.querySelector('.read-indicator');
 
         messageEl.dataset.messageId = msg._id;
         messageEl.dataset.messageTimestamp = new Date(msg.createdAt).getTime();
@@ -583,27 +599,36 @@ function renderMessages(messages, method) {
                 const card = chatMessagesContainer.querySelector('.offer-card:last-child .offer-status');
                 if (card) card.textContent = 'Acceptée';
                 textEl.textContent = `Offre acceptée: ${amount}`;
+                messageEl.classList.add('system-message');
             } else if (msg.text.startsWith('[OFFRE_REFUSEE]:')) {
                 const amount = msg.text.split(':')[1];
                 const card = chatMessagesContainer.querySelector('.offer-card:last-child .offer-status');
                 if (card) card.textContent = 'Refusée';
                 textEl.textContent = `Offre refusée: ${amount}`;
+                messageEl.classList.add('system-message');
             } else if (msg.text.startsWith('[RDV_CONFIRME]:')) {
                 const data = msg.text.split(':')[1];
                 const card = chatMessagesContainer.querySelector('.appointment-card:last-child .appointment-status');
                 if (card) card.textContent = 'Confirmé';
                 textEl.textContent = `RDV confirmé: ${data}`;
+                messageEl.classList.add('system-message');
             } else if (msg.text.startsWith('[RDV_ANNULE]:')) {
                 const data = msg.text.split(':')[1];
                 const card = chatMessagesContainer.querySelector('.appointment-card:last-child .appointment-status');
                 if (card) card.textContent = 'Annulé';
                 textEl.textContent = `RDV annulé: ${data}`;
+                messageEl.classList.add('system-message');
             } else {
                 textEl.innerHTML = sanitizeHTML(msg.text).replace(/\n/g, '<br>');
             }
         }
 
         timeEl.textContent = formatDate(msg.createdAt, { hour: '2-digit', minute: '2-digit' });
+        if (isSentByMe && msg.status === 'read') {
+            readEl.classList.remove('hidden');
+        } else {
+            readEl.classList.add('hidden');
+        }
         fragment.appendChild(clone);
     });
 
@@ -816,6 +841,12 @@ function handleMessagesReadByOther({ threadId, readerId }) {
     }
 }
 
+function handleUserStatusUpdate({ userId, statusText }) {
+    if (currentRecipient && currentRecipient._id === userId && chatRecipientStatus) {
+        chatRecipientStatus.textContent = statusText;
+    }
+}
+
 // --- FONCTIONS AUXILIAIRES ---
 
 /**
@@ -898,5 +929,22 @@ function closeOptionsMenuOnClickOutside(event) {
     if (chatOptionsMenu && !chatOptionsMenu.classList.contains('hidden') &&
         !chatOptionsBtn.contains(event.target) && !chatOptionsMenu.contains(event.target)) {
         toggleChatOptionsMenu();
+    }
+}
+
+function toggleComposerMenu(forceHide = false) {
+    if (!chatComposerMenu) return;
+    let shouldHide = forceHide ? true : chatComposerMenu.classList.contains('hidden');
+    if (shouldHide) {
+        chatComposerMenu.classList.add('hidden');
+    } else {
+        chatComposerMenu.classList.remove('hidden');
+    }
+}
+
+function closeComposerMenuOnClickOutside(event) {
+    if (chatComposerMenu && !chatComposerMenu.classList.contains('hidden') &&
+        !chatComposerBtn.contains(event.target) && !chatComposerMenu.contains(event.target)) {
+        toggleComposerMenu(true);
     }
 }
