@@ -6,7 +6,7 @@ const { logger } = require('../config/winston');
 const fs = require('fs');
 const path = require('path');
 const APIFeatures = require('../utils/apiFeatures'); // Utilitaire pour filtres, tri, pagination (à créer)
-const fetch = require('node-fetch'); // NOTE : Assurez-vous que node-fetch est installé ou utilisez l'API fetch native de Node 18+
+const fetch = require('node-fetch');
 const { clear } = require('console');
 
 const asyncHandler = (fn) => (req, res, next) => {

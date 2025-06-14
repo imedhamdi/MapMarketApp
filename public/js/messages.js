@@ -1100,22 +1100,38 @@ function setupInfiniteScroll() {
  * @param {CustomEvent} event - L'événement contenant les détails { adId, recipientId }.
  */
 async function handleInitiateChatEvent(event) {
-    const { recipientId, adId, adData, recipientName, recipientAvatar } = event.detail;
-    if (!recipientId || !adId) return showToast("Informations manquantes.", "error");
+    const { recipientId, adId } = event.detail;
+
+    const currentUser = state.getCurrentUser();
+    if (!currentUser) {
+        showToast("Session non trouvée. Veuillez vous reconnecter.", "error");
+        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' }}));
+        return;
+    }
+
+    if (!recipientId || !adId) return showToast("Informations manquantes pour démarrer la discussion.", "error");
 
     toggleGlobalLoader(true, "Ouverture de la discussion...");
     try {
         const response = await secureFetch(`${API_MESSAGES_URL}/threads/initiate`, {
             method: 'POST',
-            body: JSON.stringify({ recipientId, adId }),
-            headers: { 'Content-Type': 'application/json' }
-        }, false);
-        if (!response || !response.success) throw new Error(response?.message || 'Erreur');
+            body: { recipientId, adId }
+        });
+
+        if (!response || !response.success) {
+            throw new Error(response?.message || 'Erreur lors de l\'initiation de la discussion.');
+        }
+
         const thread = response.data.thread;
-        const currentUser = state.getCurrentUser();
-        const recipient = thread.participants.find(p => p._id !== currentUser._id) || {};
-        openChatView(thread._id, recipient, thread);
-        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'messages-modal' } }));
+        const recipientData = thread.participants.find(p => p.user._id !== currentUser._id)?.user;
+
+        if (recipientData) {
+            openChatView(thread._id, recipientData, thread);
+            document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'messages-modal' } }));
+        } else {
+            throw new Error('Impossible de trouver les informations du destinataire.');
+        }
+
     } catch (error) {
         showToast(error.message, "error");
     } finally {
