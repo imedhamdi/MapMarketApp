@@ -301,31 +301,40 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
     }
 
     const newMessage = await Message.create(messageData);
-    const populatedMessage = await Message.findById(newMessage._id).populate('senderId', 'name avatarUrl');
 
-    const updatedThread = await Thread.findById(currentThreadId)
-        .populate('participants.user', 'name avatarUrl isOnline lastSeen')
-        .populate('ad', 'title imageUrls price');
+    // --- Émission Socket.IO IMMÉDIATE ---
+    const populatedMessageForSocket = newMessage.toObject();
+    populatedMessageForSocket.senderId = {
+        _id: req.user._id,
+        name: req.user.name,
+        avatarUrl: req.user.avatarUrl
+    };
 
-    if (ioInstance && updatedThread) {
-        updatedThread.participants.forEach(participant => {
-            const userSocketRoom = `user_${participant.user._id}`;
-            ioInstance.of('/chat').to(userSocketRoom).emit('newMessage', {
-                message: mapMessageImageUrls(req, populatedMessage.toObject()),
-                thread: updatedThread.toObject()
+    if (ioInstance) {
+        const threadForBroadcast = await Thread.findById(currentThreadId)
+            .populate('participants.user', 'name avatarUrl isOnline lastSeen')
+            .populate('ad', 'title imageUrls price');
+
+        if (threadForBroadcast) {
+            threadForBroadcast.participants.forEach(participant => {
+                const userSocketRoom = `user_${participant.user._id}`;
+                ioInstance.of('/chat').to(userSocketRoom).emit('newMessage', {
+                    message: mapMessageImageUrls(req, populatedMessageForSocket),
+                    thread: threadForBroadcast.toObject()
+                });
+                if (isNewThread || (participant.locallyDeletedAt && participant.locallyDeletedAt < threadForBroadcast.updatedAt)) {
+                    ioInstance.of('/chat').to(userSocketRoom).emit('newThread', threadForBroadcast.toObject());
+                }
             });
-            if (isNewThread || (participant.locallyDeletedAt && participant.locallyDeletedAt < updatedThread.updatedAt)) {
-                ioInstance.of('/chat').to(userSocketRoom).emit('newThread', updatedThread.toObject());
-            }
-        });
+        }
     }
 
     res.status(201).json({
         success: true,
         message: 'Message envoyé avec succès.',
         data: {
-            message: mapMessageImageUrls(req, populatedMessage.toObject()),
-            threadId: currentThreadId // Renvoyer l'ID du thread est utile pour le client
+            message: mapMessageImageUrls(req, populatedMessageForSocket),
+            threadId: currentThreadId
         }
     });
 });

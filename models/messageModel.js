@@ -92,41 +92,44 @@ messageSchema.index({ threadId: 1, createdAt: -1 });
 
 // Après qu'un message est sauvegardé, mettre à jour le champ `lastMessage` et `updatedAt` du Thread parent.
 // Et potentiellement incrémenter le `unreadCount` pour le(s) destinataire(s).
-messageSchema.post('save', async function(doc, next) {
-    try {
-        const Thread = mongoose.model('Thread'); // Éviter les problèmes d'import circulaire
-        const User = mongoose.model('User'); // Pour les infos de l'expéditeur
-
-        const thread = await Thread.findById(doc.threadId);
-        if (thread) {
-            const sender = await User.findById(doc.senderId).select('name avatarUrl'); // Pour lastMessage
-
-            thread.lastMessage = {
-                text: doc.text,
-                sender: doc.senderId, // ou sender si vous voulez l'objet complet
-                createdAt: doc.createdAt,
-                imageUrl: doc.imageUrl,
-            };
-            thread.updatedAt = doc.createdAt; // Mettre à jour pour le tri des threads
-
-            // Incrémenter le compteur de messages non lus pour les autres participants
-            thread.participants.forEach(participant => {
-                if (participant.user.toString() !== doc.senderId.toString()) {
-                    participant.unreadCount = (participant.unreadCount || 0) + 1;
-                }
-                // Réinitialiser locallyDeletedAt si un nouveau message arrive dans un thread "supprimé" localement
-                if (participant.locallyDeletedAt) {
-                    participant.locallyDeletedAt = undefined;
-                }
-            });
-
-            await thread.save();
-        }
-    } catch (error) {
-        console.error("Erreur dans le post-save hook de Message pour mettre à jour le Thread:", error);
-        // Ne pas bloquer le flux principal si ce hook échoue, mais logger l'erreur.
-    }
+messageSchema.post('save', function(doc, next) {
+    // Appel immédiat de next() pour ne pas bloquer le contrôleur
     next();
+
+    // Lancement des opérations de mise à jour en arrière-plan sans attendre la fin
+    (async () => {
+        try {
+            const Thread = mongoose.model('Thread'); // Éviter les problèmes d'import circulaire
+            const User = mongoose.model('User');
+
+            const thread = await Thread.findById(doc.threadId);
+            if (thread) {
+                // La logique de mise à jour du thread reste la même
+                thread.lastMessage = {
+                    text: doc.text,
+                    sender: doc.senderId,
+                    createdAt: doc.createdAt,
+                    imageUrl: doc.imageUrl,
+                };
+                thread.updatedAt = doc.createdAt;
+
+                thread.participants.forEach(participant => {
+                    if (participant.user.toString() !== doc.senderId.toString()) {
+                        participant.unreadCount = (participant.unreadCount || 0) + 1;
+                    }
+                    if (participant.locallyDeletedAt) {
+                        participant.locallyDeletedAt = undefined;
+                    }
+                });
+
+                await thread.save();
+                // Note : L'émission Socket.IO sera maintenant gérée par le contrôleur.
+            }
+        } catch (error) {
+            // Logguer l'erreur de la tâche de fond sans impacter la réponse à l'utilisateur
+            console.error("Erreur dans le post-save hook (tâche de fond) de Message pour mettre à jour le Thread:", error);
+        }
+    })();
 });
 
 

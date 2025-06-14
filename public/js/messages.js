@@ -14,7 +14,8 @@ import {
     toggleGlobalLoader,
     sanitizeHTML,
     formatDate,
-    formatPrice
+    formatPrice,
+    generateUUID
 } from './utils.js';
 
 // --- Constantes ---
@@ -545,9 +546,11 @@ function renderMessages(messages, method) {
         const messageEl = clone.querySelector('.chat-message');
         const textEl = messageEl.querySelector('.message-text');
         const timeEl = messageEl.querySelector('.message-time');
+        const statusEl = messageEl.querySelector('.message-status-icons');
         const readEl = messageEl.querySelector('.read-indicator');
 
-        messageEl.dataset.messageId = msg._id;
+        if (msg._id) messageEl.dataset.messageId = msg._id;
+        if (msg.tempId) messageEl.dataset.tempId = msg.tempId;
         messageEl.dataset.messageTimestamp = new Date(msg.createdAt).getTime();
 
         const isSentByMe = (msg.senderId?._id || msg.senderId) === currentUserId;
@@ -628,6 +631,29 @@ function renderMessages(messages, method) {
         }
 
         timeEl.textContent = formatDate(msg.createdAt, { hour: '2-digit', minute: '2-digit' });
+
+        if (isSentByMe) {
+            switch (msg.status) {
+                case 'sending':
+                    statusEl.innerHTML = '<i class="fa-regular fa-clock"></i>';
+                    messageEl.classList.add('sending-message');
+                    break;
+                case 'sent':
+                    statusEl.innerHTML = '<i class="fa-solid fa-check"></i>';
+                    break;
+                case 'read':
+                    statusEl.innerHTML = '<i class="fa-solid fa-check-double"></i>';
+                    break;
+                case 'failed_to_send':
+                case 'failed':
+                    statusEl.innerHTML = '<i class="fa-solid fa-circle-exclamation text-danger"></i>';
+                    messageEl.classList.add('message-failed');
+                    break;
+                default:
+                    statusEl.innerHTML = '';
+            }
+        }
+
         if (isSentByMe && msg.status === 'read') {
             readEl.classList.remove('hidden');
         } else {
@@ -701,6 +727,25 @@ async function sendMessage(custom) {
     let endpoint;
     let requestOptions = { method: 'POST' };
 
+    // --- Création du message optimiste ---
+    const tempId = generateUUID();
+    const tempMessage = {
+        tempId,
+        threadId: activeThreadId,
+        text,
+        type,
+        metadata: meta || undefined,
+        imageUrl: hasImage ? URL.createObjectURL(tempImageFile) : undefined,
+        senderId: {
+            _id: state.getCurrentUser()._id,
+            name: 'Moi',
+            avatarUrl: state.getCurrentUser().avatarUrl
+        },
+        status: 'sending',
+        createdAt: new Date().toISOString()
+    };
+    renderMessages([tempMessage], 'append');
+
     // Construire le payload de base
     let payload = { text, type };
     if (meta) payload.metadata = meta;
@@ -732,8 +777,9 @@ async function sendMessage(custom) {
         // L'en-tête 'Content-Type: application/json' sera ajouté par secureFetch
     }
 
-    // Sauvegarder la valeur de l'input au cas où l'envoi échouerait
+    // Sauvegarder la valeur et l'image au cas où l'envoi échouerait
     const messageInputBeforeSend = chatMessageInput.value;
+    const imageFileBeforeSend = tempImageFile;
 
     // Nettoyage immédiat de l'interface pour une meilleure réactivité
     chatMessageInput.value = '';
@@ -758,9 +804,24 @@ async function sendMessage(custom) {
 
     } catch (error) {
         console.error("Erreur d'envoi de message interceptée dans sendMessage:", error);
-        // showToast est déjà géré dans secureFetch, mais on restaure le texte ici.
         chatMessageInput.value = messageInputBeforeSend;
-        // La restauration de l'aperçu de l'image est plus complexe et est omise pour l'instant.
+        if (imageFileBeforeSend) {
+            tempImageFile = imageFileBeforeSend;
+            displayImagePreview(imageFileBeforeSend);
+        }
+
+        const failedEl = chatMessagesContainer.querySelector(`.chat-message[data-temp-id="${tempId}"]`);
+        if (failedEl) {
+            failedEl.classList.add('message-failed');
+            const statusC = failedEl.querySelector('.message-status-icons');
+            if (statusC) {
+                statusC.innerHTML = '<i class="fa-solid fa-circle-exclamation text-danger"></i> <button type="button" class="resend-btn" aria-label="Renvoyer"><i class="fa-solid fa-rotate-right"></i></button>';
+                statusC.querySelector('.resend-btn').addEventListener('click', () => {
+                    failedEl.remove();
+                    sendMessage({ text, type, metadata: meta });
+                });
+            }
+        }
     }
 }
 
@@ -829,6 +890,11 @@ function handleNewMessageReceived({ message, thread }) {
     // Recharger la liste des conversations pour qu'elle remonte en haut
     if (threadListView.classList.contains('active-view')) {
         loadThreads(currentTabRole);
+    }
+
+    if (message.senderId === state.getCurrentUser()._id) {
+        const tempEl = chatMessagesContainer.querySelector('.chat-message[data-temp-id]');
+        if (tempEl) tempEl.remove();
     }
 
     if (activeThreadId === message.threadId) {
