@@ -697,11 +697,12 @@ function handleThreadsTabClick(e) {
 // --- ENVOI INTERNE ---
 async function _sendPayload(payload, imageFile) {
     const hasImage = Boolean(imageFile);
+    const tempId = generateUUID(); // Génère un ID unique pour ce message
+    payload.tempId = tempId; // Ajoute le tempId au payload qui sera envoyé
 
-    const tempId = generateUUID();
     const tempMessage = {
-        tempId,
-        threadId: payload.threadId || null,
+        tempId: tempId, // Important : on le garde pour le retrouver
+        threadId: payload.threadId || activeThreadId,
         text: payload.text,
         type: payload.type,
         metadata: payload.metadata || undefined,
@@ -718,13 +719,18 @@ async function _sendPayload(payload, imageFile) {
 
     let endpoint;
     const requestOptions = { method: 'POST' };
+
     if (hasImage) {
         endpoint = `${API_MESSAGES_URL}/messages/image`;
         const formData = new FormData();
         formData.append('image', imageFile);
         for (const key in payload) {
             if (payload[key] !== undefined && payload[key] !== null) {
-                formData.append(key, payload[key]);
+                 if (typeof payload[key] === 'object' && payload[key] !== null) {
+                    formData.append(key, JSON.stringify(payload[key]));
+                } else {
+                    formData.append(key, payload[key]);
+                }
             }
         }
         requestOptions.body = formData;
@@ -734,7 +740,7 @@ async function _sendPayload(payload, imageFile) {
     }
 
     const messageInputBeforeSend = chatMessageInput.value;
-    const imageFileBeforeSend = imageFile;
+    const imageFileBeforeSend = tempImageFile;
 
     chatMessageInput.value = '';
     removeImagePreview();
@@ -744,7 +750,7 @@ async function _sendPayload(payload, imageFile) {
     try {
         const response = await secureFetch(endpoint, requestOptions, false);
         if (!response || !response.success) {
-            throw new Error(response?.message || 'Erreur lors de l\'envoi du message.');
+            throw new Error(response?.message || "Erreur lors de l'envoi du message.");
         }
         if (!activeThreadId && response.data?.threadId) {
             activeThreadId = response.data.threadId;
@@ -752,7 +758,7 @@ async function _sendPayload(payload, imageFile) {
             loadThreads(currentTabRole);
         }
     } catch (error) {
-        console.error('Erreur d\'envoi de message interceptée dans _sendPayload:', error);
+        console.error("Erreur d'envoi de message interceptée dans _sendPayload:", error);
         chatMessageInput.value = messageInputBeforeSend;
         if (imageFileBeforeSend) {
             tempImageFile = imageFileBeforeSend;
@@ -761,14 +767,9 @@ async function _sendPayload(payload, imageFile) {
         const failedEl = chatMessagesContainer.querySelector(`.chat-message[data-temp-id="${tempId}"]`);
         if (failedEl) {
             failedEl.classList.add('message-failed');
-            const statusC = failedEl.querySelector('.message-status-icons');
-            if (statusC) {
-                statusC.innerHTML = '<i class="fa-solid fa-circle-exclamation text-danger"></i> <button type="button" class="resend-btn" aria-label="Renvoyer"><i class="fa-solid fa-rotate-right"></i></button>';
-                statusC.querySelector('.resend-btn').addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    failedEl.remove();
-                    _sendPayload(payload, imageFileBeforeSend);
-                });
+            const statusContainer = failedEl.querySelector('.message-status-icons');
+            if (statusContainer) {
+                statusContainer.innerHTML = '<i class="fa-solid fa-circle-exclamation text-danger" title="Échec de l\'envoi"></i>';
             }
         }
     }
@@ -925,26 +926,40 @@ function updateMessageGrouping() {
 // --- GESTION DES ÉVÉNEMENTS SOCKET REÇUS ---
 
 function handleNewMessageReceived({ message, thread }) {
-    // Recharger la liste des conversations pour qu'elle remonte en haut
     if (threadListView.classList.contains('active-view')) {
         loadThreads(currentTabRole);
     }
+    
+    const currentUser = state.getCurrentUser();
+    const isMyMessage = (message.senderId?._id || message.senderId) === currentUser?._id;
 
-    if (message.senderId === state.getCurrentUser()._id) {
-        const tempEl = chatMessagesContainer.querySelector('.chat-message[data-temp-id]');
-        if (tempEl) tempEl.remove();
+    if (isMyMessage && message.tempId) {
+        const tempMessageEl = document.querySelector(`.chat-message[data-temp-id="${message.tempId}"]`);
+        if (tempMessageEl) {
+            tempMessageEl.dataset.messageId = message._id;
+            tempMessageEl.classList.remove('sending-message');
+            const statusContainer = tempMessageEl.querySelector('.message-status-icons');
+            if (statusContainer) {
+                statusContainer.innerHTML = '<i class="fa-solid fa-check"></i>';
+            }
+            if(message.type === 'image' && message.imageUrl) {
+                const imgEl = tempMessageEl.querySelector('.chat-image-attachment');
+                if (imgEl) imgEl.src = message.imageUrl;
+            }
+            updateMessageGrouping();
+            return;
+        }
     }
-
+    
     if (activeThreadId === message.threadId) {
         renderMessages([message], 'append');
         markThreadAsRead(activeThreadId);
     } else {
         const sender = thread.participants.find(p => p.user._id === message.senderId);
-        if (sender && sender.user._id !== state.getCurrentUser()._id) {
+        if (sender && sender.user._id !== currentUser._id) {
             showToast(`Nouveau message de ${sanitizeHTML(sender.user.name)}`, 'info');
             if (newMessagesSound) newMessagesSound.play().catch(e => console.warn('Erreur lecture son:', e));
-            // Mettre à jour le badge global
-            loadThreads(currentTabRole); // Recharge pour mettre à jour les compteurs
+            loadThreads(currentTabRole);
         }
     }
 }
