@@ -1829,6 +1829,12 @@ h4 {
     font-size: 1.1rem;
 }
 
+.chat-recipient-status {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
 #chat-options-menu {
     position: absolute;
     right: var(--spacing-md);
@@ -1869,6 +1875,7 @@ h4 {
     max-width: 75%;
     word-wrap: break-word;
     line-height: 1.4;
+    position: relative;
 }
 
 .chat-message[data-sender-id="me"] {
@@ -1885,6 +1892,38 @@ h4 {
     border-bottom-left-radius: var(--border-radius-xs);
 }
 
+.chat-message[data-sender-id="me"]::after,
+.chat-message:not([data-sender-id="me"])::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    width: 0;
+    height: 0;
+    border: 8px solid transparent;
+}
+
+.chat-message[data-sender-id="me"]::after {
+    right: -8px;
+    border-left-color: var(--primary-color);
+    border-right: 0;
+}
+
+.chat-message:not([data-sender-id="me"])::after {
+    left: -8px;
+    border-right-color: var(--gray-200);
+    border-left: 0;
+}
+
+.chat-message[data-sender-id="me"] + .chat-message[data-sender-id="me"] {
+    margin-top: 2px;
+    border-top-right-radius: var(--border-radius-xs);
+}
+
+.chat-message:not([data-sender-id="me"])+.chat-message:not([data-sender-id="me"]) {
+    margin-top: 2px;
+    border-top-left-radius: var(--border-radius-xs);
+}
+
 .message-time {
     display: block;
     font-size: 0.75rem;
@@ -1897,6 +1936,21 @@ h4 {
     color: rgba(var(--light-color), 0.7);
 }
 
+.read-indicator {
+    margin-left: 4px;
+    font-size: 0.75rem;
+    color: var(--primary-color);
+}
+
+.system-message {
+    background: transparent;
+    color: var(--gray-500);
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    box-shadow: none;
+}
+
 .chat-input-footer {
     display: flex;
     align-items: flex-end;
@@ -1904,6 +1958,21 @@ h4 {
     border-top: 1px solid var(--border-color-light);
     background-color: var(--gray-50);
     gap: var(--spacing-sm);
+}
+
+.composer-menu {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.composer-menu.hidden {
+    display: none;
+}
+
+.composer-menu button {
+    flex: 1;
 }
 
 .message-input {
@@ -1946,6 +2015,11 @@ h4 {
 
 .typing-indicator .dots span:nth-child(3) {
     animation-delay: .4s;
+}
+
+.chat-image-preview-thumb {
+    max-width: 120px;
+    border-radius: var(--border-radius-sm);
 }
 
 @keyframes blink {
@@ -3076,6 +3150,21 @@ body.dark-mode .chat-ad-summary:hover {
 .chat-ad-title-link:hover {
     color: var(--primary-color);
     text-decoration: underline;
+}
+
+.offer-card, .appointment-card, .location-card {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--gray-50);
+    border: 1px solid var(--border-color-light);
+    border-radius: var(--border-radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.offer-actions, .appointment-actions {
+    display: flex;
+    gap: var(--spacing-sm);
 }
 
 .chat-ad-price-tag {

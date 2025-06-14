@@ -1008,7 +1008,10 @@
                             <img id="chat-recipient-avatar" src="avatar-default.svg" alt="Avatar de l'interlocuteur"
                                 class="chat-recipient-avatar"
                                 onerror="this.src='https://placehold.co/36x36/e0e0e0/757575?text=User';">
-                            <h2 id="chat-recipient-name" class="modal-title chat-title"></h2>
+                            <div class="chat-recipient-info">
+                                <h2 id="chat-recipient-name" class="modal-title chat-title"></h2>
+                                <span id="chat-recipient-status" class="chat-recipient-status"></span>
+                            </div>
                             <button id="chat-options-btn" type="button" class="btn btn-icon"
                                 aria-label="Options du chat" aria-haspopup="true" aria-expanded="false">
                                 <i class="fa-solid fa-ellipsis-v"></i>
@@ -1041,7 +1044,34 @@
                                     <div class="message-content">
                                         <p class="message-text"></p>
                                         <time class="message-time"></time>
+                                        <span class="read-indicator hidden">✔✔</span>
                                     </div>
+                                </div>
+                            </template>
+                            <template id="offer-card-template">
+                                <div class="offer-card">
+                                    <p>Offre: <span class="offer-amount"></span>€ <span class="offer-status"></span></p>
+                                    <div class="offer-actions">
+                                        <button type="button" class="btn btn-sm btn-primary offer-accept-btn">Accepter</button>
+                                        <button type="button" class="btn btn-sm btn-danger offer-decline-btn">Refuser</button>
+                                    </div>
+                                </div>
+                            </template>
+                            <template id="appointment-card-template">
+                                <div class="appointment-card">
+                                    <p><span class="appointment-date"></span> <span class="appointment-time"></span></p>
+                                    <p class="appointment-location"></p>
+                                    <span class="appointment-status"></span>
+                                    <div class="appointment-actions">
+                                        <button type="button" class="btn btn-sm btn-primary appointment-confirm-btn">Confirmer</button>
+                                        <button type="button" class="btn btn-sm btn-danger appointment-cancel-btn">Annuler</button>
+                                    </div>
+                                </div>
+                            </template>
+                            <template id="location-card-template">
+                                <div class="location-card">
+                                    <p class="location-coords"></p>
+                                    <a href="#" target="_blank" class="location-map-link btn btn-sm btn-secondary">Ouvrir dans Plans</a>
                                 </div>
                             </template>
                         </div>
@@ -1049,21 +1079,18 @@
                             <span></span><span class="dots"><span>.</span><span>.</span><span>.</span></span>
                         </div>
                         <div id="chat-action-footer" class="chat-actions-toolbar">
-                            <button type="button" id="chat-make-offer-btn" class="btn btn-secondary btn-sm"><i
-                                    class="fa-solid fa-handshake"></i> Faire offre</button>
-                            <button type="button" id="chat-share-location-btn" class="btn btn-secondary btn-sm"><i
-                                    class="fa-solid fa-location-dot"></i> Ma position</button>
-                            <button type="button" id="chat-meet-btn" class="btn btn-secondary btn-sm"><i
-                                    class="fa-solid fa-calendar-check"></i> RDV</button>
-                        </div>
-                        <div id="chat-image-preview-container" class="hidden"
-                            style="padding: 0 var(--spacing-md); align-self: flex-start;">
-                        </div>
-                        <div id="chat-input-area" class="chat-input-footer">
-                            <button id="chat-attach-image-btn" type="button" class="btn btn-icon"
-                                aria-label="Joindre une image">
-                                <i class="fa-solid fa-paperclip"></i>
+                            <button type="button" id="chat-composer-btn" class="btn btn-icon" aria-label="Plus d'actions">
+                                <i class="fa-solid fa-plus"></i>
                             </button>
+                            <div id="chat-composer-menu" class="composer-menu hidden">
+                                <button type="button" id="chat-make-offer-btn" class="btn btn-secondary btn-sm">Faire une offre</button>
+                                <button type="button" id="chat-share-location-btn" class="btn btn-secondary btn-sm">Partager la position</button>
+                                <button type="button" id="chat-meet-btn" class="btn btn-secondary btn-sm">Proposer un RDV</button>
+                                <button type="button" id="chat-attach-image-btn" class="btn btn-secondary btn-sm">Joindre une image</button>
+                            </div>
+                        </div>
+                        <div id="chat-image-preview-container" class="hidden" style="padding: 0 var(--spacing-md); align-self: flex-start;"></div>
+                        <div id="chat-input-area" class="chat-input-footer">
                             <input type="file" id="chat-image-upload-input" class="visually-hidden"
                                 accept="image/jpeg,image/png,image/webp">
                             <textarea id="chat-message-input" class="form-control message-input"
