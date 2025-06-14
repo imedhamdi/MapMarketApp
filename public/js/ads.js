@@ -1459,45 +1459,34 @@ async function handleToggleFavoriteFromDetail(event) {
 }
 
 
-function handleContactSellerFromDetail() {
+async function handleContactSellerFromDetail() {
     const adId = adDetailModal?.dataset.adId;
     const sellerId = adDetailSellerInfo?.dataset.sellerId;
+
     if (!adId || !sellerId) {
         showToast("Informations du vendeur non disponibles.", "warning");
         return;
     }
+
     const currentUser = state.getCurrentUser();
-    if (currentUser && currentUser._id === sellerId) {
+
+    if (!currentUser) {
+        showToast("Veuillez vous connecter pour contacter le vendeur.", "warning");
+        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' } }));
+        return;
+    }
+
+    if (currentUser._id === sellerId) {
         showToast("Vous ne pouvez pas vous envoyer de message à vous-même.", "info");
         return;
     }
 
-    // Récupérer les détails de l'annonce depuis l'état pour les passer à la messagerie
-    const allAds = state.get('ads');
-    const adData = allAds.find(ad => (ad._id || ad.id) === adId);
-
-    if (!adData) {
-        showToast("Détails de l'annonce introuvables pour démarrer la discussion.", "error");
-        return;
-    }
-
-    // Dispatcher un événement avec toutes les infos nécessaires
-    document.dispatchEvent(new CustomEvent('mapMarket:initiateChat', {
-        detail: {
-            recipientId: sellerId,
-            adId: adId,
-            // Ajout des données pour l'affichage immédiat du bandeau
-            adData: {
-                title: adData.title,
-                price: adData.price,
-                imageUrls: adData.imageUrls,
-                _id: adData._id || adData.id
-            }
-        }
-    }));
-
-    // Fermer la modale de détail pour afficher celle des messages.
     document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'ad-detail-modal' } }));
+
+    // Dispatcher l'événement pour que messages.js le gère.
+    document.dispatchEvent(new CustomEvent('mapMarket:initiateChat', {
+        detail: { recipientId: sellerId, adId: adId }
+    }));
 }
 
 // function handleRateAdFromDetail() { ... } // Logique pour les avis (future)

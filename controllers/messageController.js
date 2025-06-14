@@ -58,10 +58,10 @@ exports.initiateOrGetThread = asyncHandler(async (req, res, next) => {
 
     const recipient = await User.findById(recipientId);
     if (!recipient) return next(new AppError('Destinataire introuvable.', 404));
-    if (req.user.blockedUsers?.includes(recipientId)) {
+    if (req.user.blockedUsers?.some(id => id.toString() === recipientId)) {
         return next(new AppError(`Vous avez bloqué ${recipient.name}.`, 403));
     }
-    if (recipient.blockedUsers?.includes(initiatorId)) {
+    if (recipient.blockedUsers?.some(id => id.toString() === initiatorId)) {
         return next(new AppError('Cet utilisateur vous a bloqué.', 403));
     }
 
@@ -74,7 +74,7 @@ exports.initiateOrGetThread = asyncHandler(async (req, res, next) => {
         .populate('participants.user', 'name avatarUrl isOnline lastSeen')
         .populate('ad', 'title imageUrls price');
 
-    const initiatorParticipant = thread.participants.find(p => p.user.toString() === initiatorId);
+    const initiatorParticipant = thread.participants.find(p => p.user._id.toString() === initiatorId);
     if (initiatorParticipant && initiatorParticipant.locallyDeletedAt) {
         initiatorParticipant.locallyDeletedAt = undefined;
     }
@@ -95,10 +95,12 @@ exports.initiateOrGetThread = asyncHandler(async (req, res, next) => {
  */
 exports.getMyThreads = asyncHandler(async (req, res, next) => {
     const userId = new mongoose.Types.ObjectId(req.user.id);
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20; // 20 conversations par page
+    const skip = (page - 1) * limit;
 
-    const threads = await Thread.aggregate([
+    const pipeline = [
         { $match: { 'participants.user': userId } },
-        { $sort: { updatedAt: -1 } },
         {
             $addFields: {
                 currentUserParticipant: {
@@ -117,6 +119,9 @@ exports.getMyThreads = asyncHandler(async (req, res, next) => {
                 ]
             }
         },
+        { $sort: { updatedAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
         {
             $lookup: {
                 from: 'users',
@@ -132,7 +137,7 @@ exports.getMyThreads = asyncHandler(async (req, res, next) => {
                 localField: 'ad',
                 foreignField: '_id',
                 as: 'adDetails',
-                pipeline: [{ $project: { title: 1, imageUrls: 1, price: 1 } }]
+                pipeline: [{ $project: { title: 1, imageUrls: 1, price: 1, currency: 1 } }]
             }
         },
         {
@@ -143,18 +148,33 @@ exports.getMyThreads = asyncHandler(async (req, res, next) => {
                     _id: { $arrayElemAt: ['$adDetails._id', 0] },
                     title: { $arrayElemAt: ['$adDetails.title', 0] },
                     price: { $arrayElemAt: ['$adDetails.price', 0] },
+                    currency: { $arrayElemAt: ['$adDetails.currency', 0] },
                     imageUrls: { $arrayElemAt: ['$adDetails.imageUrls', 0] }
                 },
                 lastMessage: 1,
+                unreadCount: '$currentUserParticipant.unreadCount',
                 createdAt: 1,
                 updatedAt: 1
             }
         }
-    ]);
+    ];
+
+    const threads = await Thread.aggregate(pipeline);
+
+    const totalThreads = await Thread.countDocuments({
+        'participants.user': userId,
+        // TODO: appliquer filtre locallyDeletedAt si nécessaire pour un comptage précis
+    });
 
     res.status(200).json({
         success: true,
         results: threads.length,
+        pagination: {
+            page,
+            limit,
+            total: totalThreads,
+            totalPages: Math.ceil(totalThreads / limit)
+        },
         data: { threads }
     });
 });
@@ -231,16 +251,16 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
         .populate('ad', 'title imageUrls price');
 
     if (!thread) return next(new AppError('Thread non trouvé.', 404));
-    if (!thread.participants.some(p => p.user.toString() === senderId)) {
+    if (!thread.participants.some(p => p.user._id.toString() === senderId)) {
         return next(new AppError('Accès non autorisé à ce thread.', 403));
     }
 
-    const otherParticipants = thread.participants.filter(p => p.user.toString() !== senderId);
+    const otherParticipants = thread.participants.filter(p => p.user._id.toString() !== senderId);
     for (const participant of otherParticipants) {
-        if (req.user.blockedUsers?.includes(participant.user._id.toString())) {
+        if (req.user.blockedUsers?.some(blockedId => blockedId.toString() === participant.user._id.toString())) {
             return next(new AppError(`Vous avez bloqué ${participant.user.name}.`, 403));
         }
-        if (participant.user.blockedUsers?.includes(senderId)) {
+        if (participant.user.blockedUsers?.some(blockedId => blockedId.toString() === senderId)) {
             return next(new AppError('Cet utilisateur vous a bloqué.', 403));
         }
     }
