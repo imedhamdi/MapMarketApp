@@ -26,7 +26,21 @@ const messageSchema = new mongoose.Schema({
         default: 'text'
     },
     metadata: {
-        type: mongoose.Schema.Types.Mixed
+        type: mongoose.Schema.Types.Mixed,
+        validate: {
+            validator: function(v) {
+                if (this.type === 'offer') {
+                    return v && typeof v.amount === 'number' && v.currency &&
+                        ['pending','accepted','declined'].includes(v.status);
+                }
+                if (this.type === 'appointment') {
+                    return v && v.date && v.location !== undefined &&
+                        ['pending','confirmed','cancelled','canceled'].includes(v.status);
+                }
+                return true;
+            },
+            message: 'Métadonnées invalides pour ce type de message.'
+        }
     },
     text: {
         type: String,
