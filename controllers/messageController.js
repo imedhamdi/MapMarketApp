@@ -71,17 +71,17 @@ exports.initiateOrGetThread = asyncHandler(async (req, res, next) => {
     let thread = await Thread.findOrCreateThread(initiatorId, recipientId, adId);
 
     thread = await Thread.findById(thread._id)
-        .populate('participants.user', 'name avatarUrl')
+        .populate('participants.user', 'name avatarUrl isOnline lastSeen')
         .populate('ad', 'title imageUrls price');
 
-    thread.participants.forEach(p => {
-        p.locallyDeletedAt = undefined;
-    });
+    const initiatorParticipant = thread.participants.find(p => p.user.toString() === initiatorId);
+    if (initiatorParticipant && initiatorParticipant.locallyDeletedAt) {
+        initiatorParticipant.locallyDeletedAt = undefined;
+    }
     await thread.save({ validateBeforeSave: false });
 
     res.status(200).json({
         success: true,
-        message: 'Thread récupéré ou créé.',
         data: { thread }
     });
 });
@@ -215,54 +215,38 @@ exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
  * POST /api/messages/messages/image (pour image, géré par Multer avant)
  */
 exports.sendMessage = asyncHandler(async (req, res, next) => {
-    const { threadId, recipientId, text, adId, type, metadata, tempId } = req.body; // <-- Récupérer tempId
+    const { threadId, text, type, metadata, tempId } = req.body;
     const senderId = req.user.id;
-    let currentThreadId = threadId;
-    let isNewThread = false;
 
-    // **CORRECTION AJOUTÉE : Vérification de sécurité en amont**
+    if (!threadId) {
+        return next(new AppError('threadId est requis.', 400));
+    }
+
     if ((!text || text.trim() === '') && !req.file) {
         return next(new AppError('Un message doit contenir du texte ou une image.', 400));
     }
 
-    if (!currentThreadId && (!recipientId || !adId)) {
-        return next(new AppError('recipientId et adId sont requis pour démarrer une nouvelle discussion.', 400));
+    const thread = await Thread.findById(threadId)
+        .populate('participants.user', 'blockedUsers name avatarUrl isOnline lastSeen')
+        .populate('ad', 'title imageUrls price');
+
+    if (!thread) return next(new AppError('Thread non trouvé.', 404));
+    if (!thread.participants.some(p => p.user.toString() === senderId)) {
+        return next(new AppError('Accès non autorisé à ce thread.', 403));
     }
 
-    // --- Vérification de blocage ---
-    let finalRecipientId = recipientId;
-    if (currentThreadId) {
-        const tempThread = await Thread.findById(currentThreadId).populate('participants.user', 'blockedUsers name');
-        if (!tempThread) return next(new AppError('Thread non trouvé.', 404));
-        const otherParticipant = tempThread.participants.find(p => p.user._id.toString() !== senderId);
-        if (!otherParticipant) return next(new AppError('Destinataire non trouvé dans le thread.', 404));
-        finalRecipientId = otherParticipant.user._id.toString();
-
-        if (req.user.blockedUsers?.includes(finalRecipientId)) {
-            return next(new AppError(`Vous avez bloqué ${otherParticipant.user.name}.`, 403));
+    const otherParticipants = thread.participants.filter(p => p.user.toString() !== senderId);
+    for (const participant of otherParticipants) {
+        if (req.user.blockedUsers?.includes(participant.user._id.toString())) {
+            return next(new AppError(`Vous avez bloqué ${participant.user.name}.`, 403));
         }
-        if (otherParticipant.user.blockedUsers?.includes(senderId)) {
-            return next(new AppError('Cet utilisateur vous a bloqué.', 403));
-        }
-    } else {
-        const recipientUser = await User.findById(recipientId);
-        if (!recipientUser) return next(new AppError('Destinataire non trouvé.', 404));
-        if (req.user.blockedUsers?.includes(recipientId)) {
-            return next(new AppError(`Vous avez bloqué cet utilisateur.`, 403));
-        }
-        if (recipientUser.blockedUsers?.includes(senderId)) {
+        if (participant.user.blockedUsers?.includes(senderId)) {
             return next(new AppError('Cet utilisateur vous a bloqué.', 403));
         }
     }
 
-    // --- Création du thread si nécessaire ---
-    if (!currentThreadId && recipientId && adId) {
-        const thread = await Thread.findOrCreateThread(senderId, recipientId, adId);
-        currentThreadId = thread._id;
-        isNewThread = !thread.lastMessage;
-    }
-   const messageData = {
-        threadId: currentThreadId,
+    const messageData = {
+        threadId,
         senderId,
     };
     let parsedMeta = metadata;
@@ -302,44 +286,43 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
 
     const newMessage = await Message.create(messageData);
 
-    // --- Émission Socket.IO IMMÉDIATE ---
-    const populatedMessageForSocket = newMessage.toObject();
-    populatedMessageForSocket.senderId = {
-        _id: req.user._id,
-        name: req.user.name,
-        avatarUrl: req.user.avatarUrl
+    thread.lastMessage = {
+        text: newMessage.text,
+        sender: senderId,
+        createdAt: newMessage.createdAt,
+        imageUrl: newMessage.imageUrl,
     };
+    thread.updatedAt = newMessage.createdAt;
+    thread.participants.forEach(p => {
+        if (p.user.toString() !== senderId) {
+            p.unreadCount = (p.unreadCount || 0) + 1;
+        }
+        if (p.locallyDeletedAt) {
+            p.locallyDeletedAt = undefined;
+        }
+    });
+    await thread.save({ validateBeforeSave: false });
 
-    if (tempId) {
-        populatedMessageForSocket.tempId = tempId; // <-- AJOUTER CETTE LIGNE
-    }
+    const populatedMessage = await Message.findById(newMessage._id).populate('senderId', 'name avatarUrl');
+    const messageObj = mapMessageImageUrls(req, populatedMessage.toObject());
+    if (tempId) messageObj.tempId = tempId;
 
     if (ioInstance) {
-        const threadForBroadcast = await Thread.findById(currentThreadId)
-            .populate('participants.user', 'name avatarUrl isOnline lastSeen')
-            .populate('ad', 'title imageUrls price');
-
-        if (threadForBroadcast) {
-            threadForBroadcast.participants.forEach(participant => {
-                const userSocketRoom = `user_${participant.user._id}`;
-                ioInstance.of('/chat').to(userSocketRoom).emit('newMessage', {
-                    message: mapMessageImageUrls(req, populatedMessageForSocket),
-                    thread: threadForBroadcast.toObject()
-                });
-                if (isNewThread || (participant.locallyDeletedAt && participant.locallyDeletedAt < threadForBroadcast.updatedAt)) {
-                    ioInstance.of('/chat').to(userSocketRoom).emit('newThread', threadForBroadcast.toObject());
-                }
+        thread.participants.forEach(participant => {
+            const room = `user_${participant.user._id}`;
+            ioInstance.of('/chat').to(room).emit('newMessage', {
+                message: messageObj,
+                thread: thread.toObject(),
             });
-        }
+        });
     }
 
     res.status(201).json({
         success: true,
-        message: 'Message envoyé avec succès.',
         data: {
-            message: mapMessageImageUrls(req, populatedMessageForSocket),
-            threadId: currentThreadId
-        }
+            message: messageObj,
+            threadId,
+        },
     });
 });
 

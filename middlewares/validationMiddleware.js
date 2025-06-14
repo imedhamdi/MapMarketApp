@@ -163,33 +163,19 @@ const updateAdSchema = Joi.object({
 
 // Schéma pour l'envoi de message texte
 const createMessageSchema = Joi.object({
-    threadId: Joi.string().hex().length(24).optional(),
-    recipientId: Joi.string().hex().length(24).optional(),
-    adId: Joi.string().hex().length(24).when('threadId', {
-        is: Joi.exist(),
-        then: Joi.optional(),
-        otherwise: Joi.required()
-    }),
-    text: Joi.string().trim().allow('').max(2000).messages({
-        'string.max': 'Le message ne doit pas dépasser {#limit} caractères.'
-    })
-    .when(Joi.object({ threadId: Joi.not().exist() }), {
-        then: Joi.required() // Requis seulement pour les nouveaux threads
-    })
-}).xor('threadId', 'recipientId');
+    threadId: Joi.string().hex().length(24).required(),
+    text: Joi.string().trim().allow('').max(2000).optional(),
+    type: Joi.string().optional(),
+    metadata: Joi.any().optional(),
+    tempId: Joi.string().optional()
+});
 
 // Schéma pour l'envoi de message avec image (où le texte est optionnel)
 const sendMessageWithImageSchema = Joi.object({
-    threadId: Joi.string().hex().length(24).optional(),
-    recipientId: Joi.string().hex().length(24).optional(),
-    adId: Joi.string().hex().length(24).when('threadId', {
-        is: Joi.exist(),
-        then: Joi.optional(),
-        otherwise: Joi.required()
-    }),
-    // Pour cette route, le texte est optionnel car l'image est la donnée principale
-    text: Joi.string().trim().allow('').max(2000).optional()
-}).xor('threadId', 'recipientId');
+    threadId: Joi.string().hex().length(24).required(),
+    text: Joi.string().trim().allow('').max(2000).optional(),
+    tempId: Joi.string().optional()
+});
 
 
 
