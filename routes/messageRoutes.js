@@ -17,7 +17,7 @@ router.get('/threads', messageController.getMyThreads);
 router.get('/threads/unread-count', messageController.getUnreadThreadCount);
 router.get('/threads/:threadId/messages', messageController.getMessagesForThread);
 router.post('/threads/:threadId/read', messageController.markThreadAsRead);
-router.delete('/threads/:threadId/local', messageController.deleteThreadLocally); // Suppression locale
+router.patch('/threads/:threadId/local', messageController.deleteThreadLocally); // Suppression locale
 
 // Routes pour les Messages
 router.post('/messages', validateCreateMessage, messageController.sendMessage); // Pour les messages texte

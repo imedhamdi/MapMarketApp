@@ -225,7 +225,7 @@ function setupEventListeners() {
                         toggleGlobalLoader(true, "Masquage en cours...");
                         try {
                             const response = await secureFetch(`${API_MESSAGES_URL}/threads/${threadIdToDelete}/local`, {
-                                method: 'DELETE'
+                                method: 'PATCH'
                             }, false);
 
                             if (response && response.success) {
