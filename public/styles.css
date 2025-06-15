@@ -1892,6 +1892,19 @@ h4 {
     box-shadow: var(--shadow-xs); /* Ajouter une ombre légère */
 }
 
+.chat-message.sending {
+    opacity: 0.7;
+    background-color: var(--gray-400);
+}
+
+.chat-message.message-failed {
+    background-color: var(--danger-color-light, #fee2e2);
+    border: 1px solid var(--danger-color);
+}
+.message-failed .message-text {
+    color: var(--danger-color-dark);
+}
+
 
 .chat-message[data-sender-id="me"] {
     background-color: var(--primary-color);
