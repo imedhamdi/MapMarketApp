@@ -100,7 +100,7 @@ exports.getMyThreads = asyncHandler(async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const pipeline = [
-        { $match: { 'participants.user': userId } },
+        { $match: { 'participants.user': userId, hiddenFor: { $ne: userId } } },
         {
             $addFields: {
                 currentUserParticipant: {
@@ -163,7 +163,7 @@ exports.getMyThreads = asyncHandler(async (req, res, next) => {
 
     const totalThreads = await Thread.countDocuments({
         'participants.user': userId,
-        // TODO: appliquer filtre locallyDeletedAt si nécessaire pour un comptage précis
+        hiddenFor: { $ne: userId }
     });
 
     res.status(200).json({
@@ -498,32 +498,18 @@ exports.markMessagesAsRead = asyncHandler(async (req, res, next) => {
 });
 
 /**
- * Supprimer une conversation localement pour l'utilisateur connecté.
- * DELETE /api/messages/threads/:threadId/local
+ * Masque une conversation pour l'utilisateur connecté (soft delete).
+ * PATCH /api/messages/threads/:threadId/local
  */
 exports.deleteThreadLocally = asyncHandler(async (req, res, next) => {
-    const { threadId } = req.params;
-    const userId = req.user.id;
+    await Thread.findByIdAndUpdate(req.params.threadId, {
+        $addToSet: { hiddenFor: req.user.id }
+    });
 
-    const thread = await Thread.findOne({ _id: threadId, 'participants.user': userId });
-    if (!thread) {
-        return next(new AppError('Thread non trouvé ou accès non autorisé.', 404));
-    }
-
-    const participantIndex = thread.participants.findIndex(p => p.user.toString() === userId);
-    if (participantIndex === -1) { // Ne devrait pas arriver si la requête ci-dessus réussit
-        return next(new AppError('Utilisateur non trouvé dans ce thread.', 403));
-    }
-
-    thread.participants[participantIndex].locallyDeletedAt = Date.now();
-    // Optionnel : si on veut aussi vider unreadCount lors de la suppression locale
-    // thread.participants[participantIndex].unreadCount = 0;
-    await thread.save({ validateBeforeSave: false });
-
-    logger.info(`Thread ${threadId} supprimé localement pour l'utilisateur ${userId}`);
+    logger.info(`Thread ${req.params.threadId} masqué pour l'utilisateur ${req.user.id}`);
     res.status(200).json({
         success: true,
-        message: 'Conversation supprimée de votre vue.',
+        message: 'Conversation masquée avec succès.'
     });
 });
 
