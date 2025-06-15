@@ -7,21 +7,24 @@ class APIFeatures {
     }
   
   filter() {
-      const queryObj = { ...this.queryString };
-      const excludedFields = ['page', 'sort', 'limit', 'fields'];
-      excludedFields.forEach(el => delete queryObj[el]);
+      const allowedFilters = ['category', 'price', 'condition', 'title'];
+      const filteredQuery = {};
+      Object.keys(this.queryString).forEach(el => {
+        if (allowedFilters.includes(el)) {
+          filteredQuery[el] = this.queryString[el];
+        }
+      });
 
       const filter = {};
 
-      if (queryObj.keywords) {
-        filter.$text = { $search: queryObj.keywords };
-        delete queryObj.keywords;
+      if (this.queryString.keywords) {
+        filter.$text = { $search: this.queryString.keywords };
       }
 
-      if (queryObj.lat && queryObj.lng && queryObj.distance) {
-        const lat = parseFloat(queryObj.lat);
-        const lng = parseFloat(queryObj.lng);
-        const dist = parseFloat(queryObj.distance);
+      if (this.queryString.lat && this.queryString.lng && this.queryString.distance) {
+        const lat = parseFloat(this.queryString.lat);
+        const lng = parseFloat(this.queryString.lng);
+        const dist = parseFloat(this.queryString.distance);
         if (!isNaN(lat) && !isNaN(lng) && !isNaN(dist)) {
           filter.location = {
             $nearSphere: {
@@ -30,12 +33,9 @@ class APIFeatures {
             }
           };
         }
-        delete queryObj.lat;
-        delete queryObj.lng;
-        delete queryObj.distance;
       }
 
-      let queryStr = JSON.stringify(queryObj);
+      let queryStr = JSON.stringify(filteredQuery);
       queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, match => `$${match}`);
 
       Object.assign(filter, JSON.parse(queryStr));
