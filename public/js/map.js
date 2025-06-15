@@ -623,6 +623,7 @@ function showAdPreviewCard(ad) {
 
     card.onclick = (e) => {
         if (e.target.closest('#preview-card-favorite-btn')) return;
+        card.classList.add('hidden');
         document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: ad._id || ad.id } }));
     };
 

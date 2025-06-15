@@ -3803,3 +3803,9 @@ body.dark-mode .chat-recipient:hover, body.dark-mode .chat-recipient:focus {
 .thread-meta .unread-badge.hidden {
     transform: scale(0);
 }
+
+/* ADD THIS UTILITY CLASS */
+.hidden {
+  display: none !important;
+}
+

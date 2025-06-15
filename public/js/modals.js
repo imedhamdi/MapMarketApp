@@ -147,6 +147,15 @@ export function closeModal(modalId, triggerElement = null, silent = false) {
 
     modal.setAttribute('aria-hidden', 'true');
 
+    if (modalId === 'ad-detail-modal') {
+        const adPreviewCard = document.getElementById('ad-preview-card');
+        if (adPreviewCard) {
+            adPreviewCard.classList.remove('hidden');
+            const adId = adPreviewCard.dataset.adId;
+            updatePreviewCardFavoriteIcon(adId);
+        }
+    }
+
     const triggerToUpdate = triggerElement || activeModalTrigger || document.querySelector(`[data-modal-trigger="${modalId}"], [aria-controls="${modalId}"]`);
     if (triggerToUpdate) {
         triggerToUpdate.setAttribute('aria-expanded', 'false');
@@ -325,6 +334,27 @@ function handleOpenModalEvent(event) {
         if (view && modalId === 'auth-modal' && typeof window.authSwitchView === 'function') {
             window.authSwitchView(view);
         }
+    }
+}
+
+// Met à jour l'icône favori sur la carte après la fermeture de la modale détail
+function updatePreviewCardFavoriteIcon(adId) {
+    const isFavorite = state.isFavorite(adId);
+    const adPreviewCard = document.getElementById('ad-preview-card');
+    if (adPreviewCard && adPreviewCard.dataset.adId === adId) {
+        const favoriteBtn = adPreviewCard.querySelector('.favorite-btn');
+        const heartIcon = favoriteBtn ? favoriteBtn.querySelector('i') : null;
+        if (favoriteBtn) favoriteBtn.setAttribute('aria-pressed', isFavorite);
+        if (heartIcon) {
+            if (isFavorite) {
+                heartIcon.classList.remove('fa-regular');
+                heartIcon.classList.add('fa-solid');
+            } else {
+                heartIcon.classList.remove('fa-solid');
+                heartIcon.classList.add('fa-regular');
+            }
+        }
+        if (favoriteBtn) favoriteBtn.classList.toggle('active', isFavorite);
     }
 }
 function handleCloseModalEvent(event) {

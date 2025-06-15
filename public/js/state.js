@@ -265,6 +265,26 @@ export function updateAd(updatedAd) {
 }
 export function removeAd(adId) { const currentAds = get('ads'); set('ads', currentAds.filter(ad => ad.id !== adId)); }
 export function getCategories() { return get('categories'); }
+export function setFavorites(favoriteAds) {
+    const ids = favoriteAds.map(ad => ad._id || ad.id || ad);
+    set('favorites', ids);
+}
+export function isFavorite(adId) {
+    const favs = get('favorites') || [];
+    return favs.includes(adId);
+}
+export function addFavorite(adId) {
+    const favs = get('favorites') || [];
+    if (!favs.includes(adId)) {
+        set('favorites', [...favs, adId]);
+    }
+}
+export function removeFavorite(adId) {
+    const favs = get('favorites') || [];
+    if (favs.includes(adId)) {
+        set('favorites', favs.filter(id => id !== adId));
+    }
+}
 // setCategories n'est plus nécessaire si elles sont en dur et non modifiables,
 // mais on le garde au cas où, pour la cohérence.
 export function setCategories(categoriesData) {
