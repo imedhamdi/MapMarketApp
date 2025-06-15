@@ -353,44 +353,39 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
  */
 exports.markThreadAsRead = asyncHandler(async (req, res, next) => {
     const { threadId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.id; // L'utilisateur qui lit les messages
 
     const thread = await Thread.findById(threadId);
     if (!thread || !thread.participants.find(p => p.user.toString() === userId)) {
         return next(new AppError('Thread non trouvé ou accès non autorisé.', 404));
     }
 
-    // Mettre à jour le unreadCount pour cet utilisateur dans ce thread
-    let participantUpdated = false;
-    thread.participants.forEach(participant => {
-        if (participant.user.toString() === userId && participant.unreadCount > 0) {
-            participant.unreadCount = 0;
-            participantUpdated = true;
-        }
-    });
-
-    if (participantUpdated) {
+    // Marquer le compteur de non-lus de l'utilisateur à 0
+    const participantIndex = thread.participants.findIndex(p => p.user.toString() === userId);
+    if (participantIndex > -1 && thread.participants[participantIndex].unreadCount > 0) {
+        thread.participants[participantIndex].unreadCount = 0;
         await thread.save({ validateBeforeSave: false });
     }
 
-    // Mettre à jour les messages individuels comme lus (optionnel, dépend de la granularité souhaitée)
-    await Message.updateMany(
-        { threadId, senderId: { $ne: userId }, isRead: { $ne: true } }, // Marquer les messages reçus non lus
-        { $set: { status: 'read' } } // Ou un champ `readBy: [{userId, readAt}]` pour plus de détails
+    // Mettre à jour le statut des messages que l'utilisateur a reçus dans ce thread
+    const updateResult = await Message.updateMany(
+        { threadId, senderId: { $ne: userId }, status: { $ne: 'read' } },
+        { $set: { status: 'read' } }
     );
 
-    // Émettre un événement Socket.IO pour informer les autres clients de la mise à jour du statut "lu"
-    if (ioInstance) {
-        // Informer l'expéditeur des messages que ses messages ont été lus par ce userId
+    // Si des messages ont été mis à jour, notifier l'autre participant
+    if (updateResult.modifiedCount > 0) {
         const otherParticipant = thread.participants.find(p => p.user.toString() !== userId);
-        if (otherParticipant) {
+        if (otherParticipant && ioInstance) {
             const recipientRoom = `user_${otherParticipant.user.toString()}`;
-            ioInstance.of('/chat').to(recipientRoom).emit('messagesRead', { threadId, readerId: userId });
+            ioInstance.of('/chat').to(recipientRoom).emit('messagesRead', {
+                threadId,
+                readerId: userId // On envoie l'ID de celui qui a lu
+            });
+            logger.info(`Événement 'messagesRead' émis à la room ${recipientRoom} pour le thread ${threadId}`);
         }
     }
-
-
-    logger.info(`Thread ${threadId} marqué comme lu pour l'utilisateur ${userId}`);
+    
     res.status(200).json({
         success: true,
         message: 'Thread marqué comme lu.'
