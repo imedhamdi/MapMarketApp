@@ -61,8 +61,8 @@
     --header-height: 60px;
     --bottom-nav-height: 60px;
     --transition-duration-short: 150ms;
-    --transition-duration-medium: 300ms;
-    --transition-timing-function: ease-in-out;
+    --transition-duration-medium: 350ms;
+    --transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
     --category-immobilier-color: #2563eb;
     --category-vehicules-color: #db2777;
     --category-electronique-color: #16a34a;
@@ -490,7 +490,9 @@ h4 {
     display: flex;
     flex-direction: column;
     transform: translateY(-100%);
-    transition: transform var(--transition-duration-medium) var(--transition-timing-function);
+    /* MODIFICATION : Animer à la fois transform et opacity pour un effet de fondu */
+    transition: transform var(--transition-duration-medium) var(--transition-timing-function),
+                opacity var(--transition-duration-medium) ease-in-out;
     overflow-y: auto;
 }
 .search-bar-wrapper:not(.hidden) {
@@ -984,12 +986,17 @@ h4 {
     justify-content: center;
 }
 
+
 .modal-overlay.slide-from-right .modal-content {
+    /* État initial : complètement à droite ET invisible */
     transform: translateX(100%);
+    opacity: 0;
 }
 
 .modal-overlay[aria-hidden="false"].slide-from-right .modal-content {
+    /* État final : à sa place ET complètement visible */
     transform: translateX(0);
+    opacity: 1;
 }
 
 .modal-content {
@@ -1002,7 +1009,9 @@ h4 {
     flex-direction: column;
     max-height: 90vh;
     overflow: hidden;
-    transition: transform var(--transition-duration-medium) var(--transition-timing-function);
+    /* MODIFICATION : Animer à la fois transform et opacity pour un effet de fondu */
+    transition: transform var(--transition-duration-medium) var(--transition-timing-function),
+                opacity var(--transition-duration-medium) ease-in-out;
     margin: auto;
 }
 
@@ -1747,11 +1756,15 @@ h4 {
     max-width: 400px;
     border-radius: 0;
     margin: 0;
+    /* État initial : complètement à droite ET invisible */
     transform: translateX(100%);
+    opacity: 0;
 }
 
 #messages-modal[aria-hidden="false"].slide-from-right .modal-content {
+    /* État final : à sa place ET complètement visible */
     transform: translateX(0);
+    opacity: 1;
 }
 
 .messages-view {
