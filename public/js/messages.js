@@ -45,6 +45,7 @@ let messageObserver = null;
 let isLoadingHistory = false;
 let allMessagesLoaded = false;
 let typingTimer = null;
+let typingIndicatorTimer = null;
 let tempImageFile = null;
 let currentTabRole = 'purchases';
 
@@ -296,13 +297,11 @@ function connectSocket() {
         loadThreads(currentTabRole);
     });
     socket.on('messagesRead', ({ threadId, readerId }) => {
-        if (activeThreadId === threadId) {
+        if (activeThreadId === threadId && readerId !== state.getCurrentUser()._id) {
             document.querySelectorAll('.chat-message[data-sender-id="me"] .message-status-icons').forEach(statusEl => {
                 const icon = statusEl.querySelector('i');
-                if (icon && !icon.classList.contains('fa-check-double')) {
-                    icon.className = 'fa-solid fa-check-double';
-                    icon.title = 'Lu';
-                    statusEl.style.color = 'var(--primary-color-light, #4fc3f7)';
+                if (icon && icon.style.color !== 'rgb(79, 195, 247)') {
+                    statusEl.innerHTML = '<i class="fa-solid fa-check-double" title="Lu" style="color: #4fc3f7;"></i>';
                 }
             });
         }
@@ -629,6 +628,8 @@ function renderMessages(messages, method) {
 
         const isSentByMe = (msg.senderId?._id || msg.senderId) === currentUserId;
         messageEl.dataset.senderId = isSentByMe ? 'me' : 'other';
+        if (msg.status === 'sending') messageEl.classList.add('sending');
+        if (msg.status === 'failed') messageEl.classList.add('message-failed');
         // classes de groupage déterminées après insertion
 
         switch (msg.type) {
@@ -735,9 +736,10 @@ function renderMessages(messages, method) {
 }
 
 function renderMessageStatus(message) {
-    const sentIcon = `<span class="status-icon" title="Envoyé">✔️</span>`;
-    const deliveredIcon = `<span class="status-icon" title="Délivré">✔️✔️</span>`;
-    const readIcon = `<span class="status-icon read" title="Lu">✔️✔️</span>`;
+    const sentIcon = '<i class="fa-solid fa-check" title="Envoyé"></i>';
+    const deliveredIcon = '<i class="fa-solid fa-check-double" title="Distribué"></i>';
+    const readIcon = '<i class="fa-solid fa-check-double" title="Lu" style="color: #4fc3f7;"></i>';
+
     switch (message.status) {
         case 'read':
             return readIcon;
@@ -1026,10 +1028,10 @@ function handleNewMessageReceived({ message, thread, unreadThreadCount }) {
         const tempMessageEl = document.querySelector(`.chat-message[data-temp-id="${message.tempId}"]`);
         if (tempMessageEl) {
             tempMessageEl.dataset.messageId = message._id;
-            tempMessageEl.classList.remove('sending-message');
+            tempMessageEl.classList.remove('sending');
             const statusContainer = tempMessageEl.querySelector('.message-status-icons');
             if (statusContainer) {
-                statusContainer.innerHTML = '<i class="fa-solid fa-check"></i>';
+                statusContainer.innerHTML = renderMessageStatus({ status: 'sent' });
             }
             if(message.type === 'image' && message.imageUrl) {
                 const imgEl = tempMessageEl.querySelector('.chat-image-attachment');
@@ -1079,10 +1081,18 @@ async function handleOfferAction(messageId, accept) {
     }
 }
 
-function handleTypingEventReceived({ threadId, userName }) {
+function handleTypingEventReceived({ threadId, userName, isTyping }) {
     if (threadId === activeThreadId && userName !== state.getCurrentUser()?.name) {
-        chatTypingIndicator.classList.remove('hidden');
-        chatTypingIndicator.querySelector('span').textContent = `${sanitizeHTML(userName)} est en train d'écrire`;
+        if (isTyping) {
+            chatTypingIndicator.classList.remove('hidden');
+            chatTypingIndicator.querySelector('span').textContent = `${sanitizeHTML(userName)} est en train d'écrire`;
+            clearTimeout(typingIndicatorTimer);
+            typingIndicatorTimer = setTimeout(() => {
+                chatTypingIndicator.classList.add('hidden');
+            }, TYPING_TIMEOUT);
+        } else {
+            chatTypingIndicator.classList.add('hidden');
+        }
     }
 }
 
@@ -1123,7 +1133,7 @@ async function markMessagesAsRead(threadId) {
 }
 
 function updateGlobalUnreadCount(count) {
-    const newCount = Math.max(0, count);
+    const newCount = Math.max(0, count || 0);
     if (messagesNavBadge) {
         messagesNavBadge.textContent = newCount > 9 ? '9+' : newCount;
         messagesNavBadge.classList.toggle('hidden', newCount === 0);
