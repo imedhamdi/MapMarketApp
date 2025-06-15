@@ -54,6 +54,9 @@ let currentTabRole = 'purchases';
 export function init() {
     if (!initializeUI()) return;
     setupEventListeners();
+    state.subscribe('messages.unreadGlobalCountChanged', (count) => {
+        updateGlobalUnreadCount(count);
+    });
     console.log('Module Messages initialisé.');
 }
 
@@ -282,6 +285,11 @@ function connectSocket() {
 
     // Écoute des événements serveur
     socket.on('newMessage', handleNewMessageReceived);
+    socket.on('unreadCountUpdated', ({ unreadThreadCount }) => {
+        if (typeof unreadThreadCount === 'number') {
+            state.set('messages.unreadGlobalCount', unreadThreadCount);
+        }
+    });
     socket.on('typing', handleTypingEventReceived);
     socket.on('newThread', (newThreadData) => {
         console.log('Nouveau thread reçu !', newThreadData);
@@ -531,10 +539,15 @@ function renderThreadList(threadsData) {
 
         // La logique pour l'heure et le badge non lu reste la même
         if (timeEl) timeEl.textContent = thread.lastMessage ? formatDate(thread.lastMessage.createdAt, { hour: '2-digit', minute: '2-digit' }) : '';
-        const unreadCount = thread.participants.find(p => p.user === currentUser._id)?.unreadCount || 0;
+        const unreadCountForThread = thread.unreadCount || 0;
+
+        if (unreadCountForThread > 0) {
+            li.classList.add('thread-unread');
+        }
+
         if (unreadBadge) {
-            unreadBadge.textContent = unreadCount;
-            unreadBadge.classList.toggle('hidden', unreadCount === 0);
+            unreadBadge.textContent = unreadCountForThread;
+            unreadBadge.classList.toggle('hidden', unreadCountForThread === 0);
         }
 
         // L'écouteur d'événement reste le même
@@ -998,7 +1011,10 @@ function updateMessageGrouping() {
 
 // --- GESTION DES ÉVÉNEMENTS SOCKET REÇUS ---
 
-function handleNewMessageReceived({ message, thread }) {
+function handleNewMessageReceived({ message, thread, unreadThreadCount }) {
+    if (typeof unreadThreadCount === 'number') {
+        state.set('messages.unreadGlobalCount', unreadThreadCount);
+    }
     if (threadListView.classList.contains('active-view')) {
         loadThreads(currentTabRole);
     }
@@ -1083,12 +1099,19 @@ function handleUserStatusUpdate({ userId, statusText }) {
  * Informe le serveur que le thread a été lu.
  * @param {string} threadId - L'ID du thread.
  */
-function markThreadAsRead(threadId) {
+async function markThreadAsRead(threadId) {
     if (socket) {
         socket.emit('markThreadRead', { threadId });
     }
-    // Mettre à jour le compteur local immédiatement
-    loadThreads(currentTabRole);
+    try {
+        const response = await secureFetch(`/api/messages/threads/${threadId}/read`, { method: 'POST' }, false);
+        if (response && response.success && typeof response.data.unreadThreadCount === 'number') {
+            state.set('messages.unreadGlobalCount', response.data.unreadThreadCount);
+        }
+        loadThreads(currentTabRole);
+    } catch (e) {
+        console.error('Erreur mise à jour lecture thread:', e);
+    }
 }
 
 async function markMessagesAsRead(threadId) {

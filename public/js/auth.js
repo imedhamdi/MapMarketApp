@@ -558,6 +558,14 @@ async function checkInitialAuthState() {
                 const userData = response.data.user;
                 state.setCurrentUser(userData);
                 updateUIAfterLogin(userData);
+
+                // Charger le décompte initial de messages non lus
+                secureFetch('/api/messages/threads/unread-count', {}, false)
+                    .then(countResponse => {
+                        if (countResponse && countResponse.success) {
+                            state.set('messages.unreadGlobalCount', countResponse.data.unreadCount);
+                        }
+                    });
                 console.log('Utilisateur authentifié via token existant:', userData.name);
 
                 if (!userData.emailVerified) {
