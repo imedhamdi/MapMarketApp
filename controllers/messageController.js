@@ -340,9 +340,20 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
     };
     thread.updatedAt = newMessage.createdAt;
     thread.participants.forEach(p => {
-        if (p.user.toString() !== senderId) {
+        const participantId = p.user._id.toString();
+
+        if (participantId === senderId) {
+            // L'expéditeur a implicitement "lu" le thread en envoyant un message.
+            // On réinitialise son compteur de messages non lus.
+            p.unreadCount = 0;
+        } else {
+            // Le destinataire a un nouveau message non lu.
+            // On incrémente son compteur.
             p.unreadCount = (p.unreadCount || 0) + 1;
         }
+
+        // Si la conversation était masquée pour ce participant, on la fait réapparaître
+        // en supprimant la date de suppression locale.
         if (p.locallyDeletedAt) {
             p.locallyDeletedAt = undefined;
         }
