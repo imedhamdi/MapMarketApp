@@ -1,6 +1,10 @@
 // js/utils.js
 import * as state from './state.js';
 
+// File-scoped variables for toast queue management
+let toastQueue = [];
+let isToastVisible = false;
+
 /**
  * @file utils.js
  * @description Fonctions utilitaires pour l'application MapMarket.
@@ -20,6 +24,11 @@ export function showToast(message, type = 'info', duration = 3000) {
     const container = document.getElementById('toast-notifications-container');
     const template = document.getElementById('toast-notification-template');
 
+    if (isToastVisible) {
+        toastQueue.push({ message, type, duration });
+        return;
+    }
+
     if (!container || !template) {
         console.warn('Éléments de toast non trouvés. Message:', message);
         // Fallback simple si les éléments du DOM ne sont pas prêts ou trouvés
@@ -34,15 +43,15 @@ export function showToast(message, type = 'info', duration = 3000) {
     const toastCloseBtn = toastElement.querySelector('.toast-close-btn');
 
     toastElement.dataset.toastType = type;
-    toastMessageEl.textContent = message;
 
-    const icons = {
-        info: 'fa-info-circle',
-        success: 'fa-check-circle',
-        error: 'fa-times-circle',
-        warning: 'fa-exclamation-triangle'
+    const iconChars = {
+        success: '✔',
+        error: '✖',
+        warning: '⚠',
+        info: 'ℹ'
     };
-    toastIconEl.className = `toast-icon fa-solid ${icons[type] || icons.info}`;
+    toastIconEl.textContent = iconChars[type] || iconChars.info;
+    toastMessageEl.textContent = message;
 
     toastCloseBtn.addEventListener('click', () => dismissToast(toastElement));
 
@@ -52,6 +61,7 @@ export function showToast(message, type = 'info', duration = 3000) {
     // void toastElement.offsetWidth; // Technique classique, mais requestAnimationFrame est plus moderne
     requestAnimationFrame(() => {
         toastElement.classList.add('toast-visible');
+        isToastVisible = true;
     });
 
 
@@ -71,6 +81,11 @@ function dismissToast(toastElement) {
     toastElement.addEventListener('transitionend', () => {
         if (toastElement.parentNode) {
             toastElement.remove();
+        }
+        isToastVisible = false;
+        if (toastQueue.length > 0) {
+            const next = toastQueue.shift();
+            showToast(next.message, next.type, next.duration);
         }
     }, { once: true });
 }
@@ -431,19 +446,33 @@ export async function secureFetch(url, options = {}, showGlobalLoader = true) {
     try {
         const response = await fetch(url, options);
 
+        if (response.status === 401 || response.status === 403) {
+            showToast('Votre session a expiré. Veuillez vous reconnecter.', 'error');
+            localStorage.removeItem('mapmarket_auth_token');
+            window.location.href = '/login.html';
+            const err = new Error('Unauthorized');
+            err.handled = true;
+            throw err;
+        }
+
+        if (response.status >= 500) {
+            showToast('Une erreur est survenue côté serveur. Veuillez réessayer plus tard.', 'error');
+            const err = new Error('ServerError');
+            err.status = response.status;
+            err.handled = true;
+            throw err;
+        }
+
         if (!response.ok) {
             let errorData;
             try {
-                // Essayer de parser le corps de la réponse d'erreur comme JSON
                 errorData = await response.json();
             } catch (e) {
-                // Si le corps n'est pas JSON ou est vide
                 errorData = { message: response.statusText || `Erreur HTTP ${response.status}` };
             }
-            // Enrichir l'objet d'erreur
             const error = new Error(errorData.message || `Erreur HTTP ${response.status}`);
             error.status = response.status;
-            error.data = errorData; // Contient potentiellement plus de détails du backend
+            error.data = errorData;
             throw error;
         }
 
@@ -460,17 +489,16 @@ export async function secureFetch(url, options = {}, showGlobalLoader = true) {
         return await response.text();
 
     } catch (error) {
-    console.error(`Erreur lors de l'appel à ${url}:`, error);
-    
-    // Message plus spécifique pour les erreurs de validation
-    if (error.status === 400 && error.data?.errors) {
-        const validationErrors = Object.values(error.data.errors).join(', ');
-        showToast(`Erreur de validation : ${validationErrors}`, 'error');
-    } else {
-        showToast(error.message || 'Une erreur de communication est survenue. Veuillez réessayer.', 'error');
-    }
-    
-    throw error;
+        console.error(`Erreur lors de l'appel à ${url}:`, error);
+
+        if (error.status === 400 && error.data?.errors) {
+            const validationErrors = Object.values(error.data.errors).join(', ');
+            showToast(`Erreur de validation : ${validationErrors}`, 'error');
+        } else if (!error.handled) {
+            showToast('Erreur de connexion. Vérifiez votre réseau.', 'error');
+        }
+
+        throw error;
 
     } finally {
         if (showGlobalLoader) {
