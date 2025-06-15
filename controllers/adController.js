@@ -6,31 +6,13 @@ const { logger } = require('../config/winston');
 const fs = require('fs');
 const path = require('path');
 const APIFeatures = require('../utils/apiFeatures'); // Utilitaire pour filtres, tri, pagination (à créer)
-const fetch = require('node-fetch');
-const { clear } = require('console');
-const NodeGeocoder = require('node-geocoder');
-const countryToCurrency = require('country-to-currency');
-
-const geocoder = NodeGeocoder({ provider: 'openstreetmap' });
+const { findCurrencyByCoords } = require('../utils/geoDatabase');
 
 const asyncHandler = (fn) => (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
 };
 
 // Fonction d'aide pour récupérer la devise à partir du code pays
-const getCurrencyFromCountryCode = (countryCode) => {
-    const currencyMap = {
-        'fr': 'EUR', 'de': 'EUR', 'es': 'EUR', 'it': 'EUR', // Europe
-        'us': 'USD', // États-Unis
-        'gb': 'GBP', // Royaume-Uni
-        'tn': 'TND', // Tunisie
-        'ma': 'MAD', // Maroc
-        'dz': 'DZD', // Algérie
-        'ca': 'CAD', // Canada
-        // Ajoutez d'autres pays et devises au besoin
-    };
-    return currencyMap[countryCode.toLowerCase()] || 'EUR';
-};
 
 // Helper pour construire les URLs des images
 const mapImageUrls = (req, ad) => {
@@ -122,34 +104,15 @@ exports.createAd = asyncHandler(async (req, res, next) => {
 
     logger.info('BACKEND: Toutes les validations des champs de base sont passées.');
 
-    // --- Début de la détection de devise ---
-    const geoData = await geocoder.reverse({ lat: parsedLat, lon: parsedLng });
-    if (!geoData || geoData.length === 0 || !geoData[0].countryCode) {
-        return next(new AppError('Impossible de déterminer le pays pour cette localisation.', 400));
-    }
-    const countryCode = geoData[0].countryCode.toUpperCase();
-    const adCurrency = countryToCurrency[countryCode];
+    // --- Determination de la devise ---
+    const adCurrency = findCurrencyByCoords(parsedLat, parsedLng);
     if (!adCurrency) {
-        return next(new AppError(`Aucune devise trouvée pour le pays : ${countryCode}`, 400));
+        return next(new AppError("Votre annonce est dans une zone géographique non supportee. Veuillez choisir un autre emplacement.", 400));
     }
-    logger.info(`Devise détectée pour l'annonce : ${adCurrency} (via country_code: ${countryCode})`);
-    // --- Fin de la détection de devise ---
-    // --- Début de la DÉTERMINATION DE L'ADRESSE (AJOUT) ---
-    let adDisplayAddress = locationAddress; // Utilise l'adresse fournie par défaut
-    if (!adDisplayAddress || adDisplayAddress.trim() === '') {
-        try {
-            const geoResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=<span class="math-inline">\{parsedLat\}&lon\=</span>{parsedLng}&accept-language=fr`);
-            if (geoResponse.ok) {
-                const geoData = await geoResponse.json();
-                if (geoData && geoData.display_name) {
-                    adDisplayAddress = geoData.display_name; // 'display_name' est souvent plus complet.
-                    logger.info(`Adresse déterminée par géocodage inversé : ${adDisplayAddress}`);
-                }
-            }
-        } catch (geoError) {
-            logger.warn(`Échec du géocodage inversé pour la détermination de l'adresse. Utilisation des coordonnées comme fallback. Erreur: ${geoError.message}`);
-            adDisplayAddress = `Lat: ${parsedLat}, Lng: ${parsedLng}`;
-        }
+
+    let adDisplayAddress = locationAddress;
+    if (!adDisplayAddress || adDisplayAddress.trim() === "") {
+        adDisplayAddress = `Lat: ${parsedLat}, Lng: ${parsedLng}`;
     }
     // --- Fin de la DÉTERMINATION DE L'ADRESSE ---
 
@@ -364,19 +327,12 @@ exports.updateAd = asyncHandler(async (req, res, next) => {
             coordinates: [newLng, newLat],
             address: req.body.locationAddress || ad.location.address // Conserver l'ancienne adresse si non fournie
         };
-        // Détection de devise si la localisation change
-        try {
-            const geoResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${newLat}&lon=${newLng}&accept-language=en`);
-            if (geoResponse.ok) {
-                const geoData = await geoResponse.json();
-                if (geoData && geoData.address && geoData.address.country_code) {
-                    updates.currency = getCurrencyFromCountryCode(geoData.address.country_code);
-                    logger.info(`Devise détectée pour la mise à jour : ${updates.currency} (via country_code: ${geoData.address.country_code})`);
-                }
-            }
-        } catch (geoError) {
-            logger.warn(`Échec du géocodage inversé lors de la mise à jour pour la détection de devise. Erreur: ${geoError.message}`);
+        // Détermination de la devise localement si la localisation change
+        const newCurrency = findCurrencyByCoords(newLat, newLng);
+        if (!newCurrency) {
+            return next(new AppError('Votre annonce est dans une zone géographique non supportee. Veuillez choisir un autre emplacement.', 400));
         }
+        updates.currency = newCurrency;
     } else if (req.body.locationAddress && (!req.body.latitude || !req.body.longitude)) {
         // Si seule l'adresse change, il faudrait potentiellement géocoder pour mettre à jour les coordonnées
         // Pour l'instant, on met juste à jour le texte de l'adresse
