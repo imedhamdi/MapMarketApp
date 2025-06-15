@@ -14,6 +14,7 @@ router.use(protect);
 // Routes pour les Threads
 router.post('/threads/initiate', validateInitiateThread, messageController.initiateOrGetThread);
 router.get('/threads', messageController.getMyThreads);
+router.get('/threads/unread-count', messageController.getUnreadThreadCount);
 router.get('/threads/:threadId/messages', messageController.getMessagesForThread);
 router.post('/threads/:threadId/read', messageController.markThreadAsRead);
 router.delete('/threads/:threadId/local', messageController.deleteThreadLocally); // Suppression locale

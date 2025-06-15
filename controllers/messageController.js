@@ -179,6 +179,31 @@ exports.getMyThreads = asyncHandler(async (req, res, next) => {
     });
 });
 
+/**
+ * Récupère le nombre total de conversations non lues pour l'utilisateur.
+ * GET /api/messages/threads/unread-count
+ */
+exports.getUnreadThreadCount = asyncHandler(async (req, res, next) => {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+
+    const threads = await Thread.find({
+        'participants.user': userId,
+        'participants.unreadCount': { $gt: 0 }
+    }).select('participants');
+
+    const unreadCount = threads.filter(thread => {
+        const participant = thread.participants.find(p => p.user.equals(userId));
+        return participant && participant.unreadCount > 0;
+    }).length;
+
+    res.status(200).json({
+        success: true,
+        data: {
+            unreadCount: unreadCount
+        }
+    });
+});
+
 
 
 
@@ -329,13 +354,21 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
     if (tempId) messageObj.tempId = tempId;
 
     if (ioInstance) {
-        thread.participants.forEach(participant => {
-            const room = `user_${participant.user._id}`;
+        for (const participant of thread.participants) {
+            const participantId = participant.user._id;
+            const room = `user_${participantId}`;
+
+            const totalUnreadCountForParticipant = await Thread.countDocuments({
+                'participants.user': participantId,
+                'participants.unreadCount': { $gt: 0 }
+            });
+
             ioInstance.of('/chat').to(room).emit('newMessage', {
                 message: messageObj,
                 thread: thread.toObject(),
+                unreadThreadCount: totalUnreadCountForParticipant
             });
-        });
+        }
     }
 
     res.status(201).json({
@@ -387,10 +420,22 @@ exports.markThreadAsRead = asyncHandler(async (req, res, next) => {
         }
     }
     
+    const totalUnreadCount = await Thread.countDocuments({
+        'participants.user': userId,
+        'participants.unreadCount': { $gt: 0 }
+    });
+
     res.status(200).json({
         success: true,
-        message: 'Thread marqué comme lu.'
+        message: 'Thread marqué comme lu.',
+        data: {
+            unreadThreadCount: totalUnreadCount
+        }
     });
+
+    if (ioInstance) {
+        ioInstance.of('/chat').to(`user_${userId}`).emit('unreadCountUpdated', { unreadThreadCount: totalUnreadCount });
+    }
 });
 
 /**

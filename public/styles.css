@@ -3762,3 +3762,31 @@ body.dark-mode .chat-recipient:hover, body.dark-mode .chat-recipient:focus {
     align-items: center;
     justify-content: flex-end;
 }
+
+/* Styles pour les conversations non lues */
+.thread-item.thread-unread .thread-item__ad-title,
+.thread-item.thread-unread .thread-item__user-name {
+    font-weight: 700;
+    color: var(--text-color-headings);
+}
+
+.thread-item.thread-unread .thread-item__message-preview {
+    color: var(--text-color-base);
+    font-weight: 500;
+}
+
+.thread-meta .unread-badge {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    min-width: 20px;
+    text-align: center;
+    transition: transform 0.2s ease;
+}
+
+.thread-meta .unread-badge.hidden {
+    transform: scale(0);
+}
