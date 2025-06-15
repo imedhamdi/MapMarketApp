@@ -380,7 +380,7 @@ exports.markThreadAsRead = asyncHandler(async (req, res, next) => {
             const recipientRoom = `user_${otherParticipant.user.toString()}`;
             ioInstance.of('/chat').to(recipientRoom).emit('messagesRead', {
                 threadId,
-                readerId: userId // On envoie l'ID de celui qui a lu
+                readerId: userId
             });
             logger.info(`Événement 'messagesRead' émis à la room ${recipientRoom} pour le thread ${threadId}`);
         }
