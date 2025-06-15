@@ -164,6 +164,7 @@ async function addFavorite(adId) {
 
         if (response && response.success) {
             showToast("Annonce ajoutée aux favoris !", "success");
+            state.addFavorite(adId);
             // Recharger les favoris pour être sûr d'avoir les données à jour
             loadUserFavorites();
             return true;
@@ -188,6 +189,7 @@ async function removeFavorite(adId) {
 
         if (response && response.success) {
             showToast("Annonce retirée des favoris.", "info");
+            state.removeFavorite(adId);
             // Le changement d'état a déjà été fait de manière optimiste.
             // On peut recharger pour confirmer la synchronisation.
             loadUserFavorites();
