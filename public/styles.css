@@ -3660,3 +3660,85 @@ body.dark-mode .chat-recipient:hover, body.dark-mode .chat-recipient:focus {
     align-items: center;
     flex-shrink: 0;
 }
+
+/* ============================================= */
+/* ==      STYLES AMÉLIORÉS POUR LA LISTE     == */
+/* ==      DES CONVERSATIONS (THREADS)        == */
+/* ============================================= */
+
+.thread-item {
+    /* list-item-card fournit déjà une bonne base, on peut affiner ici */
+    align-items: flex-start; /* Aligner les items en haut */
+    padding: var(--spacing-md);
+}
+
+.thread-item__thumbnail {
+    width: 60px;
+    height: 60px;
+    border-radius: var(--border-radius-md); /* Coins carrés pour les annonces */
+    flex-shrink: 0;
+}
+
+.thread-item__info {
+    /* item-info fournit flex-grow: 1 et min-width: 0, c'est bon */
+    display: flex;
+    flex-direction: column;
+    gap: 2px; /* Espacement entre le titre et la ligne de message */
+}
+
+.thread-item__ad-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-color-headings);
+    margin: 0;
+    line-height: 1.3;
+    
+    /* Gérer le texte long */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.thread-item__message-line {
+    font-size: 0.9rem;
+    color: var(--text-color-muted);
+    margin: 0;
+    line-height: 1.4;
+
+    /* Gérer le texte long */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.thread-item__user-name {
+    /* Le nom de l'expéditeur du dernier message */
+    font-weight: 500;
+    color: var(--text-color-base);
+}
+
+.thread-item__meta {
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--spacing-xs);
+}
+
+/* S'assurer que le badge non lu est bien visible */
+.thread-item__meta .unread-badge {
+    font-size: 0.75rem;
+    font-weight: bold;
+    background-color: var(--primary-color);
+    color: var(--light-color);
+    border-radius: var(--border-radius-full);
+    min-width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+}

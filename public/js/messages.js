@@ -484,24 +484,58 @@ function renderThreadList(threadsData) {
     updateGlobalUnreadCount(totalUnread);
 
     threadsData.forEach(thread => {
+        // La logique pour trouver le 'recipient' et 'currentUser' reste la même
         const recipient = thread.participants.find(p => p._id !== currentUser._id);
         if (!recipient) return;
 
         const clone = threadItemTemplate.content.cloneNode(true);
         const li = clone.querySelector('.thread-item');
-        li.dataset.threadId = thread._id;
-        li.querySelector('.thread-avatar').src = recipient.avatarUrl || 'avatar-default.svg';
-        li.querySelector('.thread-user').textContent = sanitizeHTML(recipient.name);
 
-        let previewText = thread.lastMessage?.text ? sanitizeHTML(thread.lastMessage.text) : (thread.lastMessage?.imageUrl ? '[Image]' : 'Début de la conversation');
-        li.querySelector('.thread-preview').textContent = previewText;
-
-        li.querySelector('.thread-time').textContent = thread.lastMessage ? formatDate(thread.lastMessage.createdAt, { hour: '2-digit', minute: '2-digit' }) : '';
+        // Cibler les nouveaux éléments
+        const thumbnail = li.querySelector('.thread-item__thumbnail');
+        const adTitle = li.querySelector('.thread-item__ad-title');
+        const userNameEl = li.querySelector('.thread-item__user-name');
+        const messagePreviewEl = li.querySelector('.thread-item__message-preview');
+        const timeEl = li.querySelector('.thread-time');
         const unreadBadge = li.querySelector('.unread-badge');
-        const unreadCount = thread.participants.find(p => p.user === currentUser._id)?.unreadCount || 0;
-        unreadBadge.textContent = unreadCount;
-        unreadBadge.classList.toggle('hidden', unreadCount === 0);
 
+        li.dataset.threadId = thread._id;
+
+        // Remplir avec les données de l'annonce
+        if (thread.ad) {
+            if (thumbnail) {
+                thumbnail.src = (thread.ad.imageUrls && thread.ad.imageUrls[0])
+                                ? thread.ad.imageUrls[0]
+                                : 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
+                thumbnail.alt = `Image pour ${sanitizeHTML(thread.ad.title)}`;
+            }
+            if (adTitle) {
+                adTitle.textContent = sanitizeHTML(thread.ad.title);
+            }
+        } else {
+            // Fallback si la discussion n'est pas liée à une annonce
+            if (thumbnail) thumbnail.src = recipient.avatarUrl || 'https://placehold.co/60x60/e0e0e0/757575?text=User';
+            if (adTitle) adTitle.textContent = "Discussion directe";
+        }
+
+        // Remplir avec les détails du message
+        const lastMessageSender = thread.lastMessage?.sender?.toString() === currentUser._id ? "Vous" : recipient.name;
+        const previewText = thread.lastMessage?.text
+                            ? sanitizeHTML(thread.lastMessage.text)
+                            : (thread.lastMessage?.imageUrl ? '[Image]' : 'Début de la conversation');
+
+        if (userNameEl) userNameEl.textContent = `${sanitizeHTML(lastMessageSender)}: `;
+        if (messagePreviewEl) messagePreviewEl.textContent = previewText;
+
+        // La logique pour l'heure et le badge non lu reste la même
+        if (timeEl) timeEl.textContent = thread.lastMessage ? formatDate(thread.lastMessage.createdAt, { hour: '2-digit', minute: '2-digit' }) : '';
+        const unreadCount = thread.participants.find(p => p.user === currentUser._id)?.unreadCount || 0;
+        if (unreadBadge) {
+            unreadBadge.textContent = unreadCount;
+            unreadBadge.classList.toggle('hidden', unreadCount === 0);
+        }
+
+        // L'écouteur d'événement reste le même
         li.addEventListener('click', () => openChatView(thread._id, recipient, thread));
         threadListUl.appendChild(clone);
     });
