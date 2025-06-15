@@ -297,11 +297,12 @@ function connectSocket() {
         loadThreads(currentTabRole);
     });
     socket.on('messagesRead', ({ threadId, readerId }) => {
-        if (activeThreadId === threadId && readerId !== state.getCurrentUser()._id) {
-            document.querySelectorAll('.chat-message[data-sender-id="me"] .message-status-icons').forEach(statusEl => {
-                const icon = statusEl.querySelector('i');
-                if (icon && icon.style.color !== 'rgb(79, 195, 247)') {
-                    statusEl.innerHTML = '<i class="fa-solid fa-check-double" title="Lu" style="color: #4fc3f7;"></i>';
+        if (threadId === activeThreadId) {
+            console.log(`Read receipts reçus pour le thread ${threadId}`);
+            document.querySelectorAll('.chat-message[data-sender-id="me"]').forEach(msgElement => {
+                const statusContainer = msgElement.querySelector('.message-status-icons');
+                if (statusContainer && !statusContainer.innerHTML.includes('color: #4fc3f7')) {
+                    statusContainer.innerHTML = renderMessageStatus({ status: 'read' });
                 }
             });
         }
@@ -1133,10 +1134,15 @@ async function markMessagesAsRead(threadId) {
 }
 
 function updateGlobalUnreadCount(count) {
+    if (!messagesNavBadge) return;
     const newCount = Math.max(0, count || 0);
-    if (messagesNavBadge) {
-        messagesNavBadge.textContent = newCount > 9 ? '9+' : newCount;
-        messagesNavBadge.classList.toggle('hidden', newCount === 0);
+    messagesNavBadge.textContent = newCount > 9 ? '9+' : newCount;
+    messagesNavBadge.dataset.count = newCount;
+    messagesNavBadge.classList.toggle('hidden', newCount === 0);
+
+    if (newCount > 0 && !messagesNavBadge.classList.contains('hidden')) {
+        messagesNavBadge.classList.add('badge-bounce');
+        setTimeout(() => messagesNavBadge.classList.remove('badge-bounce'), 300);
     }
 }
 
