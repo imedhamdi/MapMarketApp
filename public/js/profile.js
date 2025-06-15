@@ -163,7 +163,6 @@ async function loadProfileData() {
             populateProfileFields(currentUser);
         }
     } catch (error) {
-        showToast(error.message || "Erreur critique lors du chargement du profil.", "error");
         document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'profile-modal' } }));
     }
 }
@@ -255,7 +254,7 @@ async function handleAvatarUpload(fileToUpload) {
     try {
         const response = await secureFetch(`${API_BASE_URL_USERS}/avatar`, { method: 'POST', body: formData }, false);
         if (response && response.success && response.data.avatarUrl) {
-            showToast("Avatar mis à jour !", "success");
+            showToast("Avatar mis à jour.", "success");
             const currentUser = state.getCurrentUser();
             if (currentUser) {
                 state.setCurrentUser({ ...currentUser, avatarUrl: response.data.avatarUrl });
@@ -264,7 +263,6 @@ async function handleAvatarUpload(fileToUpload) {
         }
         throw new Error(response.message || "Erreur de mise à jour de l'avatar.");
     } catch (error) {
-        showToast(error.message, "error");
         const currentUser = state.getCurrentUser();
         if (currentUser) populateProfileFields(currentUser);
         return false;
@@ -291,7 +289,6 @@ async function handleRemoveAvatar() {
                         }
                     } else throw new Error(response.message);
                 } catch (error) {
-                    showToast(error.message || "Erreur de suppression.", "error");
                 } finally {
                     toggleGlobalLoader(false);
                 }
@@ -387,7 +384,7 @@ async function handleProfileUpdate(event) {
             // La réponse du backend est déjà gérée par secureFetch en cas d'erreur
             // On vérifie juste le succès pour la suite.
             if (response && response.success) {
-                showToast("Mot de passe mis à jour avec succès !", "success");
+                showToast("Mot de passe mis à jour.", "success");
                 // Le backend envoie un nouveau token, mettons-le à jour
                 if(response.token) {
                     localStorage.setItem('mapmarket_auth_token', response.token);
@@ -399,7 +396,6 @@ async function handleProfileUpdate(event) {
             }
 
         } catch (error) {
-            showToast(error.message, "error");
             toggleGlobalLoader(false);
             return; // On arrête tout si la mise à jour du mot de passe échoue
         } finally {
@@ -421,7 +417,7 @@ async function handleProfileUpdate(event) {
 
             if (response && response.success && response.data.user) {
                 if (!passwordUpdated) { // N'affiche ce toast que si seul le nom a été changé
-                    showToast("Nom d'utilisateur mis à jour !", "success");
+                    showToast("Profil mis à jour.", "success");
                 }
                 state.setCurrentUser(response.data.user); // Met à jour l'état local avec les nouvelles données
                 profileUpdated = true;
@@ -429,7 +425,6 @@ async function handleProfileUpdate(event) {
                  throw new Error(response.message || "La mise à jour du profil a échoué.");
             }
         } catch (error) {
-            showToast(error.message, "error");
             // On ne stoppe pas ici, car le mot de passe a peut-être été mis à jour avec succès.
         } finally {
             toggleGlobalLoader(false);
@@ -469,7 +464,6 @@ async function performAccountDeactivation() {
             logout(); // Gère la déconnexion et le nettoyage local
         } else throw new Error(response.message);
     } catch (error) {
-        showToast(error.message || "Erreur de suppression.", "error");
     } finally {
         toggleGlobalLoader(false);
     }

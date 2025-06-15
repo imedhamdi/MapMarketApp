@@ -1385,13 +1385,17 @@ async function handleDeleteUserAd(adId) {
             cancelText: 'Annuler',   // Texte pour le bouton d'annulation
             isDestructive: true,     // Pour styler le bouton de confirmation en rouge
             onConfirm: async () => {
-                toggleGlobalLoader(true, "Suppression de l'annonce...");
+                const card = document.getElementById(adId);
+                card?.classList.add('is-loading');
                 try {
                     const response = await secureFetch(`${API_BASE_URL}/${adId}`, { method: 'DELETE' }, false);
-                    toggleGlobalLoader(false);
                     if (response && response.success) {
-                        showToast("Annonce supprimée avec succès.", "success");
-                        fetchAndRenderUserAds(); // Recharger la liste des annonces de l'utilisateur
+                        showToast("Annonce supprimée avec succès", "success");
+                        if (card) {
+                            card.classList.add('fade-out');
+                            card.addEventListener('animationend', () => card.remove(), { once: true });
+                        }
+                        fetchAndRenderUserAds();
                         if (typeof state.refreshAds === 'function') {
                             state.refreshAds();
                         } else {
@@ -1401,9 +1405,9 @@ async function handleDeleteUserAd(adId) {
                         showToast(response.message || "Erreur lors de la suppression de l'annonce.", "error");
                     }
                 } catch (error) {
-                    toggleGlobalLoader(false);
                     console.error("Erreur lors de la suppression de l'annonce:", error);
-                    showToast(error.message || "Une erreur technique est survenue.", "error");
+                } finally {
+                    card?.classList.remove('is-loading');
                 }
             }
         }
