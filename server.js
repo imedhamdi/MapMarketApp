@@ -267,6 +267,13 @@ io.of(SOCKET_NAMESPACE).on('connection', (socket) => {
         }
     });
 
+    socket.on('typing', ({ threadId, isTyping }) => {
+        if (threadId) {
+            const room = `thread_${threadId}`;
+            socket.to(room).emit('typing', { threadId, userName: socket.user.name, isTyping });
+        }
+    });
+
     socket.on('disconnect', async (reason) => {
         logger.info(`Socket.IO: Utilisateur déconnecté du namespace /chat: ${socket.id}. Raison: ${reason}`);
         await User.findByIdAndUpdate(socket.user.id, { isOnline: false, lastSeen: new Date() });

@@ -363,6 +363,8 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
                 'participants.unreadCount': { $gt: 0 }
             });
 
+            logger.info(`Envoi du nouveau décompte de threads non lus (${totalUnreadCountForParticipant}) à l'utilisateur ${participantId}`);
+
             ioInstance.of('/chat').to(room).emit('newMessage', {
                 message: messageObj,
                 thread: thread.toObject(),
@@ -407,6 +409,8 @@ exports.markThreadAsRead = asyncHandler(async (req, res, next) => {
         { $set: { status: 'read' } }
     );
 
+    logger.info(`Thread ${threadId}: ${updateResult.modifiedCount} message(s) marqué(s) comme lu(s) pour le destinataire ${userId}.`);
+
     // Si des messages ont été mis à jour, notifier l'autre participant
     if (updateResult.modifiedCount > 0) {
         const otherParticipant = thread.participants.find(p => p.user.toString() !== userId);
@@ -424,6 +428,8 @@ exports.markThreadAsRead = asyncHandler(async (req, res, next) => {
         'participants.user': userId,
         'participants.unreadCount': { $gt: 0 }
     });
+
+    logger.info(`Envoi du décompte de threads non lus mis à jour (${totalUnreadCount}) à l'utilisateur ${userId}`);
 
     res.status(200).json({
         success: true,
