@@ -144,10 +144,10 @@ async function handleToggleFavoriteEvent(event) {
     // Appel API et restauration de l'état en cas d'échec
     const success = setFavorite ? await addFavorite(adId) : await removeFavorite(adId);
     if (!success) {
+        showToast("L'opération a échoué, restauration de l'état précédent.", "error");
         state.set('favorites', previousFavorites);
         if (sourceButton) animateFavoriteButton(sourceButton, !setFavorite);
     }
-    return success;
 }
 
 /**
@@ -163,7 +163,9 @@ async function addFavorite(adId) {
         }, false);
 
         if (response && response.success) {
+            showToast("Annonce ajoutée aux favoris !", "success");
             state.addFavorite(adId);
+            // Recharger les favoris pour être sûr d'avoir les données à jour
             loadUserFavorites();
             return true;
         }
@@ -186,7 +188,10 @@ async function removeFavorite(adId) {
         }, false);
 
         if (response && response.success) {
+            showToast("Annonce retirée des favoris.", "info");
             state.removeFavorite(adId);
+            // Le changement d'état a déjà été fait de manière optimiste.
+            // On peut recharger pour confirmer la synchronisation.
             loadUserFavorites();
             return true;
         }

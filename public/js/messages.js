@@ -808,12 +808,6 @@ async function _sendPayload(payload, imageFile = null) {
     const messageInputBeforeSend = chatMessageInput.value;
     const imageFileBeforeSend = tempImageFile;
 
-    const originalButtonContent = sendChatMessageBtn ? sendChatMessageBtn.innerHTML : '';
-    if (sendChatMessageBtn) {
-        sendChatMessageBtn.disabled = true;
-        sendChatMessageBtn.innerHTML = '<span class="spinner"></span>';
-    }
-
     chatMessageInput.value = '';
     removeImagePreview();
     stopTypingEvent();
@@ -843,11 +837,6 @@ async function _sendPayload(payload, imageFile = null) {
             if (statusContainer) {
                 statusContainer.innerHTML = '<i class="fa-solid fa-circle-exclamation text-danger" title="Échec de l\'envoi"></i>';
             }
-        }
-    } finally {
-        if (sendChatMessageBtn) {
-            sendChatMessageBtn.disabled = false;
-            sendChatMessageBtn.innerHTML = originalButtonContent;
         }
     }
 }

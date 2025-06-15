@@ -288,7 +288,8 @@ async function handleLogin(event) {
     } catch (error) {
         toggleGlobalLoader(false); // Masquer le loader en cas d'erreur
         console.error('Erreur détaillée lors de la connexion (capturée dans handleLogin):', error);
-        // secureFetch gère l'affichage de l'erreur
+        // error.message devrait contenir le message d'erreur du serveur si secureFetch le propage.
+        showToast(error.message || 'Une erreur de connexion est survenue.', 'error');
     }
 }
 
@@ -351,7 +352,7 @@ async function handleSignup(event) {
     } catch (error) {
         toggleGlobalLoader(false);
         console.error('Erreur détaillée lors de l\'inscription (capturée dans handleSignup):', error);
-        // secureFetch se charge d'afficher l'erreur
+        showToast(error.message || 'Une erreur de communication est survenue durant l\'inscription.', 'error');
     }
 }
 
@@ -487,6 +488,7 @@ function performLocalLogout() {
     state.setCurrentUser(null); // Met à jour l'état global
     state.resetState(true); // Réinitialise l'état en gardant les préférences UI
     updateUIAfterLogout();
+    showToast('Vous avez été déconnecté.', 'info');
 
     // Fermer toutes les modales qui nécessitent une authentification
     // et potentiellement rediriger vers la page d'accueil ou de connexion.
@@ -596,7 +598,7 @@ async function checkInitialAuthState() {
             // pour lesquelles secureFetch ou d'autres parties pourraient déjà afficher un message.
             // Une 404 sur /api/auth/me est une erreur serveur critique, mais le client doit se déconnecter.
             if (!(error.message.includes('401') || error.message.includes('403'))) {
-                 // secureFetch a déjà affiché l'erreur pour 401/403
+                 showToast("Votre session n'a pas pu être vérifiée. Veuillez vous reconnecter.", "error");
             }
         }
     } else {

@@ -235,6 +235,7 @@ async function handlePushNotificationsToggle() {
             }
         } catch (error) {
             console.error("Settings: Erreur d'abonnement Push:", error);
+            showToast("Erreur lors de l'activation des notifications push.", "error");
             pushNotificationsToggle.checked = false; localStorage.setItem('mapMarketPushPreference', 'false');
         }
     } else { // Désactivation
@@ -254,6 +255,7 @@ async function handlePushNotificationsToggle() {
             }
         } catch (error) {
             console.error("Settings: Erreur de désabonnement Push:", error);
+            showToast("Erreur lors de la désactivation des notifications push.", "error");
             pushNotificationsToggle.checked = true; // Remettre en cas d'erreur
         }
         localStorage.setItem('mapMarketPushPreference', 'false');
@@ -339,6 +341,7 @@ async function saveUserSetting(key, value) {
 
     } catch (error) {
         console.error(`Erreur lors de la sauvegarde de la préférence '${key}' sur le serveur:`, error);
+        showToast(`Échec de la sauvegarde de la préférence '${key}'.`, "error");
         // Optionnel: annuler le changement UI si la sauvegarde échoue ?
         // Par exemple, pour un toggle: toggleElement.checked = !toggleElement.checked;
     }
