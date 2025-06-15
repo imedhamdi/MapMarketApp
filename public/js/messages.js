@@ -155,13 +155,14 @@ function setupEventListeners() {
     chatMessageInput.addEventListener('input', adjustTextareaHeight);
     chatOptionsBtn.addEventListener('click', toggleChatOptionsMenu);
     document.addEventListener('click', closeOptionsMenuOnClickOutside, true);
-    chatComposerBtn?.addEventListener('click', toggleComposerMenu);
+    if(chatComposerBtn) chatComposerBtn.addEventListener('click', () => toggleComposerMenu());
     document.addEventListener('click', closeComposerMenuOnClickOutside);
-    chatAttachImageBtn.addEventListener('click', () => {
-        chatImageUploadInput.click();
-        toggleComposerMenu(true);
-    });
-    chatImageUploadInput.addEventListener('change', handleImageFileSelection);
+    if (chatAttachImageBtn) {
+        chatAttachImageBtn.addEventListener('click', () => chatImageUploadInput.click());
+    }
+    if (chatImageUploadInput) {
+        chatImageUploadInput.addEventListener('change', handleImageFileSelection);
+    }
     threadsTabs?.addEventListener('click', handleThreadsTabClick);
     chatMakeOfferBtn?.addEventListener('click', () => {
         document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'offer-modal', triggerElement: chatMakeOfferBtn } }));
@@ -287,19 +288,16 @@ function connectSocket() {
         loadThreads(currentTabRole);
     });
     socket.on('messagesRead', ({ threadId, readerId }) => {
-        // Vérifier si la conversation concernée est celle actuellement ouverte
         if (activeThreadId === threadId) {
-            // Sélectionner tous les messages de l'utilisateur courant qui n'ont pas encore la double coche
-            document.querySelectorAll('.chat-message[data-sender-id="me"]').forEach(msgEl => {
-                const statusContainer = msgEl.querySelector('.message-status-icons');
-                // On met à jour tous les messages, le backend garantit qu'ils sont lus.
-                if (statusContainer) {
-                    statusContainer.innerHTML = '<i class="fa-solid fa-check-double"></i>';
-                    statusContainer.style.color = 'var(--primary-color-light, #4fc3f7)';
+            document.querySelectorAll('.chat-message[data-sender-id="me"] .message-status-icons').forEach(statusEl => {
+                const icon = statusEl.querySelector('i');
+                if (icon && !icon.classList.contains('fa-check-double')) {
+                    icon.className = 'fa-solid fa-check-double';
+                    icon.title = 'Lu';
+                    statusEl.style.color = 'var(--primary-color-light, #4fc3f7)';
                 }
             });
         }
-        // Il pourrait aussi y avoir une logique pour mettre à jour la liste des threads si nécessaire.
     });
     socket.on('userStatusUpdate', handleUserStatusUpdate);
 }
@@ -629,6 +627,12 @@ function renderMessages(messages, method) {
                     img.alt = 'Image envoyée';
                     textEl.innerHTML = '';
                     textEl.appendChild(img);
+                    if (msg.text) {
+                         const caption = document.createElement('p');
+                         caption.textContent = sanitizeHTML(msg.text);
+                         caption.style.marginTop = '4px';
+                         textEl.appendChild(caption);
+                    }
                 }
                 break;
             case 'offer':
@@ -696,15 +700,15 @@ function renderMessages(messages, method) {
         timeEl.textContent = formatDate(msg.createdAt, { hour: '2-digit', minute: '2-digit' });
 
         if (isSentByMe && statusEl) {
-            statusEl.innerHTML = ''; // Réinitialiser
+            statusEl.innerHTML = '';
             let iconClass = '';
             let iconTitle = '';
+            statusEl.style.color = 'inherit';
 
             switch (msg.status) {
                 case 'sending':
                     iconClass = 'fa-regular fa-clock';
                     iconTitle = 'Envoi en cours...';
-                    messageEl.classList.add('sending-message');
                     break;
                 case 'sent':
                     iconClass = 'fa-solid fa-check';
@@ -719,7 +723,6 @@ function renderMessages(messages, method) {
                 case 'failed':
                     iconClass = 'fa-solid fa-circle-exclamation';
                     iconTitle = 'Échec de l\'envoi';
-                    messageEl.classList.add('message-failed');
                     statusEl.style.color = 'var(--danger-color)';
                     break;
             }
@@ -768,47 +771,36 @@ function handleThreadsTabClick(e) {
 }
 
 // --- ENVOI INTERNE ---
-async function _sendPayload(payload, imageFile) {
+async function _sendPayload(payload, imageFile = null) {
     const hasImage = Boolean(imageFile);
-    const tempId = generateUUID(); // Génère un ID unique pour ce message
-    payload.tempId = tempId; // Ajoute le tempId au payload qui sera envoyé
+    const tempId = generateUUID();
+    payload.tempId = tempId;
 
     const tempMessage = {
-        tempId: tempId, // Important : on le garde pour le retrouver
+        tempId,
         threadId: payload.threadId || activeThreadId,
         text: payload.text,
-        type: payload.type,
-        metadata: payload.metadata || undefined,
+        type: payload.type || (hasImage ? 'image' : 'text'),
         imageUrl: hasImage ? URL.createObjectURL(imageFile) : undefined,
-        senderId: {
-            _id: state.getCurrentUser()._id,
-            name: 'Moi',
-            avatarUrl: state.getCurrentUser().avatarUrl
-        },
+        senderId: { _id: state.getCurrentUser()._id },
         status: 'sending',
         createdAt: new Date().toISOString()
     };
     renderMessages([tempMessage], 'append');
 
-    let endpoint;
+    const endpoint = hasImage ? `${API_MESSAGES_URL}/messages/image` : `${API_MESSAGES_URL}/messages`;
     const requestOptions = { method: 'POST' };
 
     if (hasImage) {
-        endpoint = `${API_MESSAGES_URL}/messages/image`;
         const formData = new FormData();
         formData.append('image', imageFile);
         for (const key in payload) {
             if (payload[key] !== undefined && payload[key] !== null) {
-                 if (typeof payload[key] === 'object' && payload[key] !== null) {
-                    formData.append(key, JSON.stringify(payload[key]));
-                } else {
-                    formData.append(key, payload[key]);
-                }
+                formData.append(key, payload[key]);
             }
         }
         requestOptions.body = formData;
     } else {
-        endpoint = `${API_MESSAGES_URL}/messages`;
         requestOptions.body = payload;
     }
 
@@ -823,7 +815,7 @@ async function _sendPayload(payload, imageFile) {
     try {
         const response = await secureFetch(endpoint, requestOptions, false);
         if (!response || !response.success) {
-            throw new Error(response?.message || "Erreur lors de l'envoi du message.");
+            throw new Error(response?.message || "Erreur d'envoi.");
         }
         if (!activeThreadId && response.data?.threadId) {
             activeThreadId = response.data.threadId;
@@ -831,7 +823,7 @@ async function _sendPayload(payload, imageFile) {
             loadThreads(currentTabRole);
         }
     } catch (error) {
-        console.error("Erreur d'envoi de message interceptée dans _sendPayload:", error);
+        console.error("Erreur d'envoi du message:", error);
         chatMessageInput.value = messageInputBeforeSend;
         if (imageFileBeforeSend) {
             tempImageFile = imageFileBeforeSend;
@@ -857,13 +849,12 @@ async function sendMessage() {
     const imageFile = tempImageFile;
 
     if (!text && !imageFile) {
-        showToast('Veuillez saisir un message ou sélectionner une image.', 'warning');
         return;
     }
 
     const payload = {
         text: text,
-        type: imageFile ? 'image' : 'text'
+        // Le type sera déterminé dans _sendPayload
     };
 
     if (activeThreadId) {
@@ -940,8 +931,14 @@ async function sendAppointmentMessage(appointmentData) {
 function handleImageFileSelection(event) {
     const file = event.target.files[0];
     if (!file) return;
-    if (!VALID_IMAGE_TYPES.includes(file.type)) return showToast("Format d'image non valide.", "error");
-    if (file.size > MAX_IMAGE_SIZE_BYTES) return showToast(`L'image est trop grande (max ${MAX_IMAGE_SIZE_MB}MB).`, "error");
+
+    // Validation côté client
+    if (!VALID_IMAGE_TYPES.includes(file.type)) {
+        return showToast("Format d'image non valide (JPEG, PNG, WebP).", "error");
+    }
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        return showToast(`L'image est trop grande (max ${MAX_IMAGE_SIZE_MB}MB).`, "error");
+    }
 
     tempImageFile = file;
     displayImagePreview(file);
@@ -951,7 +948,11 @@ function handleImageFileSelection(event) {
 function displayImagePreview(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-        chatImagePreviewContainer.innerHTML = `<img src="${e.target.result}" alt="Aperçu" class="chat-image-preview-thumb" /><button type="button" class="btn btn-icon btn-danger btn-sm chat-remove-preview-btn" aria-label="Retirer l'image"><i class="fa-solid fa-times"></i></button>`;
+        chatImagePreviewContainer.innerHTML = `
+                <img src="${e.target.result}" alt="Aperçu" class="chat-image-preview-thumb" />
+                <button type="button" class="btn btn-icon btn-danger btn-sm chat-remove-preview-btn" aria-label="Retirer l'image">
+                    <i class="fa-solid fa-times"></i>
+                </button>`;
         chatImagePreviewContainer.classList.remove('hidden');
         chatImagePreviewContainer.querySelector('.chat-remove-preview-btn').addEventListener('click', removeImagePreview);
     };
@@ -1188,11 +1189,17 @@ function closeOptionsMenuOnClickOutside(event) {
 
 function toggleComposerMenu(forceHide = false) {
     if (!chatComposerMenu) return;
-    let shouldHide = forceHide ? true : chatComposerMenu.classList.contains('hidden');
-    if (shouldHide) {
+
+    const isHidden = chatComposerMenu.classList.contains('hidden');
+
+    if (forceHide || !isHidden) {
         chatComposerMenu.classList.add('hidden');
+        chatComposerMenu.setAttribute('aria-hidden', 'true');
+        chatComposerBtn.setAttribute('aria-expanded', 'false');
     } else {
         chatComposerMenu.classList.remove('hidden');
+        chatComposerMenu.setAttribute('aria-hidden', 'false');
+        chatComposerBtn.setAttribute('aria-expanded', 'true');
     }
 }
 
@@ -1201,4 +1208,12 @@ function closeComposerMenuOnClickOutside(event) {
         !chatComposerBtn.contains(event.target) && !chatComposerMenu.contains(event.target)) {
         toggleComposerMenu(true);
     }
+}
+
+if(chatComposerMenu) {
+    chatComposerMenu.addEventListener('click', (e) => {
+        if (e.target.closest('button')) {
+            toggleComposerMenu(true);
+        }
+    });
 }
