@@ -14,7 +14,7 @@ import {
     secureFetch,
     toggleGlobalLoader,
     sanitizeHTML,
-    formatPrice
+    formatCurrency
 } from './utils.js';
 
 const API_BASE_URL = '/api/favorites';
@@ -248,7 +248,7 @@ function renderFavoritesListWithData(favoriteAdsData) {
             img.alt = `Image de ${sanitizeHTML(ad.title)}`;
         }
         if (title) title.textContent = sanitizeHTML(ad.title);
-        if (price) price.textContent = ad.price != null ? formatPrice(ad.price, ad.currency) : 'N/A';
+        if (price) price.textContent = ad.price != null ? formatCurrency(ad.price, ad.currency) : 'N/A';
         const categoryObj = state.getCategories().find(c => c.id === ad.category);
         if (category) category.textContent = categoryObj ? sanitizeHTML(categoryObj.name) : sanitizeHTML(ad.category);
 
