@@ -287,15 +287,19 @@ function connectSocket() {
         loadThreads(currentTabRole);
     });
     socket.on('messagesRead', ({ threadId, readerId }) => {
+        // Vérifier si la conversation concernée est celle actuellement ouverte
         if (activeThreadId === threadId) {
+            // Sélectionner tous les messages de l'utilisateur courant qui n'ont pas encore la double coche
             document.querySelectorAll('.chat-message[data-sender-id="me"]').forEach(msgEl => {
                 const statusContainer = msgEl.querySelector('.message-status-icons');
+                // On met à jour tous les messages, le backend garantit qu'ils sont lus.
                 if (statusContainer) {
-                    statusContainer.innerHTML = '<i class="fa-solid fa-check-double" style="color: #4fc3f7;"></i>';
+                    statusContainer.innerHTML = '<i class="fa-solid fa-check-double"></i>';
+                    statusContainer.style.color = 'var(--primary-color-light, #4fc3f7)';
                 }
             });
         }
-        handleMessagesReadByOther({ threadId, readerId });
+        // Il pourrait aussi y avoir une logique pour mettre à jour la liste des threads si nécessaire.
     });
     socket.on('userStatusUpdate', handleUserStatusUpdate);
 }
@@ -692,35 +696,36 @@ function renderMessages(messages, method) {
         timeEl.textContent = formatDate(msg.createdAt, { hour: '2-digit', minute: '2-digit' });
 
         if (isSentByMe && statusEl) {
-            statusEl.innerHTML = '';
-            let icon;
-            let title = '';
+            statusEl.innerHTML = ''; // Réinitialiser
+            let iconClass = '';
+            let iconTitle = '';
 
             switch (msg.status) {
                 case 'sending':
-                    icon = 'fa-regular fa-clock';
-                    title = 'Envoi en cours...';
+                    iconClass = 'fa-regular fa-clock';
+                    iconTitle = 'Envoi en cours...';
                     messageEl.classList.add('sending-message');
                     break;
                 case 'sent':
-                    icon = 'fa-solid fa-check';
-                    title = 'Envoyé';
+                    iconClass = 'fa-solid fa-check';
+                    iconTitle = 'Envoyé';
                     break;
                 case 'read':
-                    icon = 'fa-solid fa-check-double';
-                    title = 'Lu';
+                    iconClass = 'fa-solid fa-check-double';
+                    iconTitle = 'Lu';
+                    statusEl.style.color = 'var(--primary-color-light, #4fc3f7)';
                     break;
                 case 'failed_to_send':
                 case 'failed':
-                    icon = 'fa-solid fa-circle-exclamation';
-                    title = 'Échec de l\'envoi';
+                    iconClass = 'fa-solid fa-circle-exclamation';
+                    iconTitle = 'Échec de l\'envoi';
                     messageEl.classList.add('message-failed');
-                    if(statusEl) statusEl.style.color = 'var(--danger-color)';
+                    statusEl.style.color = 'var(--danger-color)';
                     break;
             }
 
-            if (icon) {
-                statusEl.innerHTML = `<i class="${icon}" title="${title}"></i>`;
+            if (iconClass) {
+                statusEl.innerHTML = `<i class="${iconClass}" title="${iconTitle}"></i>`;
             }
         } else if (statusEl) {
             statusEl.innerHTML = '';
@@ -1078,16 +1083,6 @@ function handleTypingEventReceived({ threadId, userName }) {
     }
 }
 
-function handleMessagesReadByOther({ threadId, readerId }) {
-    if (threadId === activeThreadId) {
-        document.querySelectorAll('.chat-message[data-sender-id="me"]').forEach(msgEl => {
-            const statusContainer = msgEl.querySelector('.message-status-icons');
-            if (statusContainer) {
-                statusContainer.innerHTML = '<i class="fa-solid fa-check-double" style="color: #4fc3f7;"></i>';
-            }
-        });
-    }
-}
 
 function handleUserStatusUpdate({ userId, statusText }) {
     if (currentRecipient && currentRecipient._id === userId && chatRecipientStatus) {
