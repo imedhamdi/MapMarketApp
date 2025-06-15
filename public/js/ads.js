@@ -12,7 +12,7 @@ import {
     secureFetch,
     toggleGlobalLoader,
     sanitizeHTML,
-    formatPrice,
+    formatCurrency,
     formatDate,
     generateUUID,
     calculateDistance
@@ -905,7 +905,7 @@ async function loadAndDisplayAdDetails(adId) {
 
             // Remplissage de base
             if (adDetailItemTitle) adDetailItemTitle.textContent = sanitizeHTML(ad.title);
-            if (adDetailPrice) adDetailPrice.textContent = ad.price != null ? formatPrice(ad.price, ad.currency) : 'Prix non spécifié';
+            if (adDetailPrice) adDetailPrice.textContent = ad.price != null ? formatCurrency(ad.price, ad.currency) : 'Prix non spécifié';
             if (adDetailDescriptionText) adDetailDescriptionText.innerHTML = sanitizeHTML(ad.description || '').replace(/\n/g, '<br>');
 
             // --- GESTION DES BADGES DE MÉTADONNÉES ---
@@ -1330,7 +1330,7 @@ function renderMyAdsList(userAdsData) {
             img.onerror = function () { this.src = 'https://placehold.co/80x80/e0e0e0/757575?text=Img HS'; this.alt = 'Image indisponible'; };
         }
         if (title) title.textContent = sanitizeHTML(ad.title);
-        if (price) price.textContent = ad.price != null ? formatPrice(ad.price, ad.currency) : 'N/A';
+        if (price) price.textContent = ad.price != null ? formatCurrency(ad.price, ad.currency) : 'N/A';
         if (dateEl && ad.createdAt) dateEl.textContent = `Publiée ${formatDate(ad.createdAt)}`;
         if (statusEl) {
             statusEl.textContent = sanitizeHTML(ad.status || 'Inconnu');

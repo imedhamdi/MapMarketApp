@@ -296,6 +296,23 @@ export function formatPrice(price, currency = 'EUR', locale) {
 }
 
 /**
+ * Formate un nombre en une chaîne de caractères monétaire.
+ * @param {number} price - Le prix à formater.
+ * @param {string} currency - Le code de la devise (ex: 'TND', 'EUR').
+ * @returns {string} Le prix formaté (ex: "150,00 TND").
+ */
+export function formatCurrency(price, currency) {
+  if (typeof price !== 'number' || !currency) {
+    return 'Prix non disponible';
+  }
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: currency,
+    maximumFractionDigits: 2
+  }).format(price);
+}
+
+/**
  * Formate une date.
  * @param {Date|string|number} dateInput - La date à formater.
  * @param {Object} [options] - Options de formatage pour Intl.DateTimeFormat.
