@@ -423,8 +423,8 @@ async function openChatView(threadId, recipient, threadData = null) {
     updateSendButtonState();
     
     if (threadId) {
-        markThreadAsRead(threadId);
         await loadMessageHistory(threadId, true);
+        await markMessagesAsRead(threadId);
         setupInfiniteScroll();
     } else {
         chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message !</p>`;
@@ -700,36 +700,7 @@ function renderMessages(messages, method) {
         timeEl.textContent = formatDate(msg.createdAt, { hour: '2-digit', minute: '2-digit' });
 
         if (isSentByMe && statusEl) {
-            statusEl.innerHTML = '';
-            let iconClass = '';
-            let iconTitle = '';
-            statusEl.style.color = 'inherit';
-
-            switch (msg.status) {
-                case 'sending':
-                    iconClass = 'fa-regular fa-clock';
-                    iconTitle = 'Envoi en cours...';
-                    break;
-                case 'sent':
-                    iconClass = 'fa-solid fa-check';
-                    iconTitle = 'Envoyé';
-                    break;
-                case 'read':
-                    iconClass = 'fa-solid fa-check-double';
-                    iconTitle = 'Lu';
-                    statusEl.style.color = 'var(--primary-color-light, #4fc3f7)';
-                    break;
-                case 'failed_to_send':
-                case 'failed':
-                    iconClass = 'fa-solid fa-circle-exclamation';
-                    iconTitle = 'Échec de l\'envoi';
-                    statusEl.style.color = 'var(--danger-color)';
-                    break;
-            }
-
-            if (iconClass) {
-                statusEl.innerHTML = `<i class="${iconClass}" title="${iconTitle}"></i>`;
-            }
+            statusEl.innerHTML = renderMessageStatus(msg);
         } else if (statusEl) {
             statusEl.innerHTML = '';
         }
@@ -748,6 +719,21 @@ function renderMessages(messages, method) {
         scrollToBottom(chatMessagesContainer);
     }
     updateMessageGrouping();
+}
+
+function renderMessageStatus(message) {
+    const sentIcon = `<span class="status-icon" title="Envoyé">✔️</span>`;
+    const deliveredIcon = `<span class="status-icon" title="Délivré">✔️✔️</span>`;
+    const readIcon = `<span class="status-icon read" title="Lu">✔️✔️</span>`;
+    switch (message.status) {
+        case 'read':
+            return readIcon;
+        case 'delivered':
+            return deliveredIcon;
+        case 'sent':
+        default:
+            return sentIcon;
+    }
 }
 
 // --- ACTIONS UTILISATEUR ET ENVOI ---
@@ -1040,7 +1026,7 @@ function handleNewMessageReceived({ message, thread }) {
     
     if (activeThreadId === message.threadId) {
         renderMessages([message], 'append');
-        markThreadAsRead(activeThreadId);
+        markMessagesAsRead(activeThreadId);
     } else {
         const sender = thread.participants.find(p => p.user._id === message.senderId);
         if (sender && sender.user._id !== currentUser._id) {
@@ -1103,6 +1089,14 @@ function markThreadAsRead(threadId) {
     }
     // Mettre à jour le compteur local immédiatement
     loadThreads(currentTabRole);
+}
+
+async function markMessagesAsRead(threadId) {
+    try {
+        await secureFetch(`/api/messages/read/${threadId}`, { method: 'PUT' }, false);
+    } catch (error) {
+        console.error('Erreur lors de la mise à jour du statut des messages:', error);
+    }
 }
 
 function updateGlobalUnreadCount(count) {
