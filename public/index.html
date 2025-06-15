@@ -980,14 +980,17 @@
                             <ul id="thread-list" class="item-list">
                                 <template id="thread-item-template">
                                     <li class="thread-item list-item-card" tabindex="0" role="button" data-thread-id="">
-                                        <img src="avatar-default.svg" alt="Avatar de l'interlocuteur"
-                                            class="thread-avatar item-image"
-                                            onerror="this.src='https://placehold.co/48x48/e0e0e0/757575?text=User';">
-                                        <div class="thread-info item-info">
-                                            <span class="thread-user item-title"></span>
-                                            <p class="thread-preview"></p>
+                                        <img src="https://placehold.co/60x60/e0e0e0/757575?text=Ad" alt="Aperçu de l'annonce" class="thread-item__thumbnail item-image">
+
+                                        <div class="thread-item__info item-info">
+                                            <h4 class="thread-item__ad-title">Titre de l'annonce ici</h4>
+                                            <p class="thread-item__message-line">
+                                                <strong class="thread-item__user-name"></strong>
+                                                <span class="thread-item__message-preview"></span>
+                                            </p>
                                         </div>
-                                        <div class="thread-meta">
+
+                                        <div class="thread-item__meta thread-meta">
                                             <time class="thread-time"></time>
                                             <span class="unread-badge hidden" aria-label="Messages non lus">0</span>
                                         </div>
