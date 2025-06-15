@@ -14,7 +14,7 @@ import {
     toggleGlobalLoader,
     sanitizeHTML,
     formatDate,
-    formatPrice,
+    formatCurrency,
     generateUUID
 } from './utils.js';
 
@@ -403,7 +403,7 @@ async function openChatView(threadId, recipient, threadData = null) {
 
         if(thumb) thumb.src = (adForSummary.imageUrls && adForSummary.imageUrls[0]) ? adForSummary.imageUrls[0] : 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
         if(link) link.textContent = sanitizeHTML(adForSummary.title);
-        if(price) price.textContent = formatPrice(adForSummary.price, adForSummary.currency);
+        if(price) price.textContent = formatCurrency(adForSummary.price, adForSummary.currency);
         
         link.onclick = (e) => {
             e.preventDefault();
@@ -887,7 +887,7 @@ async function sendOfferMessage(amount) {
     if (!val) { showToast('Montant invalide', 'warning'); return; }
     const payload = {
         type: 'offer',
-        text: `Offre: ${formatPrice(val, 'EUR')}`,
+        text: `Offre: ${formatCurrency(val, 'EUR')}`,
         metadata: { amount: val, currency: 'EUR', status: 'pending' }
     };
     if (activeThreadId) {
