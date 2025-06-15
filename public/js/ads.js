@@ -906,7 +906,7 @@ async function loadAndDisplayAdDetails(adId) {
             // Remplissage de base
             if (adDetailItemTitle) adDetailItemTitle.textContent = sanitizeHTML(ad.title);
             if (adDetailPrice) adDetailPrice.textContent = ad.price != null ? formatCurrency(ad.price, ad.currency) : 'Prix non spécifié';
-            if (adDetailDescriptionText) adDetailDescriptionText.innerHTML = sanitizeHTML(ad.description || '').replace(/\n/g, '<br>');
+            if (adDetailDescriptionText) adDetailDescriptionText.textContent = sanitizeHTML(ad.description || '');
 
             // --- GESTION DES BADGES DE MÉTADONNÉES ---
             const categories = state.getCategories();

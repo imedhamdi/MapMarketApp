@@ -306,8 +306,13 @@ exports.getAdById = asyncHandler(async (req, res, next) => {
  * PUT /api/ads/:id
  */
 exports.updateAd = asyncHandler(async (req, res, next) => {
-    // La ressource 'ad' est attachée à req par le middleware checkOwnership
-    const ad = req.resource; // Ou Ad.findById(req.params.id) si checkOwnership n'est pas utilisé globalement
+    const ad = await Ad.findById(req.params.id);
+    if (!ad) {
+        return next(new AppError('Annonce non trouvée avec cet ID', 404));
+    }
+    if (ad.userId.toString() !== req.user.id && req.user.role !== 'admin') {
+        return next(new AppError('Vous n\'avez pas la permission d\'effectuer cette action', 403));
+    }
 
     // Filtrer les champs autorisés à être modifiés
     const allowedUpdates = ['title', 'description', 'price', 'category', 'locationAddress', 'status'];
@@ -399,11 +404,12 @@ exports.updateAd = asyncHandler(async (req, res, next) => {
  * DELETE /api/ads/:id
  */
 exports.deleteAd = asyncHandler(async (req, res, next) => {
-    // La ressource 'ad' est attachée à req par le middleware checkOwnership
-    const ad = req.resource; // Ou Ad.findById(req.params.id)
-
-    if (!ad) { // Devrait déjà être géré par checkOwnership, mais double sécurité
-        return next(new AppError('Annonce non trouvée.', 404));
+    const ad = await Ad.findById(req.params.id);
+    if (!ad) {
+        return next(new AppError('Annonce non trouvée avec cet ID', 404));
+    }
+    if (ad.userId.toString() !== req.user.id && req.user.role !== 'admin') {
+        return next(new AppError('Vous n\'avez pas la permission d\'effectuer cette action', 403));
     }
 
     // Supprimer les images associées du système de fichiers
