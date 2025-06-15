@@ -59,8 +59,8 @@ const messageSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['sent', 'delivered', 'read', 'failed_to_send'], // Statuts possibles
-        default: 'sent',
+        enum: ['sent', 'delivered', 'read'],
+        default: 'sent'
     },
     // Pour la suppression "pour moi"
     // Stocke les IDs des utilisateurs pour qui ce message est "supprimé"

@@ -3737,3 +3737,28 @@ body.dark-mode .chat-recipient:hover, body.dark-mode .chat-recipient:focus {
     justify-content: center;
     padding: 0 6px;
 }
+
+/* Status icons for messages */
+.message .timestamp {
+  font-size: 0.75rem;
+  color: #888;
+  margin-left: 10px;
+  align-self: flex-end;
+}
+
+.status-icon {
+  font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
+  font-weight: bold;
+  color: #888;
+  margin-left: 5px;
+}
+
+.status-icon.read {
+  color: #34b7f1;
+}
+
+.message.sent .timestamp {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
