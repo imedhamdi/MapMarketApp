@@ -24,11 +24,7 @@ const adSchema = new mongoose.Schema({
     },
     currency: {
         type: String,
-        required: [true, 'La devise est requise.'],
-        default: 'EUR',
-        uppercase: true,
-        trim: true,
-        maxlength: 3
+        required: [true, 'La devise est manquante.']
     },
     category: {
         type: String, // Ou mongoose.Schema.ObjectId si vous avez un modèle Category

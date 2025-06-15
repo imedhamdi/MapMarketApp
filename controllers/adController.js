@@ -8,6 +8,10 @@ const path = require('path');
 const APIFeatures = require('../utils/apiFeatures'); // Utilitaire pour filtres, tri, pagination (à créer)
 const fetch = require('node-fetch');
 const { clear } = require('console');
+const NodeGeocoder = require('node-geocoder');
+const countryToCurrency = require('country-to-currency');
+
+const geocoder = NodeGeocoder({ provider: 'openstreetmap' });
 
 const asyncHandler = (fn) => (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
@@ -119,19 +123,16 @@ exports.createAd = asyncHandler(async (req, res, next) => {
     logger.info('BACKEND: Toutes les validations des champs de base sont passées.');
 
     // --- Début de la détection de devise ---
-    let adCurrency = 'EUR';
-    try {
-        const geoResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${parsedLat}&lon=${parsedLng}&accept-language=en`);
-        if (geoResponse.ok) {
-            const geoData = await geoResponse.json();
-            if (geoData && geoData.address && geoData.address.country_code) {
-                adCurrency = getCurrencyFromCountryCode(geoData.address.country_code);
-                logger.info(`Devise détectée pour l'annonce : ${adCurrency} (via country_code: ${geoData.address.country_code})`);
-            }
-        }
-    } catch (geoError) {
-        logger.warn(`Échec du géocodage inversé pour la détection de devise. Utilisation de la devise par défaut. Erreur: ${geoError.message}`);
+    const geoData = await geocoder.reverse({ lat: parsedLat, lon: parsedLng });
+    if (!geoData || geoData.length === 0 || !geoData[0].countryCode) {
+        return next(new AppError('Impossible de déterminer le pays pour cette localisation.', 400));
     }
+    const countryCode = geoData[0].countryCode.toUpperCase();
+    const adCurrency = countryToCurrency[countryCode];
+    if (!adCurrency) {
+        return next(new AppError(`Aucune devise trouvée pour le pays : ${countryCode}`, 400));
+    }
+    logger.info(`Devise détectée pour l'annonce : ${adCurrency} (via country_code: ${countryCode})`);
     // --- Fin de la détection de devise ---
     // --- Début de la DÉTERMINATION DE L'ADRESSE (AJOUT) ---
     let adDisplayAddress = locationAddress; // Utilise l'adresse fournie par défaut
