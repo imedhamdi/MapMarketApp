@@ -501,14 +501,23 @@ exports.markMessagesAsRead = asyncHandler(async (req, res, next) => {
  * Masque une conversation pour l'utilisateur connecté (soft delete).
  * PATCH /api/messages/threads/:threadId/local
  */
-exports.deleteThreadLocally = asyncHandler(async (req, res, next) => {
-    await Thread.findByIdAndUpdate(req.params.threadId, {
-        $addToSet: { hiddenFor: req.user.id }
-    });
+exports.hideThreadForUser = asyncHandler(async (req, res, next) => {
+    const { threadId } = req.params;
+    const userId = req.user.id;
 
-    logger.info(`Thread ${req.params.threadId} masqué pour l'utilisateur ${req.user.id}`);
+    const updatedThread = await Thread.findOneAndUpdate(
+        { _id: threadId, 'participants.user': userId },
+        { $addToSet: { hiddenFor: userId } },
+        { new: true }
+    );
+
+    if (!updatedThread) {
+        return next(new AppError('Conversation non trouvée ou vous ne faites pas partie de cette conversation.', 404));
+    }
+
+    logger.info(`Thread ${threadId} masqué pour l'utilisateur ${userId}`);
     res.status(200).json({
-        success: true,
+        status: 'success',
         message: 'Conversation masquée avec succès.'
     });
 });

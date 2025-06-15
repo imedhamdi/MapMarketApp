@@ -8,6 +8,7 @@
  */
 
 import * as state from './state.js';
+import { showConfirmationModal } from './modals.js';
 import {
     showToast,
     secureFetch,
@@ -25,6 +26,10 @@ const MAX_IMAGE_SIZE_MB = 2;
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 const VALID_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const TYPING_TIMEOUT = 3000;
+
+function getToken() {
+    return localStorage.getItem('mapmarket_auth_token');
+}
 
 // --- Éléments du DOM ---
 let messagesModal, threadListView, chatView, threadListUl, threadItemTemplate, noThreadsPlaceholder;
@@ -549,7 +554,22 @@ function renderThreadList(threadsData) {
             unreadBadge.classList.toggle('hidden', unreadCountForThread === 0);
         }
 
-        // L'écouteur d'événement reste le même
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'btn btn-icon delete-thread-btn';
+        deleteButton.innerHTML = '<i class="fa-solid fa-trash"></i>';
+        li.appendChild(deleteButton);
+
+        deleteButton.onclick = (e) => {
+          e.stopPropagation();
+          const threadElement = e.currentTarget.closest('.thread-item');
+          showConfirmationModal({
+            title: 'Masquer la conversation',
+            message: 'Cette conversation sera masquée de votre liste. L\'autre utilisateur pourra toujours la consulter. Confirmez-vous ?',
+            confirmText: 'Masquer',
+            onConfirm: () => deleteThread(thread._id, threadElement)
+          });
+        };
+
         li.addEventListener('click', () => openChatView(thread._id, recipient, thread));
         threadListUl.appendChild(clone);
     });
@@ -1144,6 +1164,41 @@ function scrollToBottom(container) {
     if (container) {
         container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
     }
+}
+
+async function deleteThread(threadId, threadElement) {
+    if (!threadElement) return;
+
+    threadElement.classList.add('fade-out-and-collapse');
+
+    threadElement.addEventListener('transitionend', async () => {
+        try {
+            const response = await fetch(`/api/v1/messages/threads/${threadId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${getToken()}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.status === 'success') {
+                threadElement.remove();
+                const activeThreadId = document.querySelector('#messages-view')?.dataset.activeThreadId;
+                if (activeThreadId === threadId) {
+                    document.querySelector('#messages-list').innerHTML = '';
+                    document.querySelector('#message-input-form').style.display = 'none';
+                }
+            } else {
+                throw new Error(data.message || 'La suppression a échoué');
+            }
+        } catch (error) {
+            console.error('Erreur lors du masquage de la conversation:', error);
+            threadElement.classList.remove('fade-out-and-collapse');
+            showToast('Erreur: Impossible de masquer la conversation.', 'error');
+        }
+    }, { once: true });
 }
 
 function setupInfiniteScroll() {

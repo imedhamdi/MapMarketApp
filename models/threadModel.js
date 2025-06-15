@@ -26,7 +26,7 @@ const threadSchema = new mongoose.Schema({
         required: false,
     },
     hiddenFor: [{
-        type: mongoose.Schema.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     }],
     lastMessage: {

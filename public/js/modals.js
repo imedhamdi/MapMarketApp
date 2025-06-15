@@ -357,6 +357,42 @@ function updatePreviewCardFavoriteIcon(adId) {
         if (favoriteBtn) favoriteBtn.classList.toggle('active', isFavorite);
     }
 }
+
+// Modal de confirmation simplifié (version dynamique)
+export function showConfirmationModal({ title, message, confirmText = 'Confirmer', cancelText = 'Annuler', onConfirm }) {
+  const existing = document.getElementById('confirmation-modal-overlay');
+  if (existing) existing.remove();
+
+  const modalOverlay = document.createElement('div');
+  modalOverlay.id = 'confirmation-modal-overlay';
+  modalOverlay.className = 'modal-overlay';
+
+  modalOverlay.innerHTML = `
+    <div class="modal-content" id="confirmation-modal-content">
+      <h4>${title}</h4>
+      <p>${message}</p>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="btn btn-flat">${cancelText}</button>
+        <button id="modal-confirm" class="btn btn-danger">${confirmText}</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalOverlay);
+
+  const closeModal = () => modalOverlay.remove();
+  modalOverlay.querySelector('#modal-confirm').onclick = () => {
+    if (typeof onConfirm === 'function') onConfirm();
+    closeModal();
+  };
+  modalOverlay.querySelector('#modal-cancel').onclick = closeModal;
+
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target.id === 'confirmation-modal-overlay') {
+      closeModal();
+    }
+  });
+}
 function handleCloseModalEvent(event) {
     const { modalId } = event.detail;
     if (modalId) {
