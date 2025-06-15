@@ -1879,18 +1879,18 @@ h4 {
     box-shadow: var(--shadow-xs); /* Ajouter une ombre légère */
 }
 
+
 .chat-message[data-sender-id="me"] {
     background-color: var(--primary-color);
     color: white;
     margin-left: auto;
-    border-bottom-right-radius: var(--border-radius-xs);
 }
+
 
 .chat-message:not([data-sender-id="me"]) {
     background-color: var(--gray-200);
     color: var(--text-color-base);
     margin-right: auto;
-    border-bottom-left-radius: var(--border-radius-xs);
 }
 
 .chat-message.is-first-in-group {
@@ -1901,57 +1901,19 @@ h4 {
 .chat-message.is-last-in-group {
     margin-top: 2px;
 }
-
-.chat-message[data-sender-id="me"].is-first-in-group {
-    border-top-right-radius: var(--border-radius-lg);
+.chat-message[data-sender-id="me"].is-last-in-group,
+.chat-message[data-sender-id="me"].is-single-message {
     border-bottom-right-radius: var(--border-radius-xs);
 }
 
-.chat-message[data-sender-id="me"].is-middle-in-group {
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-}
-
-.chat-message[data-sender-id="me"].is-last-in-group {
-    border-top-right-radius: 0;
-    border-bottom-right-radius: var(--border-radius-lg);
-}
-
-.chat-message[data-sender-id="me"].is-single-message {
-    border-top-right-radius: var(--border-radius-lg);
-    border-bottom-right-radius: var(--border-radius-lg);
-}
-
-.chat-message:not([data-sender-id="me"]).is-first-in-group {
-    border-top-left-radius: var(--border-radius-lg);
+.chat-message:not([data-sender-id="me"]).is-last-in-group,
+.chat-message:not([data-sender-id="me"]).is-single-message {
     border-bottom-left-radius: var(--border-radius-xs);
 }
 
-.chat-message:not([data-sender-id="me"]).is-middle-in-group {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-}
-
-.chat-message:not([data-sender-id="me"]).is-last-in-group {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: var(--border-radius-lg);
-}
-
-.chat-message:not([data-sender-id="me"]).is-single-message {
-    border-top-left-radius: var(--border-radius-lg);
-    border-bottom-left-radius: var(--border-radius-lg);
-}
 
 
 
-/* Ajustements de border-radius pour un look de messagerie */
-.chat-message[data-sender-id="me"].is-first-in-group { border-bottom-right-radius: var(--border-radius-xs); }
-.chat-message[data-sender-id="me"].is-middle-in-group { border-radius: var(--border-radius-lg) var(--border-radius-xs) var(--border-radius-xs) var(--border-radius-lg); }
-.chat-message[data-sender-id="me"].is-last-in-group { border-top-right-radius: var(--border-radius-xs); }
-
-.chat-message:not([data-sender-id="me"]).is-first-in-group { border-bottom-left-radius: var(--border-radius-xs); }
-.chat-message:not([data-sender-id="me"]).is-middle-in-group { border-radius: var(--border-radius-xs) var(--border-radius-lg) var(--border-radius-lg) var(--border-radius-xs); }
-.chat-message:not([data-sender-id="me"]).is-last-in-group { border-top-left-radius: var(--border-radius-xs); }
 
 .message-time {
     display: block;
@@ -3579,34 +3541,6 @@ body.dark-mode .owner-actions-panel {
     display: none;
 }
 
-/* 3. SVG Message Bubble Tail */
-.message-tail {
-    position: absolute;
-    bottom: 0;
-    width: 12px;
-    height: 12px;
-    display: none;
-}
-
-.chat-message.is-last-in-group .message-tail,
-.chat-message.is-single-message .message-tail {
-    display: block;
-}
-
-.chat-message[data-sender-id="me"] .message-tail {
-    right: -10px;
-    color: var(--primary-color);
-}
-
-.chat-message:not([data-sender-id="me"]) .message-tail {
-    left: -10px;
-    transform: scaleX(-1);
-    color: var(--gray-200);
-}
-
-body.dark-mode .chat-message:not([data-sender-id="me"]) .message-tail {
-    color: var(--gray-700);
-}
 
 /* 4. Chat Header Reorganization Styles */
 .chat-header {
