@@ -15,6 +15,7 @@ router.use(protect);
 router.post('/threads/initiate', validateInitiateThread, messageController.initiateOrGetThread);
 router.get('/threads', messageController.getMyThreads);
 router.get('/threads/unread-count', messageController.getUnreadThreadCount);
+router.get('/threads/:threadId/verify-access', messageController.verifyThreadAccess);
 router.get('/threads/:threadId/messages', messageController.getMessagesForThread);
 router.post('/threads/:threadId/read', messageController.markThreadAsRead);
 router.patch('/threads/:threadId/local', messageController.deleteThreadLocally); // Suppression locale

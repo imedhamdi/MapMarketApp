@@ -194,6 +194,27 @@ exports.getUnreadThreadCount = asyncHandler(async (req, res, next) => {
     });
 });
 
+/**
+ * Vérifie que l'utilisateur connecté est bien participant du thread.
+ * GET /api/messages/threads/:threadId/verify-access
+ */
+exports.verifyThreadAccess = asyncHandler(async (req, res, next) => {
+    const { threadId } = req.params;
+    const userId = req.user.id;
+
+    const thread = await Thread.findById(threadId).select('participants');
+    if (!thread) {
+        return next(new AppError('Conversation non trouvée.', 404));
+    }
+
+    const isParticipant = thread.participants.some(p => p.user.toString() === userId);
+    if (!isParticipant) {
+        return next(new AppError('Accès non autorisé à cette conversation.', 403));
+    }
+
+    res.status(200).json({ success: true });
+});
+
 
 /**
  * Construit l'URL complète pour l'image d'un message.
