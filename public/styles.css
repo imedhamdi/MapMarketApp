@@ -105,9 +105,6 @@ body.modal-open {
     overflow: hidden;
 }
 
-body.search-overlay-active {
-    overflow: hidden;
-}
 
 #app-root {
     flex: 1;
@@ -467,180 +464,6 @@ h4 {
     align-items: center;
 }
 
-.search-input {
-    flex-grow: 1;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border: 1px solid var(--input-border-color);
-    border-right: none;
-    border-radius: var(--border-radius-md) 0 0 var(--border-radius-md);
-    font-size: 0.9rem;
-    background-color: var(--gray-50);
-    color: var(--text-color-base);
-    outline: none;
-    transition: border-color var(--transition-duration-short) var(--transition-timing-function),
-        background-color var(--transition-duration-short) var(--transition-timing-function),
-        box-shadow var(--transition-duration-short) var(--transition-timing-function);
-}
-.search-bar-wrapper {
-    position: fixed;
-    inset: 0;
-    background-color: var(--body-bg);
-    z-index: 1050;
-    padding: var(--spacing-lg) var(--spacing-md);
-    display: flex;
-    flex-direction: column;
-    transform: translateY(-100%);
-    /* MODIFICATION : Animer à la fois transform et opacity pour un effet de fondu */
-    transition: transform var(--transition-duration-medium) var(--transition-timing-function),
-                opacity var(--transition-duration-medium) ease-in-out;
-    overflow-y: auto;
-}
-.search-bar-wrapper:not(.hidden) {
-    transform: translateY(0);
-}
-/* Ajustements pour la barre de recherche elle-même dans le wrapper */
-#header-search-bar-wrapper .search-bar-container.expanded {
-    display: flex; /* Assurer que les éléments sont en ligne */
-    width: 100%;
-    max-width: none; /* Permettre de prendre toute la largeur du wrapper */
-    margin: 0;
-}
-
-#header-search-bar-wrapper .search-input {
-    border-right: 1px solid var(--input-border-color); /* Rétablir la bordure si enlevée */
-    border-radius: var(--border-radius-md); /* Coins arrondis partout ou ajuster */
-    flex-grow: 1;
-}
-#header-search-bar-wrapper .search-button {
-     border-radius: var(--border-radius-md); /* Ou ajuster pour s'aligner avec l'input */
-     margin-left: var(--spacing-xs); /* Espace avant le bouton recherche */
-}
-
-
-/* Nouveau bouton pour fermer la barre de recherche */
-.search-bar-close-btn {
-    background-color:var(--primary-color);
-    color: var(--light-color);
-    padding: var(--spacing-sm);
-    margin-left: var(--spacing-sm); /* Espace avant le bouton fermer */
-}
-
-.search-bar-close-btn:hover {
-    color: var(--text-color-base);
-}
-
-.search-bar-close-btn i {
-    font-size: 1.1rem;
-}
-/* S'assurer que le conteneur de suggestions se positionne correctement */
-#header-search-bar-wrapper .search-suggestions {
-    /* La position absolute est relative au .search-bar-container si celui-ci est position:relative.
-       Sinon, au .search-bar-wrapper.
-       Si .search-bar-container n'est pas position:relative, il faudra ajuster top/left/right. */
-    top: calc(100% + 4px); /* En dessous de l'input */
-    left: 0;
-    right: 0;
-    /* S'assurer qu'il est au-dessus du contenu de la page mais sous l'en-tête si besoin */
-    z-index: 101;
-}
-
-/* Cacher la barre de recherche originale dans le .header-content si elle y était encore */
-.header-content > #header-search-bar {
-    display: none;
-}
-.search-input:focus {
-    border-color: var(--input-focus-border-color);
-    background-color: var(--light-color);
-    box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.1);
-    z-index: 1;
-}
-
-.search-input::placeholder {
-    color: var(--gray-400);
-    opacity: 1;
-}
-
-.search-button {
-    padding: var(--spacing-sm) var(--spacing-md);
-    background-color: var(--primary-color);
-    color: var(--light-color);
-    border: 1px solid var(--primary-color);
-    border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0;
-}
-
-.search-button:hover {
-    background-color: var(--primary-color-dark);
-}
-
-.search-button i {
-    font-size: 1.1rem;
-}
-
-.search-suggestions {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    background-color: var(--component-bg);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-md);
-    box-shadow: var(--shadow-lg);
-    z-index: 100;
-    max-height: 300px;
-    overflow-y: auto;
-    display: none;
-}
-
-.search-suggestions[aria-hidden="false"] {
-    display: block;
-}
-
-#recent-searches,
-#trending-categories {
-    margin-top: var(--spacing-lg);
-}
-
-.trending-categories-section {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
-}
-
-.trend-chip {
-    background-color: var(--gray-200);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--border-radius-full);
-    font-size: 0.85rem;
-    cursor: pointer;
-}
-
-.suggestion-item {
-    padding: var(--spacing-sm) var(--spacing-md);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    font-size: 0.9rem;
-}
-
-.suggestion-item:hover,
-.suggestion-item:focus,
-.suggestion-item.active {
-    background-color: var(--gray-100);
-    color: var(--primary-color);
-}
-
-.suggestion-item i {
-    color: var(--gray-500);
-    width: 16px;
-    text-align: center;
-}
-
-.suggestion-item:hover i,
-.suggestion-item:focus i,
-.suggestion-item.active i {
-    color: var(--primary-color);
-}
 
 .header-actions {
     display: flex;
@@ -2629,14 +2452,7 @@ body,
         max-width: calc(100% - 150px);
     }
 
-    #header-search-bar .search-input {
-        font-size: 0.85rem;
-        padding: var(--spacing-xs) var(--spacing-sm);
-    }
 
-    #main-search-button {
-        padding: var(--spacing-xs) var(--spacing-sm);
-    }
 
     .header-actions {
         gap: 0;
@@ -2728,12 +2544,6 @@ body,
         max-width: calc(100% - 120px);
     }
 
-    #main-header .search-input::placeholder {
-        font-size: 0;
-    }
-
-    #main-header .search-input {
-        font-size: 0.8rem;
     }
 
     .nav-btn .nav-text {
@@ -2796,18 +2606,6 @@ body.dark-mode .logo span[itemprop="name"] {
     color: var(--gray-100);
 }
 
-body.dark-mode .search-input {
-    background-color: var(--gray-700);
-}
-
-body.dark-mode .search-input:focus {
-    background-color: var(--gray-600);
-    box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.2);
-}
-
-body.dark-mode .search-input::placeholder {
-    color: var(--gray-500);
-}
 
 body.dark-mode .btn-secondary {
     background-color: var(--btn-secondary-bg);
