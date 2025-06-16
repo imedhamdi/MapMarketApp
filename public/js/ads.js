@@ -538,8 +538,24 @@ function setupImageDragAndDrop() {
 
     // Permettre de cliquer sur la zone pour ouvrir le sélecteur de fichiers
     adImagePreviewsContainer.addEventListener('click', (event) => {
-        // S'assurer que le clic n'est pas sur un bouton de suppression d'image
-        if (event.target.closest('.remove-preview-btn')) {
+        const deleteBtn = event.target.closest('.preview-image-delete-btn');
+        if (deleteBtn) {
+            event.preventDefault();
+            const wrapper = deleteBtn.closest('.preview-image-container');
+            if (wrapper) {
+                const fileId = wrapper.dataset.fileId;
+                const idx = adImageFiles.findIndex(f => f.id === fileId);
+                if (idx !== -1) {
+                    const fileObj = adImageFiles.splice(idx, 1)[0];
+                    if (!fileObj.isExisting && fileObj.url.startsWith('blob:')) {
+                        URL.revokeObjectURL(fileObj.url);
+                    }
+                }
+                wrapper.remove();
+                if (adImagePreviewsContainer && adImageFiles.length < MAX_AD_IMAGES) {
+                    adImagePreviewsContainer.setAttribute('aria-label', 'Zone de dépôt d\'images, cliquez ou déposez des fichiers');
+                }
+            }
             return;
         }
         if (adImageFiles.length < MAX_AD_IMAGES) {
@@ -624,7 +640,7 @@ function createImagePreview(fileOrObject) {
     if (!adImagePreviewsContainer) return;
 
     const previewWrapper = document.createElement('div');
-    previewWrapper.className = 'image-preview-item';
+    previewWrapper.className = 'preview-image-container';
     previewWrapper.dataset.fileId = fileOrObject.id;
     previewWrapper.setAttribute('role', 'listitem');
 
@@ -637,21 +653,9 @@ function createImagePreview(fileOrObject) {
 
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
-    removeBtn.className = 'btn btn-icon btn-danger btn-sm remove-preview-btn';
-    removeBtn.innerHTML = '<i class="fa-solid fa-times" aria-hidden="true"></i>';
+    removeBtn.className = 'preview-image-delete-btn';
+    removeBtn.innerHTML = '&times;';
     removeBtn.setAttribute('aria-label', `Supprimer l'image ${sanitizeHTML(fileOrObject.name)}`);
-    removeBtn.onclick = () => {
-        adImageFiles = adImageFiles.filter(f => f.id !== fileOrObject.id);
-        previewWrapper.remove();
-        // Si c'était un File object, révoquer l'URL objet pour libérer la mémoire
-        if (!fileOrObject.isExisting && fileOrObject.url.startsWith('blob:')) {
-            URL.revokeObjectURL(fileOrObject.url);
-        }
-        // Mettre à jour l'accessibilité du conteneur si on peut de nouveau ajouter des images
-        if (adImagePreviewsContainer && adImageFiles.length < MAX_AD_IMAGES) {
-            adImagePreviewsContainer.setAttribute('aria-label', 'Zone de dépôt d\'images, cliquez ou déposez des fichiers');
-        }
-    };
     previewWrapper.appendChild(removeBtn);
     adImagePreviewsContainer.appendChild(previewWrapper);
 }
