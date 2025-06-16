@@ -75,7 +75,10 @@ exports.deleteThread = async (req, res, next) => {
     try {
         const thread = await Thread.findById(req.params.id);
         if (!thread) return res.status(404).json({ message: 'Thread non trouvé' });
-        const isParticipant = thread.participants.some(p => p.user.toString() === req.user.id);
+        const isParticipant = thread.participants.some(p => {
+            const id = p.user && p.user._id ? p.user._id.toString() : p.user.toString();
+            return id === req.user.id;
+        });
         if (!isParticipant) return res.status(403).json({ message: 'Action non autorisée' });
         await Thread.findByIdAndUpdate(req.params.id, {
             $addToSet: { deletedBy: req.user.id }
