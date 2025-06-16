@@ -29,11 +29,10 @@ const threadSchema = new mongoose.Schema({
         type: mongoose.Schema.ObjectId,
         ref: 'User'
     }],
+    // Référence vers le dernier message pour accélérer les requêtes
     lastMessage: {
-        text: String,
-        sender: { type: mongoose.Schema.ObjectId, ref: 'User' },
-        createdAt: Date,
-        imageUrl: String,
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Message'
     },
 }, {
     timestamps: true,
@@ -80,3 +79,4 @@ threadSchema.statics.findOrCreateThread = async function(userId1, userId2, adId 
 const Thread = mongoose.model('Thread', threadSchema);
 
 module.exports = Thread;
+

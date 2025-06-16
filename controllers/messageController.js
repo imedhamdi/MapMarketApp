@@ -39,6 +39,53 @@ const mapMessageImageUrls = (req, message) => {
     return message;
 };
 
+/**
+ * Création de message via Socket.IO
+ * @param {string} senderId - ID de l'expéditeur
+ * @param {object} data - Données du message
+ * @returns {Promise<object>} message peuplé
+ */
+exports.createMessageFromSocket = async (senderId, data) => {
+    const { threadId, text, contentType, imageUrl, location, appointment } = data;
+    if (!threadId) throw new Error('threadId manquant');
+    const thread = await Thread.findById(threadId);
+    if (!thread || !thread.participants.some(p => p.user.toString() === senderId)) {
+        throw new Error('Accès non autorisé au thread');
+    }
+    const messageData = {
+        threadId,
+        senderId,
+        contentType: contentType || 'text',
+        text,
+        imageUrl,
+        location,
+        appointment,
+        status: 'sent'
+    };
+    const newMsg = await Message.create(messageData);
+    thread.lastMessage = newMsg._id;
+    thread.updatedAt = newMsg.createdAt;
+    await thread.save({ validateBeforeSave:false });
+    return Message.findById(newMsg._id).populate('senderId','name avatarUrl');
+};
+
+/**
+ * Marque un thread comme lu pour un utilisateur depuis Socket.IO
+ */
+exports.markThreadAsReadForSocket = async (userId, threadId) => {
+    const thread = await Thread.findById(threadId);
+    if (!thread || !thread.participants.some(p => p.user.toString() === userId)) return;
+    const participantIndex = thread.participants.findIndex(p => p.user.toString() === userId);
+    if (participantIndex > -1 && thread.participants[participantIndex].unreadCount > 0) {
+        thread.participants[participantIndex].unreadCount = 0;
+        await thread.save({ validateBeforeSave:false });
+    }
+    await Message.updateMany(
+        { threadId, senderId:{ $ne:userId }, status:{ $ne:'read' } },
+        { $set:{ status:'read' } }
+    );
+};
+
 
 /**
  * Initie ou récupère un thread de discussion existant.
@@ -260,7 +307,7 @@ exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
  * POST /api/messages/messages/image (pour image, géré par Multer avant)
  */
 exports.sendMessage = asyncHandler(async (req, res, next) => {
-    const { threadId, text, type, metadata, tempId } = req.body;
+    const { threadId, text, type, metadata, tempId, imageUrl, location, appointment } = req.body;
     const senderId = req.user.id;
 
     if (!threadId) {
@@ -293,15 +340,15 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
     const messageData = {
         threadId,
         senderId,
-        status: 'sent'
+        status: 'sent',
+        contentType: type || 'text'
     };
     let parsedMeta = metadata;
 
     if (req.file) {
-        messageData.type = 'image';
+        messageData.contentType = 'image';
         messageData.imageUrl = path.join('messages', req.file.filename).replace(/\\/g, '/');
     } else {
-        messageData.type = type || 'text';
         messageData.text = typeof text === 'string' ? text : String(text || '');
     }
 
@@ -309,35 +356,29 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
         try { parsedMeta = JSON.parse(parsedMeta); } catch (e) { parsedMeta = null; }
     }
 
-    if (messageData.type === 'offer') {
+    if (messageData.contentType === 'offer') {
         if (!parsedMeta || typeof parsedMeta.amount !== 'number' || !parsedMeta.currency) {
             return next(new AppError('Détails de l\'offre invalides.', 400));
         }
         parsedMeta.status = 'pending';
         messageData.metadata = parsedMeta;
-    } else if (messageData.type === 'appointment') {
-        if (!parsedMeta || !parsedMeta.date || !parsedMeta.location) {
+    } else if (messageData.contentType === 'appointment') {
+        if (!appointment || !appointment.date) {
             return next(new AppError('Informations de rendez-vous manquantes.', 400));
         }
-        parsedMeta.status = 'pending';
-        messageData.metadata = parsedMeta;
-    } else if (messageData.type === 'location') {
-        if (!parsedMeta || parsedMeta.latitude === undefined || parsedMeta.longitude === undefined) {
+        messageData.appointment = appointment;
+    } else if (messageData.contentType === 'location') {
+        if (!location || location.latitude === undefined || location.longitude === undefined) {
             return next(new AppError('Coordonnées manquantes.', 400));
         }
-        messageData.metadata = parsedMeta;
+        messageData.location = location;
     } else if (parsedMeta) {
         messageData.metadata = parsedMeta;
     }
 
     const newMessage = await Message.create(messageData);
 
-    thread.lastMessage = {
-        text: newMessage.text,
-        sender: senderId,
-        createdAt: newMessage.createdAt,
-        imageUrl: newMessage.imageUrl,
-    };
+    thread.lastMessage = newMessage._id;
     thread.updatedAt = newMessage.createdAt;
     thread.participants.forEach(p => {
         const participantId = p.user._id.toString();
@@ -463,6 +504,11 @@ exports.markMessagesAsRead = asyncHandler(async (req, res, next) => {
     const { threadId } = req.params;
     const userId = req.user.id;
 
+    const thread = await Thread.findOne({ _id: threadId, 'participants.user': userId });
+    if (!thread) {
+        return next(new AppError('Accès non autorisé à ce thread.', 403));
+    }
+
     const result = await Message.updateMany(
         { threadId, senderId: { $ne: userId }, status: { $ne: 'read' } },
         { $set: { status: 'read' } }
@@ -474,8 +520,8 @@ exports.markMessagesAsRead = asyncHandler(async (req, res, next) => {
 
     const updatedMessages = await Message.find({ threadId, senderId: { $ne: userId }, status: 'read' });
 
-    const thread = await Thread.findById(threadId).populate('participants.user');
-    const otherParticipant = thread.participants.find(p => p.user._id.toString() !== userId);
+    const threadDoc = await Thread.findById(threadId).populate('participants.user');
+    const otherParticipant = threadDoc.participants.find(p => p.user._id.toString() !== userId);
 
     if (otherParticipant && ioInstance) {
         const room = `user_${otherParticipant.user._id}`;
@@ -502,6 +548,10 @@ exports.markMessagesAsRead = asyncHandler(async (req, res, next) => {
  * PATCH /api/messages/threads/:threadId/local
  */
 exports.deleteThreadLocally = asyncHandler(async (req, res, next) => {
+    const thread = await Thread.findOne({ _id: req.params.threadId, 'participants.user': req.user.id });
+    if (!thread) {
+        return next(new AppError('Accès non autorisé à ce thread.', 403));
+    }
     await Thread.findByIdAndUpdate(req.params.threadId, {
         $addToSet: { hiddenFor: req.user.id }
     });

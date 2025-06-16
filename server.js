@@ -23,6 +23,7 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const adRoutes = require('./routes/adRoutes');
 const messageRoutes = require('./routes/messageRoutes');
+const threadRoutes = require('./routes/threadRoutes');
 const alertRoutes = require('./routes/alertRoutes');
 const favoriteRoutes = require('./routes/favoriteRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
@@ -171,6 +172,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/ads', adRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/threads', threadRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/notifications', notificationRoutes);
@@ -253,25 +255,45 @@ io.of(SOCKET_NAMESPACE).on('connection', (socket) => {
     io.of(SOCKET_NAMESPACE).to(`user_${socket.user.id}`).emit('userStatusUpdate', { userId: socket.user.id, statusText: 'en ligne' });
 
     // Gérer les autres événements Socket.IO
-    socket.on('joinThreadRoom', ({ threadId }) => {
+    socket.on('join_thread', (threadId) => {
         if (threadId) {
-            socket.join(`thread_${threadId}`);
-            logger.info(`Socket.IO: Socket ${socket.id} a rejoint la room thread_${threadId}`);
+            socket.join(threadId);
+            logger.info(`Socket ${socket.id} joined room ${threadId}`);
         }
     });
 
-    socket.on('leaveThreadRoom', ({ threadId }) => {
+    socket.on('leave_thread', (threadId) => {
         if (threadId) {
-            socket.leave(`thread_${threadId}`);
-            logger.info(`Socket.IO: Socket ${socket.id} a quitté la room thread_${threadId}`);
+            socket.leave(threadId);
+            logger.info(`Socket ${socket.id} left room ${threadId}`);
         }
     });
 
-    socket.on('typing', ({ threadId, isTyping }) => {
-        if (threadId) {
-            const room = `thread_${threadId}`;
-            socket.to(room).emit('typing', { threadId, userName: socket.user.name, isTyping });
+    socket.on('send_message', async (data) => {
+        try {
+            const msg = await messageCtrl.createMessageFromSocket(socket.user.id, data);
+            io.of(SOCKET_NAMESPACE).to(data.threadId).emit('receive_message', msg);
+        } catch (err) {
+            socket.emit('error', err.message);
         }
+    });
+
+    socket.on('typing_start', (data) => {
+        if (data?.threadId) {
+            socket.to(data.threadId).emit('user_is_typing', { userId: socket.user.id });
+        }
+    });
+
+    socket.on('typing_stop', (data) => {
+        if (data?.threadId) {
+            socket.to(data.threadId).emit('user_stopped_typing', { userId: socket.user.id });
+        }
+    });
+
+    socket.on('mark_thread_as_read', async (data) => {
+        if (!data?.threadId) return;
+        await messageCtrl.markThreadAsReadForSocket(socket.user.id, data.threadId);
+        socket.to(data.threadId).emit('message_status_updated');
     });
 
     socket.on('disconnect', async (reason) => {

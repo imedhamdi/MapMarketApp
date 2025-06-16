@@ -3606,3 +3606,23 @@ body.dark-mode .chat-recipient:hover, body.dark-mode .chat-recipient:focus {
   display: none !important;
 }
 
+/* Styles simplifiés pour le chat temps réel */
+.message.sender {
+    background-color: var(--primary-color);
+    color: #fff;
+    margin-left: auto;
+    text-align: right;
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    max-width: 70%;
+}
+.message.receiver {
+    background-color: var(--gray-200);
+    color: var(--text-color-base);
+    margin-right: auto;
+    text-align: left;
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    max-width: 70%;
+}
+

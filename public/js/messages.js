@@ -286,12 +286,16 @@ function connectSocket() {
 
     // Écoute des événements serveur
     socket.on('newMessage', handleNewMessageReceived);
+    socket.on('receive_message', handleNewMessageReceived);
     socket.on('unreadCountUpdated', ({ unreadThreadCount }) => {
         if (typeof unreadThreadCount === 'number') {
             state.set('messages.unreadGlobalCount', unreadThreadCount);
         }
     });
     socket.on('typing', handleTypingEventReceived);
+    socket.on('user_is_typing', data => handleTypingEventReceived({ threadId: data.threadId, isTyping: true }));
+    socket.on('user_stopped_typing', data => handleTypingEventReceived({ threadId: data.threadId, isTyping: false }));
+    socket.on('message_status_updated', () => loadThreads(currentTabRole));
     socket.on('newThread', (newThreadData) => {
         console.log('Nouveau thread reçu !', newThreadData);
         loadThreads(currentTabRole);
@@ -341,6 +345,7 @@ function openThreadListView() {
  * Affiche la vue de la liste des conversations et charge les données.
  */
 function showThreadList() {
+    if(activeThreadId && socket) socket.emit('leave_thread', activeThreadId);
     activeThreadId = null;
     currentRecipient = null;
     chatView.classList.remove('active-view');
@@ -428,8 +433,9 @@ async function openChatView(threadId, recipient, threadData = null) {
     adjustTextareaHeight();
     removeImagePreview();
     updateSendButtonState();
-    
+
     if (threadId) {
+        if(socket) socket.emit('join_thread', threadId);
         await loadMessageHistory(threadId, true);
         await markMessagesAsRead(threadId);
         setupInfiniteScroll();
@@ -789,7 +795,7 @@ async function _sendPayload(payload, imageFile = null) {
     };
     renderMessages([tempMessage], 'append');
 
-    const endpoint = hasImage ? `${API_MESSAGES_URL}/messages/image` : `${API_MESSAGES_URL}/messages`;
+    const endpoint = hasImage ? `${API_MESSAGES_URL}/messages/image` : null;
     const requestOptions = { method: 'POST' };
 
     if (hasImage) {
@@ -801,8 +807,6 @@ async function _sendPayload(payload, imageFile = null) {
             }
         }
         requestOptions.body = formData;
-    } else {
-        requestOptions.body = payload;
     }
 
     const messageInputBeforeSend = chatMessageInput.value;
@@ -814,14 +818,22 @@ async function _sendPayload(payload, imageFile = null) {
     updateSendButtonState();
 
     try {
-        const response = await secureFetch(endpoint, requestOptions, false);
-        if (!response || !response.success) {
-            throw new Error(response?.message || "Erreur d'envoi.");
-        }
-        if (!activeThreadId && response.data?.threadId) {
-            activeThreadId = response.data.threadId;
-            newChatContext = null;
-            loadThreads(currentTabRole);
+        if (hasImage) {
+            const response = await secureFetch(endpoint, requestOptions, false);
+            if (!response || !response.success) {
+                throw new Error(response?.message || "Erreur d'envoi.");
+            }
+            if (!activeThreadId && response.data?.threadId) {
+                activeThreadId = response.data.threadId;
+                newChatContext = null;
+                loadThreads(currentTabRole);
+            }
+        } else {
+            socket.emit('send_message', {
+                threadId: payload.threadId,
+                text: payload.text,
+                contentType: payload.type || 'text'
+            });
         }
     } catch (error) {
         console.error("Erreur d'envoi du message:", error);
@@ -1057,7 +1069,7 @@ function handleNewMessageReceived({ message, thread, unreadThreadCount }) {
 
 function sendTypingEvent() {
     if (socket?.connected && activeThreadId) {
-        if (!typingTimer) socket.emit('typing', { threadId: activeThreadId, isTyping: true });
+        if (!typingTimer) socket.emit('typing_start', { threadId: activeThreadId });
         clearTimeout(typingTimer);
         typingTimer = setTimeout(stopTypingEvent, TYPING_TIMEOUT);
     }
@@ -1067,7 +1079,7 @@ function stopTypingEvent() {
     if (socket?.connected && activeThreadId) {
         clearTimeout(typingTimer);
         typingTimer = null;
-        socket.emit('typing', { threadId: activeThreadId, isTyping: false });
+        socket.emit('typing_stop', { threadId: activeThreadId });
     }
 }
 
@@ -1126,7 +1138,11 @@ async function markThreadAsRead(threadId) {
 
 async function markMessagesAsRead(threadId) {
     try {
-        await secureFetch(`/api/messages/read/${threadId}`, { method: 'PUT' }, false);
+        if(socket?.connected){
+            socket.emit('mark_thread_as_read', { threadId });
+        } else {
+            await secureFetch(`/api/messages/read/${threadId}`, { method: 'PUT' }, false);
+        }
     } catch (error) {
         console.error('Erreur lors de la mise à jour du statut des messages:', error);
     }

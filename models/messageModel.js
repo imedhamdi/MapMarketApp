@@ -20,9 +20,19 @@ const messageSchema = new mongoose.Schema({
     //     ref: 'User',
     //     required: true,
     // },
+    /**
+     * Type de contenu principal du message.
+     * Conservé pour rétrocompatibilité mais "contentType" est désormais
+     * utilisé par les nouvelles fonctionnalités temps réel.
+     */
     type: {
         type: String,
         enum: ['text', 'image', 'offer', 'appointment', 'location', 'system'],
+        default: 'text'
+    },
+    contentType: {
+        type: String,
+        enum: ['text', 'image', 'location', 'appointment'],
         default: 'text'
     },
     metadata: {
@@ -56,6 +66,14 @@ const messageSchema = new mongoose.Schema({
     imageUrl: {
         type: String,
         trim: true,
+    },
+    location: {
+        latitude: Number,
+        longitude: Number,
+    },
+    appointment: {
+        date: Date,
+        details: String,
     },
     status: {
         type: String,
@@ -95,3 +113,4 @@ messageSchema.index({ threadId: 1, createdAt: -1 });
 const Message = mongoose.model('Message', messageSchema);
 
 module.exports = Message;
+
