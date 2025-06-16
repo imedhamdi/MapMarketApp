@@ -1,0 +1,295 @@
+/* HEADER */
+#main-header {
+    background-color: var(--component-bg);
+    box-shadow: var(--shadow-md);
+    height: var(--header-height);
+    z-index: 1000;
+    width: 100%;
+    position: relative;
+}
+
+#main-header.sticky-header {
+    position: sticky;
+    top: 0;
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--spacing-md);
+    height: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    z-index: 2;
+    background-color: var(--component-bg);
+    position: relative;
+}
+
+.logo-container {
+    flex-shrink: 0;
+    margin-right: auto;
+}
+
+#header-logo-link {
+    text-decoration: none;
+    color: var(--dark-color);
+    display: flex;
+    align-items: center;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: var(--dark-color);
+}
+
+.logo-icon {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+}
+
+.logo span[itemprop="name"] {
+    line-height: 1;
+    color: var(--primary-color-light);
+}
+
+.search-bar-container {
+    flex-grow: 0;
+    flex-shrink: 1;
+    margin: 0 var(--spacing-sm);
+    max-width: 300px;
+    width: 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-input {
+    flex-grow: 1;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--input-border-color);
+    border-right: none;
+    border-radius: var(--border-radius-md) 0 0 var(--border-radius-md);
+    font-size: 0.9rem;
+    background-color: var(--gray-50);
+    color: var(--text-color-base);
+    outline: none;
+    transition: border-color var(--transition-duration-short) var(--transition-timing-function),
+        background-color var(--transition-duration-short) var(--transition-timing-function),
+        box-shadow var(--transition-duration-short) var(--transition-timing-function);
+}
+.search-bar-wrapper {
+    position: fixed;
+    inset: 0;
+    background-color: var(--body-bg);
+    z-index: 1050;
+    padding: var(--spacing-lg) var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    transform: translateY(-100%);
+    /* MODIFICATION : Animer à la fois transform et opacity pour un effet de fondu */
+    transition: transform var(--transition-duration-medium) var(--transition-timing-function),
+                opacity var(--transition-duration-medium) ease-in-out;
+    overflow-y: auto;
+}
+.search-bar-wrapper:not(.hidden) {
+    transform: translateY(0);
+}
+/* Ajustements pour la barre de recherche elle-même dans le wrapper */
+#header-search-bar-wrapper .search-bar-container.expanded {
+    display: flex; /* Assurer que les éléments sont en ligne */
+    width: 100%;
+    max-width: none; /* Permettre de prendre toute la largeur du wrapper */
+    margin: 0;
+}
+
+#header-search-bar-wrapper .search-input {
+    border-right: 1px solid var(--input-border-color); /* Rétablir la bordure si enlevée */
+    border-radius: var(--border-radius-md); /* Coins arrondis partout ou ajuster */
+    flex-grow: 1;
+}
+#header-search-bar-wrapper .search-button {
+     border-radius: var(--border-radius-md); /* Ou ajuster pour s'aligner avec l'input */
+     margin-left: var(--spacing-xs); /* Espace avant le bouton recherche */
+}
+
+
+/* Nouveau bouton pour fermer la barre de recherche */
+.search-bar-close-btn {
+    background-color:var(--primary-color);
+    color: var(--light-color);
+    padding: var(--spacing-sm);
+    margin-left: var(--spacing-sm); /* Espace avant le bouton fermer */
+}
+
+.search-bar-close-btn:hover {
+    color: var(--text-color-base);
+}
+
+.search-bar-close-btn i {
+    font-size: 1.1rem;
+}
+/* S'assurer que le conteneur de suggestions se positionne correctement */
+#header-search-bar-wrapper .search-suggestions {
+    /* La position absolute est relative au .search-bar-container si celui-ci est position:relative.
+       Sinon, au .search-bar-wrapper.
+       Si .search-bar-container n'est pas position:relative, il faudra ajuster top/left/right. */
+    top: calc(100% + 4px); /* En dessous de l'input */
+    left: 0;
+    right: 0;
+    /* S'assurer qu'il est au-dessus du contenu de la page mais sous l'en-tête si besoin */
+    z-index: 101;
+}
+
+/* Cacher la barre de recherche originale dans le .header-content si elle y était encore */
+.header-content > #header-search-bar {
+    display: none;
+}
+.search-input:focus {
+    border-color: var(--input-focus-border-color);
+    background-color: var(--light-color);
+    box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.1);
+    z-index: 1;
+}
+
+.search-input::placeholder {
+    color: var(--gray-400);
+    opacity: 1;
+}
+
+.search-button {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--primary-color);
+    color: var(--light-color);
+    border: 1px solid var(--primary-color);
+    border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0;
+}
+
+.search-button:hover {
+    background-color: var(--primary-color-dark);
+}
+
+.search-button i {
+    font-size: 1.1rem;
+}
+
+.search-suggestions {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background-color: var(--component-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+}
+
+.search-suggestions[aria-hidden="false"] {
+    display: block;
+}
+
+#recent-searches,
+#trending-categories {
+    margin-top: var(--spacing-lg);
+}
+
+.trending-categories-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.trend-chip {
+    background-color: var(--gray-200);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.suggestion-item {
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: 0.9rem;
+}
+
+.suggestion-item:hover,
+.suggestion-item:focus,
+.suggestion-item.active {
+    background-color: var(--gray-100);
+    color: var(--primary-color);
+}
+
+.suggestion-item i {
+    color: var(--gray-500);
+    width: 16px;
+    text-align: center;
+}
+
+.suggestion-item:hover i,
+.suggestion-item:focus i,
+.suggestion-item.active i {
+    color: var(--primary-color);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-left: auto;
+}
+
+.header-action-btn {
+    background-color: transparent;
+    color: var(--gray-600);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    position: relative;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.header-action-btn:hover {
+    background-color: var(--gray-100);
+    color: var(--primary-color);
+}
+
+.header-action-btn i {
+    font-size: 1.1rem;
+}
+
+.header-action-btn .badge {
+    transform: translate(30%, -30%);
+}
+
+.profile-avatar-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--border-radius-full);
+    object-fit: cover;
+    border: 2px solid transparent;
+    transition: border-color var(--transition-duration-short) var(--transition-timing-function);
+}
+
+#header-profile-btn:hover .profile-avatar-icon {
+    border-color: var(--primary-color-light);
+}
+
+#header-profile-btn[data-user-logged-in="true"] .profile-avatar-icon {
+    border-color: var(--primary-color);
+}
+
