@@ -9,14 +9,6 @@
 
 import * as state from './state.js';
 // --- DEBUT DE LA MODIFICATION ---
-const socket = io();
-let currentThreadId = null;
-
-socket.on('newMessage', (message) => {
-  if (message.thread === currentThreadId) {
-    appendMessage(message);
-  }
-});
 // --- FIN DE LA MODIFICATION ---
 import { fetchInitialUnreadCount } from './main.js';
 import {
@@ -325,16 +317,7 @@ function connectSocket() {
     });
     socket.on('userStatusUpdate', handleUserStatusUpdate);
 
-    // Écoute additionnelle pour mettre à jour l'UI simplifiée en temps réel
-    socket.on('newMessage', (payload) => {
-        const msg = payload?.message || payload;
-        const messagesContainer = document.getElementById('chat-messages-container');
-        const activeId = messagesContainer?.dataset.threadId;
-        if (activeId && msg?.threadId && msg.threadId.toString() === activeId) {
-            console.log('Nouveau message reçu en temps réel:', msg);
-            appendMessageToUI(msg);
-        }
-    });
+ 
 }
 
 /**
@@ -1275,53 +1258,3 @@ if(chatComposerMenu) {
         }
     });
 }
-
-// --- Fonctions ajoutées pour la messagerie temps réel simplifiée ---
-function appendMessageToUI(message) {
-    const messagesContainer = document.getElementById('chat-messages-container');
-    if (!messagesContainer) return;
-
-    const currentUserId = document.body.dataset.userId;
-    const senderId = message.senderId._id || message.senderId;
-    const isSender = senderId.toString() === currentUserId;
-
-    const messageElement = document.createElement('div');
-    messageElement.classList.add('message', isSender ? 'sent' : 'received');
-
-    messageElement.innerHTML = `
-        <img src="${message.senderId.avatarUrl || 'default-avatar.png'}" alt="${message.senderId.name}" class="avatar">
-        <div class="message-content">
-            <p>${message.text}</p>
-            <span class="timestamp">${new Date(message.createdAt).toLocaleTimeString()}</span>
-        </div>
-    `;
-
-    messagesContainer.appendChild(messageElement);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
-
-// --- DEBUT DE LA MODIFICATION ---
-function appendMessage(message) {
-    const messageList = document.getElementById('message-list');
-    if (!messageList) return;
-
-    const currentUserId = state.user?.id || state.getCurrentUser()?.id || state.getCurrentUser()?._id;
-
-    const messageElement = document.createElement('div');
-    messageElement.classList.add('message-item');
-
-    if (message.sender && message.sender._id === currentUserId) {
-        messageElement.classList.add('sent');
-    } else {
-        messageElement.classList.add('received');
-    }
-
-    messageElement.innerHTML = `
-        <p class="message-content">${message.content}</p>
-        <span class="message-timestamp">${new Date(message.createdAt).toLocaleTimeString()}</span>
-    `;
-
-    messageList.appendChild(messageElement);
-    messageList.scrollTop = messageList.scrollHeight;
-}
-// --- FIN DE LA MODIFICATION ---
