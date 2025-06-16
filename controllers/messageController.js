@@ -207,7 +207,10 @@ exports.verifyThreadAccess = asyncHandler(async (req, res, next) => {
         return next(new AppError('Conversation non trouvée.', 404));
     }
 
-    const isParticipant = thread.participants.some(p => p.user.toString() === userId);
+    const isParticipant = thread.participants.some(p => {
+        const id = p.user && p.user._id ? p.user._id.toString() : p.user.toString();
+        return id === userId;
+    });
     if (!isParticipant) {
         return next(new AppError('Accès non autorisé à cette conversation.', 403));
     }
@@ -248,7 +251,10 @@ exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
     // 3. ✨ CORRECTION DE SÉCURITÉ : Vérifier que l'utilisateur est bien un participant
     // C'est l'étape la plus critique pour corriger l'erreur 403 Forbidden.
     // On convertit les ObjectId en string pour une comparaison fiable.
-    const isParticipant = thread.participants.map(p => p.toString()).includes(userId);
+    const isParticipant = thread.participants.some(p => {
+        const id = p.user && p.user._id ? p.user._id.toString() : p.user.toString();
+        return id === userId;
+    });
     
     if (!isParticipant) {
         return next(new AppError('Accès non autorisé à cette conversation.', 403));
@@ -442,7 +448,10 @@ exports.createMessage = async (req, res) => {
       return res.status(404).json({ status: 'fail', message: 'Conversation non trouvée.' });
     }
 
-    if (!thread.participants.map(p => p.user.toString()).includes(senderId)) {
+    if (!thread.participants.some(p => {
+      const id = p.user && p.user._id ? p.user._id.toString() : p.user.toString();
+      return id === senderId;
+    })) {
       return res.status(403).json({ status: 'fail', message: 'Vous ne pouvez pas envoyer de message dans cette conversation.' });
     }
 
@@ -477,12 +486,19 @@ exports.markThreadAsRead = asyncHandler(async (req, res, next) => {
     const userId = req.user.id; // L'utilisateur qui lit les messages
 
     const thread = await Thread.findById(threadId);
-    if (!thread || !thread.participants.find(p => p.user.toString() === userId)) {
+    const userIsParticipant = thread && thread.participants.find(p => {
+        const id = p.user && p.user._id ? p.user._id.toString() : p.user.toString();
+        return id === userId;
+    });
+    if (!userIsParticipant) {
         return next(new AppError('Thread non trouvé ou accès non autorisé.', 404));
     }
 
     // Marquer le compteur de non-lus de l'utilisateur à 0
-    const participantIndex = thread.participants.findIndex(p => p.user.toString() === userId);
+    const participantIndex = thread.participants.findIndex(p => {
+        const id = p.user && p.user._id ? p.user._id.toString() : p.user.toString();
+        return id === userId;
+    });
     if (participantIndex > -1 && thread.participants[participantIndex].unreadCount > 0) {
         thread.participants[participantIndex].unreadCount = 0;
         await thread.save({ validateBeforeSave: false });
@@ -498,9 +514,12 @@ exports.markThreadAsRead = asyncHandler(async (req, res, next) => {
 
     // Si des messages ont été mis à jour, notifier l'autre participant
     if (updateResult.modifiedCount > 0) {
-        const otherParticipant = thread.participants.find(p => p.user.toString() !== userId);
+        const otherParticipant = thread.participants.find(p => {
+            const id = p.user && p.user._id ? p.user._id.toString() : p.user.toString();
+            return id !== userId;
+        });
         if (otherParticipant && ioInstance) {
-            const recipientRoom = `user_${otherParticipant.user.toString()}`;
+            const recipientRoom = `user_${otherParticipant.user._id ? otherParticipant.user._id.toString() : otherParticipant.user.toString()}`;
             ioInstance.of('/chat').to(recipientRoom).emit('messagesRead', {
                 threadId,
                 readerId: userId
