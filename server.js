@@ -213,7 +213,8 @@ const io = new Server(server, {
   }
 });
 
-app.set('io', io);
+// Rendre 'io' accessible globalement dans l'app Express
+app.set('socketio', io);
 
 io.on('connection', (socket) => {
   console.log('✅ Un utilisateur est connecté via WebSocket');

@@ -216,9 +216,14 @@ exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
     const { threadId } = req.params;
     const userId = req.user.id;
 
-    const thread = await Thread.findOne({ _id: threadId, 'participants.user': userId });
+    const thread = await Thread.findById(threadId);
+
     if (!thread) {
-        return next(new AppError('Thread non trouvé ou accès non autorisé.', 404));
+        return res.status(404).json({ status: 'fail', message: 'Conversation non trouvée.' });
+    }
+
+    if (!thread.participants.map(p => p.user.toString()).includes(userId)) {
+        return res.status(403).json({ status: 'fail', message: 'Accès non autorisé à cette conversation.' });
     }
 
     const queryOptions = { threadId };
@@ -397,23 +402,36 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
 // --- Nouvelle fonction simplifiée pour la messagerie temps réel ---
 exports.createMessage = async (req, res) => {
   try {
-    const { content } = req.body;
-    const { threadId } = req.params;
-    const sender = req.user.id;
+    const { threadId, content } = req.body;
+    const senderId = req.user.id;
 
     if (!content) {
       return res.status(400).json({ message: 'Le contenu du message ne peut pas être vide.' });
     }
 
-    const message = await Message.create({
+    const thread = await Thread.findById(threadId);
+
+    if (!thread) {
+      return res.status(404).json({ status: 'fail', message: 'Conversation non trouvée.' });
+    }
+
+    if (!thread.participants.map(p => p.user.toString()).includes(senderId)) {
+      return res.status(403).json({ status: 'fail', message: 'Vous ne pouvez pas envoyer de message dans cette conversation.' });
+    }
+
+    const newMessage = await Message.create({
       threadId,
-      senderId: sender,
+      senderId,
       text: content
     });
 
-    const io = req.app.get('io');
-    const populatedMessage = await message.populate('senderId', 'name avatarUrl');
+    const populatedMessage = await Message.findById(newMessage._id).populate('senderId', 'name avatarUrl');
+
+    const io = req.app.get('socketio');
     io.to(threadId).emit('newMessage', populatedMessage);
+
+    thread.updatedAt = Date.now();
+    await thread.save();
 
     res.status(201).json(populatedMessage);
   } catch (error) {
