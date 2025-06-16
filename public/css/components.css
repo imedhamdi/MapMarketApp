@@ -108,3 +108,134 @@
 
 
 /* RESPONSIVENESS */
+
+/* Cards */
+.card {
+    background-color: var(--component-bg);
+    border: 1px solid var(--border-color-light);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform var(--transition-duration-short) var(--transition-timing-function),
+        box-shadow var(--transition-duration-short) var(--transition-timing-function);
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+}
+
+.card-header,
+.card-body,
+.card-footer {
+    padding: var(--spacing-md);
+}
+
+.card-header {
+    border-bottom: 1px solid var(--border-color-light);
+    font-weight: 600;
+}
+
+.card-footer {
+    border-top: 1px solid var(--border-color-light);
+    background-color: var(--gray-50);
+}
+
+/* Badges */
+.badge {
+    display: inline-block;
+    padding: 0.25em 0.5em;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: var(--border-radius-full);
+    background-color: var(--primary-color);
+    color: var(--light-color);
+}
+
+/* List groups */
+.list-group {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.list-group-item {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: 1px solid var(--border-color-light);
+    display: block;
+    color: var(--text-color-base);
+    text-decoration: none;
+    transition: background-color var(--transition-duration-short) var(--transition-timing-function);
+}
+
+.list-group-item:hover {
+    background-color: var(--gray-100);
+}
+
+.list-group-item.active {
+    background-color: var(--primary-color);
+    color: var(--light-color);
+}
+
+/* Spinners */
+.spinner-border {
+    width: 2rem;
+    height: 2rem;
+    border: 4px solid var(--gray-300);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Avatars */
+.avatar {
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+}
+
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+}
+
+.avatar-lg {
+    width: 64px;
+    height: 64px;
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    list-style: none;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.page-link {
+    display: block;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--border-color-light);
+    border-radius: var(--border-radius-sm);
+    background-color: var(--component-bg);
+    color: var(--text-color-base);
+    transition: background-color var(--transition-duration-short) var(--transition-timing-function);
+}
+
+.page-link:hover {
+    background-color: var(--gray-100);
+}
+
+.page-item.active .page-link {
+    background-color: var(--primary-color);
+    color: var(--light-color);
+    border-color: var(--primary-color);
+}

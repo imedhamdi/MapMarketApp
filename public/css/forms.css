@@ -57,6 +57,19 @@ select.form-control {
     padding-right: 2.5rem;
 }
 
+/* Range slider */
+.form-control-range {
+    width: 100%;
+    accent-color: var(--primary-color);
+    cursor: pointer;
+}
+
+.range-value-display {
+    margin-top: var(--spacing-xs);
+    font-size: 0.875rem;
+    color: var(--gray-600);
+}
+
 .form-error-message {
     display: block;
     margin-top: var(--spacing-xs);

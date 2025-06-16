@@ -289,3 +289,28 @@
     align-items: center;
 }
 
+/* Filters Modal Layout */
+#filters-modal .modal-body form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+#filters-modal .modal-footer {
+    justify-content: space-between;
+}
+
+@media (min-width: 480px) {
+    #filters-modal .modal-body form {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--spacing-md);
+    }
+    #filters-modal .modal-body form .form-group {
+        margin-bottom: 0;
+    }
+    #filters-modal .modal-footer {
+        grid-column: 1 / -1;
+    }
+}
+
