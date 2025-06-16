@@ -23,7 +23,8 @@ import * as PWA from './pwa.js';
 import * as Onboarding from './onboarding.js';
 import * as History from './history.js';
 
-export const socket = io();
+// La connexion Socket.IO est désormais gérée dans messages.js pour éviter les
+// dépendances circulaires.
 import * as Settings from './settings.js';
 import * as NotificationsDisplay from './notifications.js';
 
