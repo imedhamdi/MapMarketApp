@@ -28,16 +28,6 @@ const asyncHandler = (fn) => (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-// Helper pour construire les URLs complètes des images
-const mapMessageImageUrls = (req, message) => {
-    if (message.imageUrl && !message.imageUrl.startsWith('http')) {
-        // Cloner si c'est une instance Mongoose pour éviter de modifier l'original par référence
-        const messageObj = message.toObject ? message.toObject() : { ...message };
-        messageObj.imageUrl = `${req.protocol}://${req.get('host')}/uploads/${message.imageUrl}`;
-        return messageObj;
-    }
-    return message;
-};
 
 
 /**
@@ -205,55 +195,75 @@ exports.getUnreadThreadCount = asyncHandler(async (req, res, next) => {
 });
 
 
-
+/**
+ * Construit l'URL complète pour l'image d'un message.
+ */
+const mapMessageImageUrls = (req, message) => {
+    const messageObj = message.toObject ? message.toObject() : { ...message };
+    if (messageObj.image && !messageObj.image.startsWith('http')) {
+        messageObj.imageUrl = `${req.protocol}://${req.get('host')}/uploads/messages/${messageObj.image}`;
+    }
+    return messageObj;
+};
 
 /**
- * Récupérer les messages d'un thread spécifique (avec pagination).
- * GET /api/messages/threads/:threadId/messages
- * Query: limit, before (timestamp du message le plus ancien chargé pour la page précédente)
+ * @desc    Récupérer les messages d'un thread spécifique (avec pagination).
+ * @route   GET /api/messages/threads/:threadId/messages
+ * @access  Privé
+ * @query   limit (number), before (timestamp)
  */
 exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
     const { threadId } = req.params;
     const userId = req.user.id;
 
+    // 1. Récupérer la conversation depuis la base de données
     const thread = await Thread.findById(threadId);
 
+    // 2. Gérer le cas où la conversation n'existe pas
     if (!thread) {
-        return res.status(404).json({ status: 'fail', message: 'Conversation non trouvée.' });
+        return next(new AppError('Conversation non trouvée.', 404));
     }
 
-    if (!thread.participants.map(p => p.user.toString()).includes(userId)) {
-        return res.status(403).json({ status: 'fail', message: 'Accès non autorisé à cette conversation.' });
+    // 3. ✨ CORRECTION DE SÉCURITÉ : Vérifier que l'utilisateur est bien un participant
+    // C'est l'étape la plus critique pour corriger l'erreur 403 Forbidden.
+    // On convertit les ObjectId en string pour une comparaison fiable.
+    const isParticipant = thread.participants.map(p => p.toString()).includes(userId);
+    
+    if (!isParticipant) {
+        return next(new AppError('Accès non autorisé à cette conversation.', 403));
     }
 
-    const queryOptions = { threadId };
-    // Filtrer les messages "supprimés pour moi"
-    queryOptions.deletedFor = { $ne: userId };
-    queryOptions.isDeletedGlobally = { $ne: true };
+    // 4. Construire la requête pour les messages avec filtres et pagination
+    const queryOptions = { 
+        thread: threadId, // Correction: le champ dans le modèle de message est 'thread'
+        deletedFor: { $ne: userId }, // Ne pas montrer les messages supprimés par l'utilisateur
+        isDeletedGlobally: { $ne: true } // Ne pas montrer les messages supprimés pour tous
+    };
 
-
-    if (req.query.before) { // Pour charger les messages plus anciens (scroll vers le haut)
+    // Pagination : charger les messages plus anciens que le timestamp 'before'
+    if (req.query.before) {
         queryOptions.createdAt = { $lt: new Date(parseInt(req.query.before, 10)) };
     }
 
-    const limit = parseInt(req.query.limit, 10) || 20;
+    const limit = parseInt(req.query.limit, 10) || 30; // Augmenter légèrement la limite par défaut peut être pertinent
 
+    // 5. Exécuter la requête
     const messages = await Message.find(queryOptions)
-        .populate('senderId', 'name avatarUrl') // Populer l'expéditeur
+        // Correction : le champ dans le modèle est 'sender', pas 'senderId'. Populer avec les champs de userModel.
+        .populate('sender', 'username profile') 
         .sort({ createdAt: -1 }) // Les plus récents d'abord pour la pagination inversée
         .limit(limit);
 
-    // Les messages sont récupérés du plus récent au plus ancien,
-    // le client les affichera généralement dans l'ordre chronologique (donc inverser si besoin côté client ou ici).
-    // Pour le scroll infini vers le haut, cet ordre est bon.
-
+    // 6. Mapper les résultats pour inclure les URLs complètes des images
     const messagesWithFullImageUrls = messages.map(msg => mapMessageImageUrls(req, msg));
 
+    // 7. Envoyer la réponse
     res.status(200).json({
-        success: true,
+        status: 'success', // Utiliser 'status' pour la cohérence
         results: messagesWithFullImageUrls.length,
         data: {
-            messages: messagesWithFullImageUrls.reverse(), // Inverser pour l'affichage chronologique
+            // Inverser le tableau pour que le client reçoive les messages dans l'ordre chronologique
+            messages: messagesWithFullImageUrls.reverse(), 
         }
     });
 });
