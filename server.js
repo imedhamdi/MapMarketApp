@@ -224,6 +224,11 @@ io.on('connection', (socket) => {
     console.log(`Un utilisateur a rejoint la room: ${threadId}`);
   });
 
+  socket.on('leaveThread', (threadId) => {
+    socket.leave(threadId);
+    console.log(`Un utilisateur a quitté la room: ${threadId}`);
+  });
+
   socket.on('typing', ({ threadId, userName }) => {
     socket.to(threadId).emit('typing', { userName });
   });

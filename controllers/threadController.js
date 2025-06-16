@@ -1,5 +1,7 @@
 const Thread = require('../models/threadModel');
 const Message = require('../models/messageModel');
+const mongoose = require('mongoose');
+const sanitizeHtml = require('sanitize-html');
 
 /**
  * @desc    Récupère le nombre total de discussions non lues pour l'utilisateur actuel.
@@ -45,27 +47,37 @@ exports.getAllThreads = async (req, res, next) => {
 
 // Créer un thread ou restaurer s'il était supprimé pour l'utilisateur
 exports.createThread = async (req, res, next) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
-        const { recipientId, adId } = req.body;
+        const { recipientId, adId, firstMessage } = req.body;
         const participants = [req.user.id, recipientId];
-        let thread = await Thread.findOne({
-            'participants.user': { $all: participants },
-            ad: adId || null
-        });
-        if (thread) {
-            const index = thread.deletedBy.findIndex(id => id.toString() === req.user.id);
-            if (index > -1) {
-                thread.deletedBy.splice(index, 1);
-                await thread.save({ validateBeforeSave: false });
+
+        const thread = await Thread.create([
+            {
+                participants: participants.map(id => ({ user: id })),
+                ad: adId || null
             }
-            return res.status(200).json({ success: true, data: { thread } });
-        }
-        thread = await Thread.create({
-            participants: participants.map(id => ({ user: id })),
-            ad: adId || null
-        });
-        res.status(201).json({ success: true, data: { thread } });
+        ], { session });
+
+        const sanitizedFirst = firstMessage ? sanitizeHtml(firstMessage, { allowedTags: [], allowedAttributes: {} }) : '';
+
+        const message = await Message.create([
+            {
+                threadId: thread[0]._id,
+                senderId: req.user.id,
+                text: sanitizedFirst
+            }
+        ], { session });
+
+        await session.commitTransaction();
+        session.endSession();
+
+        const populatedThread = await Thread.findById(thread[0]._id);
+        res.status(201).json({ success: true, data: { thread: populatedThread, message: message[0] } });
     } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
         next(error);
     }
 };

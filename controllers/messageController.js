@@ -9,6 +9,7 @@ const { logger } = require('../config/winston');
 const APIFeatures = require('../utils/apiFeatures');
 const fs = require('fs');
 const path = require('path');
+const sanitizeHtml = require('sanitize-html');
 // const sendEmail = require('../utils/email'); // Pour les notifications email
 // const { io } = require('../server'); // Importer l'instance io de server.js
 
@@ -227,15 +228,15 @@ exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
     // 3. ✨ CORRECTION DE SÉCURITÉ : Vérifier que l'utilisateur est bien un participant
     // C'est l'étape la plus critique pour corriger l'erreur 403 Forbidden.
     // On convertit les ObjectId en string pour une comparaison fiable.
-    const isParticipant = thread.participants.map(p => p.toString()).includes(userId);
+    const isParticipant = thread.participants.some(p => p.user.toString() === userId);
     
     if (!isParticipant) {
         return next(new AppError('Accès non autorisé à cette conversation.', 403));
     }
 
     // 4. Construire la requête pour les messages avec filtres et pagination
-    const queryOptions = { 
-        thread: threadId, // Correction: le champ dans le modèle de message est 'thread'
+    const queryOptions = {
+        threadId: threadId,
         deletedFor: { $ne: userId }, // Ne pas montrer les messages supprimés par l'utilisateur
         isDeletedGlobally: { $ne: true } // Ne pas montrer les messages supprimés pour tous
     };
@@ -250,7 +251,7 @@ exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
     // 5. Exécuter la requête
     const messages = await Message.find(queryOptions)
         // Correction : le champ dans le modèle est 'sender', pas 'senderId'. Populer avec les champs de userModel.
-        .populate('sender', 'username profile') 
+        .populate('senderId', 'name avatarUrl')
         .sort({ createdAt: -1 }) // Les plus récents d'abord pour la pagination inversée
         .limit(limit);
 
@@ -317,7 +318,8 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
         messageData.imageUrl = path.join('messages', req.file.filename).replace(/\\/g, '/');
     } else {
         messageData.type = type || 'text';
-        messageData.text = typeof text === 'string' ? text : String(text || '');
+        const rawText = typeof text === 'string' ? text : String(text || '');
+        messageData.text = sanitizeHtml(rawText, { allowedTags: [], allowedAttributes: {} });
     }
 
     if (typeof parsedMeta === 'string') {
@@ -375,34 +377,12 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
     const messageObj = mapMessageImageUrls(req, populatedMessage.toObject());
     if (tempId) messageObj.tempId = tempId;
 
-    if (ioInstance) {
-        for (const participant of thread.participants) {
-            const participantId = participant.user._id;
-            const room = `user_${participantId}`;
-
-            const totalUnreadCountForParticipant = await Thread.countDocuments({
-                'participants.user': participantId,
-                'participants.unreadCount': { $gt: 0 }
-            });
-
-            logger.info(`Envoi du nouveau décompte de threads non lus (${totalUnreadCountForParticipant}) à l'utilisateur ${participantId}`);
-
-            ioInstance.of('/chat').to(room).emit('newMessage', {
-                message: messageObj,
-                thread: thread.toObject(),
-                unreadThreadCount: totalUnreadCountForParticipant
-            });
-            ioInstance.of('/chat').to(room).emit('update_unread_count');
-        }
+    const io = req.app.get('socketio');
+    if (io) {
+        io.to(threadId).emit('newMessage', messageObj);
     }
 
-    res.status(201).json({
-        success: true,
-        data: {
-            message: messageObj,
-            threadId,
-        },
-    });
+    res.status(201).json(messageObj);
 });
 
 // --- Nouvelle fonction simplifiée pour la messagerie temps réel ---
