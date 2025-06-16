@@ -98,14 +98,54 @@ function initializeUI() {
     };
 
     let allFound = true;
+    const found = {};
     for (const [key, id] of Object.entries(elements)) {
         const element = document.getElementById(id);
         if (!element) {
             console.error(`Élément critique de la messagerie manquant: #${id}`);
             allFound = false;
         }
-        window[key] = element; // Assign to global scope
+        found[key] = element;
     }
+
+    ({
+        messagesModal,
+        threadListView,
+        chatView,
+        threadListUl,
+        threadItemTemplate,
+        noThreadsPlaceholder,
+        backToThreadsBtn,
+        chatRecipientAvatar,
+        chatRecipientName,
+        chatRecipientStatus,
+        chatOptionsBtn,
+        chatOptionsMenu,
+        blockUserChatBtn,
+        deleteChatBtn,
+        chatMessagesContainer,
+        chatMessageTemplate,
+        chatHistoryLoader,
+        chatTypingIndicator,
+        chatInputArea,
+        chatMessageInput,
+        sendChatMessageBtn,
+        messagesNavBadge,
+        navMessagesBtn,
+        chatComposerBtn,
+        chatComposerMenu,
+        chatAttachImageBtn,
+        chatImageUploadInput,
+        chatImagePreviewContainer,
+        chatMakeOfferBtn,
+        chatShareLocationBtn,
+        chatMeetBtn,
+        offerModal,
+        submitOfferBtn,
+        appointmentModal,
+        submitAppointmentBtn,
+        threadsTabs
+    } = found);
 
     if (sendChatMessageBtn) sendChatMessageBtn.disabled = true;
 
