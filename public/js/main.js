@@ -11,7 +11,6 @@ import * as State from './state.js';
 import * as Auth from './auth.js';
 import * as Modals from './modals.js';
 import * as MapCtrl from './map.js';
-import * as Search from './search.js';
 import * as Ads from './ads.js';
 import * as Favorites from './favorites.js';
 import * as Profile from './profile.js';
@@ -44,7 +43,6 @@ class App {
             MapCtrl.init();
             Ads.init();
             Filters.init();
-            Search.init();
             Alerts.init();
             Favorites.init();
             Profile.init();
