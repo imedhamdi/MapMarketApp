@@ -337,12 +337,8 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
 
     const newMessage = await Message.create(messageData);
 
-    thread.lastMessage = {
-        text: newMessage.text,
-        sender: senderId,
-        createdAt: newMessage.createdAt,
-        imageUrl: newMessage.imageUrl,
-    };
+    await Thread.findByIdAndUpdate(threadId, { lastMessage: newMessage._id });
+    thread.lastMessage = newMessage._id;
     thread.updatedAt = newMessage.createdAt;
     thread.participants.forEach(p => {
         const participantId = p.user._id.toString();
@@ -507,42 +503,20 @@ exports.markThreadAsRead = asyncHandler(async (req, res, next) => {
  * Mettre à jour les messages comme lus via API.
  * PUT /api/messages/read/:threadId
  */
-exports.markMessagesAsRead = asyncHandler(async (req, res, next) => {
-    const { threadId } = req.params;
+exports.markAsRead = asyncHandler(async (req, res, next) => {
+    const { messageIds } = req.body;
     const userId = req.user.id;
 
+    if (!Array.isArray(messageIds) || messageIds.length === 0) {
+        return res.status(400).json({ message: 'messageIds required' });
+    }
+
     const result = await Message.updateMany(
-        { threadId, senderId: { $ne: userId }, status: { $ne: 'read' } },
+        { _id: { $in: messageIds }, senderId: { $ne: userId }, status: { $ne: 'read' } },
         { $set: { status: 'read' } }
     );
 
-    if (result.modifiedCount === 0) {
-        return res.status(204).send();
-    }
-
-    const updatedMessages = await Message.find({ threadId, senderId: { $ne: userId }, status: 'read' });
-
-    const thread = await Thread.findById(threadId).populate('participants.user');
-    const otherParticipant = thread.participants.find(p => p.user._id.toString() !== userId);
-
-    if (otherParticipant && ioInstance) {
-        const room = `user_${otherParticipant.user._id}`;
-        ioInstance.of('/chat').to(room).emit('messagesRead', {
-            threadId,
-            messages: updatedMessages.map(m => ({ _id: m._id, status: m.status }))
-        });
-    }
-
-    await Thread.findOneAndUpdate(
-        { _id: threadId, 'participants.user': userId },
-        { $set: { 'participants.$[elem].unreadCount': 0 } },
-        { arrayFilters: [{ 'elem.user': userId }] }
-    );
-
-    res.status(200).json({
-        status: 'success',
-        data: { messages: updatedMessages }
-    });
+    res.status(200).json({ modifiedCount: result.modifiedCount });
 });
 
 /**

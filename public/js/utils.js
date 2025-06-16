@@ -16,48 +16,16 @@ import * as state from './state.js';
  * @param {string} [type='info'] - Le type de toast (info, success, error, warning).
  * @param {number} [duration=3000] - La durée d'affichage en millisecondes.
  */
-export function showToast(message, type = 'info', duration = 3000) {
-    const container = document.getElementById('toast-notifications-container');
-    const template = document.getElementById('toast-notification-template');
-
-    if (!container || !template) {
-        console.warn('Éléments de toast non trouvés. Message:', message);
-        // Fallback simple si les éléments du DOM ne sont pas prêts ou trouvés
-        alert(`Toast (${type}): ${message}`);
-        return;
-    }
-
-    const toastClone = template.content.cloneNode(true);
-    const toastElement = toastClone.querySelector('.toast-notification');
-    const toastIconEl = toastElement.querySelector('.toast-icon');
-    const toastMessageEl = toastElement.querySelector('.toast-message');
-    const toastCloseBtn = toastElement.querySelector('.toast-close-btn');
-
-    toastElement.dataset.toastType = type;
-    toastMessageEl.textContent = message;
-
-    const icons = {
-        info: 'fa-info-circle',
-        success: 'fa-check-circle',
-        error: 'fa-times-circle',
-        warning: 'fa-exclamation-triangle'
-    };
-    toastIconEl.className = `toast-icon fa-solid ${icons[type] || icons.info}`;
-
-    toastCloseBtn.addEventListener('click', () => dismissToast(toastElement));
-
-    container.appendChild(toastElement);
-
-    // Force reflow pour que l'animation CSS se déclenche
-    // void toastElement.offsetWidth; // Technique classique, mais requestAnimationFrame est plus moderne
-    requestAnimationFrame(() => {
-        toastElement.classList.add('toast-visible');
-    });
-
-
-    if (duration > 0) {
-        setTimeout(() => dismissToast(toastElement), duration);
-    }
+export function showToast(message, type = 'error') {
+  const toast = document.createElement('div');
+  toast.className = `toast toast--${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.classList.add('toast--visible'); }, 100);
+  setTimeout(() => {
+    toast.classList.remove('toast--visible');
+    setTimeout(() => { toast.remove(); }, 500);
+  }, 4000);
 }
 
 /**

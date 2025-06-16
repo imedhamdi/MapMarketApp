@@ -29,11 +29,13 @@ const threadSchema = new mongoose.Schema({
         type: mongoose.Schema.ObjectId,
         ref: 'User'
     }],
+    deletedBy: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
     lastMessage: {
-        text: String,
-        sender: { type: mongoose.Schema.ObjectId, ref: 'User' },
-        createdAt: Date,
-        imageUrl: String,
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Message'
     },
 }, {
     timestamps: true,
@@ -43,6 +45,16 @@ const threadSchema = new mongoose.Schema({
 threadSchema.index({ 'participants.user': 1, ad: 1 }); // <= à ajouter
 threadSchema.index({ 'participants.user': 1, updatedAt: -1 });
 threadSchema.index({ ad: 1, 'participants.user': 1 });
+
+threadSchema.pre(/^find/, function(next) {
+    this.populate('participants.user', 'name avatarUrl isOnline lastSeen')
+        .populate('ad', 'title imageUrls price')
+        .populate({
+            path: 'lastMessage',
+            select: 'text senderId createdAt status'
+        });
+    next();
+});
 
 /**
  * ✅ Trouve ou crée un thread entre deux utilisateurs, strictement lié à une annonce donnée (ou sans annonce).
