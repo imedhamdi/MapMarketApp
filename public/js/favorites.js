@@ -8,7 +8,7 @@
  * @version 1.2.0 - Corrigé et fiabilisé
  */
 
-import * as state from './state.js';
+import * as state from './store.js';
 import {
     showToast,
     secureFetch,

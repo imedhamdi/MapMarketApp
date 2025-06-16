@@ -7,7 +7,7 @@
  * et feedback hors-ligne.
  */
 
-import * as state from './state.js';
+import * as state from './store.js';
 import {
     showToast
 } from './utils.js';

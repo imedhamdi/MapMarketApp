@@ -7,7 +7,7 @@
  * @version 1.1.0 - Corrigé pour l'affichage de l'avatar et la robustesse.
  */
 
-import * as state from './state.js';
+import * as state from './store.js';
 import { showToast, validateForm, secureFetch, toggleGlobalLoader, sanitizeHTML } from './utils.js';
 import { logout } from './auth.js'; // Importation explicite de la fonction logout
 

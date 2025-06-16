@@ -6,7 +6,7 @@
  * Affiche des diapositives interactives, gère la navigation et la persistance de l'état "complété".
  */
 
-import * as state from './state.js';
+import * as state from './store.js';
 import {
     showToast
 } from './utils.js'; // Pour d'éventuelles notifications

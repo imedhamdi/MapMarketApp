@@ -8,7 +8,7 @@
  * lorsqu'une nouvelle annonce correspond à ses critères.
  */
 
-import * as state from './state.js';
+import * as state from './store.js';
 import {
     showToast,
     validateForm,

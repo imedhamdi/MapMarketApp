@@ -7,7 +7,7 @@
  * les marqueurs, le clustering, et l'interaction avec la carte.
  */
 
-import * as state from './state.js';
+import * as state from './store.js';
 import {
     showToast,
     toggleGlobalLoader,

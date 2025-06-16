@@ -5,7 +5,7 @@
  * @version 1.3.0 - Ajout géocodage, distance dynamique et couleurs badges.
  */
 
-import * as state from './state.js';
+import * as state from './store.js';
 import {
     showToast,
     validateForm,

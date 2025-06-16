@@ -15,7 +15,7 @@ import {
     toggleGlobalLoader,
     sanitizeHTML
 } from './utils.js';
-import * as state from './state.js';
+import * as state from './store.js';
 import { fetchInitialUnreadCount } from './main.js';
 // import { openModal, closeModal, switchAuthView } from './modals.js'; // modals.js gérera ses propres ouvertures/fermetures
 

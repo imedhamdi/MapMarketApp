@@ -6,7 +6,7 @@
  * mode sombre, langue, préférences de notification.
  */
 
-import * as state from './state.js';
+import * as state from './store.js';
 import {
     showToast,
     secureFetch
