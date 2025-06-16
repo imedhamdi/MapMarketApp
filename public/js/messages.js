@@ -1,15 +1,10 @@
 /**
  * @file messages.js
  * @description Gestion complète de la messagerie instantanée pour MapMarket.
- * Ce module gère la connexion Socket.IO, l'affichage des conversations (threads),
- * l'envoi et la réception de messages (texte et images), les indicateurs de frappe,
- * et la mise à jour en temps réel de l'interface utilisateur.
- * @version 2.0.0 (Version Auditée et Corrigée)
+ * Version corrigée avec gestion robuste des autorisations et des erreurs.
  */
 
 import * as state from './state.js';
-// --- DEBUT DE LA MODIFICATION ---
-// --- FIN DE LA MODIFICATION ---
 import { fetchInitialUnreadCount } from './main.js';
 import {
     showToast,
@@ -40,13 +35,10 @@ let messagesNavBadge, navMessagesBtn;
 let newMessagesSound;
 
 // --- État du module ---
-
-// Instance Socket.IO gérée localement pour éviter les dépendances circulaires
 let socket = null;
-
 let activeThreadId = null;
 let currentRecipient = null;
-let newChatContext = null; // Contexte pour une nouvelle discussion (non liée à un thread existant)
+let newChatContext = null;
 let messageObserver = null;
 let isLoadingHistory = false;
 let allMessagesLoaded = false;
@@ -61,18 +53,12 @@ let currentTabRole = 'purchases';
 export function init() {
     if (!initializeUI()) return;
     setupEventListeners();
-    state.subscribe('messages.unreadGlobalCountChanged', (count) => {
-        updateGlobalUnreadCount(count);
-    });
+    state.subscribe('messages.unreadGlobalCountChanged', updateGlobalUnreadCount);
     console.log('Module Messages initialisé.');
 }
 
-/**
- * Récupère tous les éléments du DOM nécessaires et vérifie leur existence.
- * @returns {boolean} - True si tous les éléments sont trouvés, false sinon.
- */
 function initializeUI() {
-    const elementsToFind = {
+    const elements = {
         messagesModal: 'messages-modal',
         threadListView: 'thread-list-view',
         chatView: 'chat-view',
@@ -111,30 +97,17 @@ function initializeUI() {
         threadsTabs: 'threads-tabs'
     };
 
-    const elements = {
-        messagesModal, threadListView, chatView, threadListUl, threadItemTemplate, noThreadsPlaceholder,
-        backToThreadsBtn, chatRecipientAvatar, chatRecipientName, chatRecipientStatus, chatOptionsBtn, chatOptionsMenu,
-        blockUserChatBtn, deleteChatBtn, chatMessagesContainer, chatMessageTemplate, chatHistoryLoader,
-        chatTypingIndicator, chatInputArea, chatMessageInput, sendChatMessageBtn, messagesNavBadge,
-        navMessagesBtn, chatComposerBtn, chatComposerMenu, chatAttachImageBtn, chatImageUploadInput, chatImagePreviewContainer,
-        chatMakeOfferBtn, chatShareLocationBtn, chatMeetBtn, offerModal, submitOfferBtn,
-        appointmentModal, submitAppointmentBtn, threadsTabs
-    };
-
     let allFound = true;
-    for (const key in elementsToFind) {
-        const element = document.getElementById(elementsToFind[key]);
+    for (const [key, id] of Object.entries(elements)) {
+        const element = document.getElementById(id);
         if (!element) {
-            console.error(`Élément critique de la messagerie manquant: #${elementsToFind[key]}.`);
+            console.error(`Élément critique de la messagerie manquant: #${id}`);
             allFound = false;
         }
-        // Assignation à la variable globale correspondante
-        eval(`${key} = element;`);
+        window[key] = element; // Assign to global scope
     }
 
-    if (sendChatMessageBtn) {
-        sendChatMessageBtn.disabled = true;
-    }
+    if (sendChatMessageBtn) sendChatMessageBtn.disabled = true;
 
     if (allFound) {
         try {
@@ -147,137 +120,65 @@ function initializeUI() {
     return allFound;
 }
 
-/**
- * Met en place les écouteurs d'événements principaux pour le module de messagerie.
- */
 function setupEventListeners() {
     state.subscribe('currentUserChanged', handleUserChangeForSocket);
     document.addEventListener('mapMarket:initiateChat', handleInitiateChatEvent);
 
-    navMessagesBtn.addEventListener('click', openThreadListView);
-    backToThreadsBtn.addEventListener('click', showThreadList);
-    sendChatMessageBtn.addEventListener('click', sendMessage);
-    chatMessageInput.addEventListener('keypress', handleInputKeypress);
-    chatMessageInput.addEventListener('input', () => {
+    navMessagesBtn?.addEventListener('click', openThreadListView);
+    backToThreadsBtn?.addEventListener('click', showThreadList);
+    sendChatMessageBtn?.addEventListener('click', sendMessage);
+    chatMessageInput?.addEventListener('keypress', handleInputKeypress);
+    chatMessageInput?.addEventListener('input', () => {
         sendTypingEvent();
         updateSendButtonState();
+        adjustTextareaHeight();
     });
-    chatMessageInput.addEventListener('input', adjustTextareaHeight);
-    chatOptionsBtn.addEventListener('click', toggleChatOptionsMenu);
+    chatOptionsBtn?.addEventListener('click', toggleChatOptionsMenu);
     document.addEventListener('click', closeOptionsMenuOnClickOutside, true);
-    if(chatComposerBtn) chatComposerBtn.addEventListener('click', () => toggleComposerMenu());
+    
+    chatComposerBtn?.addEventListener('click', () => toggleComposerMenu());
     document.addEventListener('click', closeComposerMenuOnClickOutside);
-    if (chatAttachImageBtn) {
-        chatAttachImageBtn.addEventListener('click', () => chatImageUploadInput.click());
-    }
-    if (chatImageUploadInput) {
-        chatImageUploadInput.addEventListener('change', handleImageFileSelection);
-    }
+    
+    chatAttachImageBtn?.addEventListener('click', () => chatImageUploadInput?.click());
+    chatImageUploadInput?.addEventListener('change', handleImageFileSelection);
+    
     threadsTabs?.addEventListener('click', handleThreadsTabClick);
+    
     chatMakeOfferBtn?.addEventListener('click', () => {
-        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'offer-modal', triggerElement: chatMakeOfferBtn } }));
+        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { 
+            detail: { modalId: 'offer-modal', triggerElement: chatMakeOfferBtn } 
+        }));
         toggleComposerMenu(true);
     });
-    submitOfferBtn?.addEventListener('click', () => {
-        const input = document.getElementById('offer-amount-input');
-        const amount = parseFloat(input?.value);
-        if (!amount) { showToast('Montant invalide', 'warning'); return; }
-        sendOfferMessage(amount);
-    });
-    chatShareLocationBtn?.addEventListener('click', () => {
-        if (!navigator.geolocation) {
-            showToast('Géolocalisation non supportée', 'error');
-            return;
-        }
-        navigator.geolocation.getCurrentPosition(pos => {
-            const { latitude, longitude } = pos.coords;
-            sendLocationMessage({ latitude, longitude });
-        }, () => showToast('Impossible de récupérer la position', 'error'));
-        toggleComposerMenu(true);
-    });
-    chatMeetBtn?.addEventListener('click', () => {
-        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'appointment-modal', triggerElement: chatMeetBtn } }));
-        toggleComposerMenu(true);
-    });
-    submitAppointmentBtn?.addEventListener('click', () => {
-        const date = document.getElementById('appointment-date')?.value;
-        const time = document.getElementById('appointment-time')?.value;
-        const location = document.getElementById('appointment-location')?.value?.trim();
-        if (!date || !time || !location) { showToast('Informations RDV manquantes', 'warning'); return; }
-        const iso = new Date(`${date}T${time}`).toISOString();
-        sendAppointmentMessage({ date: iso, location, status: 'pending' });
-    });
-
-    if (deleteChatBtn) {
-        deleteChatBtn.addEventListener('click', () => {
-            const threadIdToDelete = activeThreadId;
-            if (!threadIdToDelete) {
-                showToast("Aucune conversation active à supprimer.", "error");
-                return;
-            }
-
-            // Fermer le petit menu d'options avant d'ouvrir la modale de confirmation
-            if (chatOptionsMenu) chatOptionsMenu.classList.add('hidden');
-
-            document.dispatchEvent(new CustomEvent('mapmarket:openModal', {
-                detail: {
-                    modalId: 'confirmation-modal',
-                    title: 'Masquer la conversation',
-                    message: 'Cette action masquera la conversation de votre liste. Elle réapparaîtra si vous ou votre interlocuteur envoyez un nouveau message. Continuer ?',
-                    confirmButtonText: 'Masquer',
-                    cancelButtonText: 'Annuler',
-                    isDestructive: true,
-                    onConfirm: async () => {
-                        toggleGlobalLoader(true, "Masquage en cours...");
-                        try {
-                            const response = await secureFetch(`${API_MESSAGES_URL}/threads/${threadIdToDelete}/local`, {
-                                method: 'PATCH'
-                            }, false);
-
-                            if (response && response.success) {
-                                showToast("Conversation masquée de votre liste.", "success");
-                                showThreadList(); // Revenir à la liste qui sera mise à jour
-                            } else {
-                                throw new Error(response.message || 'Impossible de masquer la conversation.');
-                            }
-
-                        } catch (error) {
-                            showToast(error.message, 'error');
-                        } finally {
-                            toggleGlobalLoader(false);
-                        }
-                    }
-                }
-            }));
-        });
-    }
+    
+    submitOfferBtn?.addEventListener('click', handleOfferSubmit);
+    chatShareLocationBtn?.addEventListener('click', handleShareLocation);
+    chatMeetBtn?.addEventListener('click', handleMeetRequest);
+    submitAppointmentBtn?.addEventListener('click', handleAppointmentSubmit);
+    deleteChatBtn?.addEventListener('click', handleDeleteChat);
 }
 
-// --- GESTION DE LA CONNEXION SOCKET.IO ---
+// --- GESTION SOCKET.IO ---
 
-/**
- * Gère le changement d'utilisateur pour connecter ou déconnecter le socket.
- * @param {object|null} user - L'objet utilisateur actuel ou null.
- */
 function handleUserChangeForSocket(user) {
-    if (user) {
-        connectSocket();
-    } else {
+    if (user) connectSocket();
+    else {
         disconnectSocket();
         clearMessagesUI();
     }
 }
 
-/**
- * Établit la connexion Socket.IO si elle n'est pas déjà active.
- */
 function connectSocket() {
     const token = localStorage.getItem('mapmarket_auth_token');
     if (!token) return;
-    if (socket && socket.connected) return;
+    if (socket?.connected) return;
     if (socket) socket.disconnect();
 
-    socket = io(SOCKET_NAMESPACE, { auth: { token } });
+    socket = io(SOCKET_NAMESPACE, { 
+        auth: { token },
+        reconnectionAttempts: 3,
+        reconnectionDelay: 1000
+    });
 
     socket.on('connect', () => {
         console.log('Socket.IO connecté au namespace /chat:', socket.id);
@@ -297,33 +198,14 @@ function connectSocket() {
             state.set('messages.unreadGlobalCount', unreadThreadCount);
         }
     });
-    socket.on('update_unread_count', () => {
-        fetchInitialUnreadCount();
-    });
+    socket.on('update_unread_count', fetchInitialUnreadCount);
     socket.on('typing', handleTypingEventReceived);
     socket.on('stopTyping', handleStopTypingEvent);
-    socket.on('newThread', (newThreadData) => {
-        console.log('Nouveau thread reçu !', newThreadData);
-        loadThreads(currentTabRole);
-    });
-    socket.on('messagesRead', ({ threadId, readerId }) => {
-        if (activeThreadId === threadId && readerId !== state.getCurrentUser()._id) {
-            document.querySelectorAll('.chat-message[data-sender-id="me"] .message-status-icons').forEach(statusEl => {
-                const icon = statusEl.querySelector('i');
-                if (icon && icon.style.color !== 'rgb(79, 195, 247)') {
-                    statusEl.innerHTML = '<i class="fa-solid fa-check-double" title="Lu" style="color: #4fc3f7;"></i>';
-                }
-            });
-        }
-    });
+    socket.on('newThread', loadThreads.bind(null, currentTabRole));
+    socket.on('messagesRead', handleMessagesReadEvent);
     socket.on('userStatusUpdate', handleUserStatusUpdate);
-
- 
 }
 
-/**
- * Déconnecte le socket de messagerie.
- */
 function disconnectSocket() {
     if (socket) {
         socket.disconnect();
@@ -332,11 +214,8 @@ function disconnectSocket() {
     }
 }
 
-// --- GESTION DE L'INTERFACE ET DES FLUX ---
+// --- GESTION INTERFACE ---
 
-/**
- * Ouvre la modale sur la vue de la liste des conversations (threads).
- */
 function openThreadListView() {
     const currentUser = state.getCurrentUser();
     if (!currentUser) {
@@ -344,37 +223,49 @@ function openThreadListView() {
         document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' } }));
         return;
     }
-    connectSocket(); // S'assurer que le socket est connecté
-    showThreadList(); // Afficher la liste des conversations
+    connectSocket();
+    showThreadList();
     document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'messages-modal' } }));
 }
 
-/**
- * Affiche la vue de la liste des conversations et charge les données.
- */
-function showThreadList() {
+async function showThreadList() {
     activeThreadId = null;
     currentRecipient = null;
-    chatView.classList.remove('active-view');
-    threadListView.classList.add('active-view');
-    if (chatOptionsMenu) chatOptionsMenu.classList.add('hidden');
-    loadThreads(currentTabRole);
+    chatView?.classList.remove('active-view');
+    threadListView?.classList.add('active-view');
+    chatOptionsMenu?.classList.add('hidden');
+    await loadThreads(currentTabRole);
 }
 
-/**
- * Ouvre la vue de chat pour un thread existant ou une nouvelle discussion.
- * @param {string|null} threadId - L'ID du thread, ou null pour une nouvelle discussion.
- * @param {object} recipient - L'objet de l'autre participant.
- * @param {object} [threadData] - Données optionnelles du thread (pour les nouvelles discussions).
- */
 async function openChatView(threadId, recipient, threadData = null) {
+    // Vérification préalable de l'accès
+    const currentUser = state.getCurrentUser();
+    if (!currentUser) {
+        showToast("Session expirée. Veuillez vous reconnecter.", "error");
+        return;
+    }
+
+    if (threadId) {
+        try {
+            // Vérifier que l'utilisateur a bien accès à ce thread
+            const canAccess = await verifyThreadAccess(threadId, currentUser._id);
+            if (!canAccess) {
+                showToast("Accès non autorisé à cette conversation.", "error");
+                return showThreadList();
+            }
+        } catch (error) {
+            console.error("Erreur de vérification d'accès:", error);
+            showToast("Erreur de chargement de la conversation.", "error");
+            return showThreadList();
+        }
+    }
+
     activeThreadId = threadId;
     currentRecipient = recipient;
     allMessagesLoaded = false;
     isLoadingHistory = false;
 
-    // Contexte pour une nouvelle discussion
-    if (!threadId && threadData && threadData.ad) {
+    if (!threadId && threadData?.ad) {
         newChatContext = {
             recipientId: recipient.id || recipient._id,
             adId: threadData.ad._id || threadData.ad.id
@@ -383,55 +274,11 @@ async function openChatView(threadId, recipient, threadData = null) {
         newChatContext = null;
     }
 
-    // --- Mise à jour UI ---
-    chatRecipientAvatar.src = recipient?.avatarUrl || 'avatar-default.svg';
-    chatRecipientName.textContent = sanitizeHTML(recipient?.name || 'Nouveau contact');
-    if (chatRecipientStatus) {
-        if (recipient?.isOnline) {
-            chatRecipientStatus.textContent = 'en ligne';
-        } else if (recipient?.lastSeen) {
-            const diff = Date.now() - new Date(recipient.lastSeen).getTime();
-            const minutes = Math.floor(diff / 60000);
-            if (minutes < 1) chatRecipientStatus.textContent = 'vu à l\'instant';
-            else if (minutes < 60) chatRecipientStatus.textContent = `vu il y a ${minutes} minute${minutes>1?'s':''}`;
-            else {
-                const hours = Math.floor(minutes/60);
-                chatRecipientStatus.textContent = `vu il y a ${hours}h`;
-            }
-        } else {
-            chatRecipientStatus.textContent = '';
-        }
-    }
+    // Mise à jour UI
+    updateChatUI(recipient, threadData);
 
-    // -- Mise à jour du bandeau de l'annonce --
-    const chatAdSummary = document.getElementById('chat-ad-summary');
-    const adForSummary = threadData?.ad;
-
-    if (chatAdSummary && adForSummary) {
-        chatAdSummary.classList.remove('hidden');
-        const thumb = document.getElementById('chat-ad-thumbnail');
-        const link = document.getElementById('chat-ad-link');
-        const price = document.getElementById('chat-ad-price');
-
-        if(thumb) thumb.src = (adForSummary.imageUrls && adForSummary.imageUrls[0]) ? adForSummary.imageUrls[0] : 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
-        if(link) link.textContent = sanitizeHTML(adForSummary.title);
-        if(price) price.textContent = formatCurrency(adForSummary.price, adForSummary.currency);
-        
-        link.onclick = (e) => {
-            e.preventDefault();
-            document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'messages-modal' } }));
-            setTimeout(() => {
-                 document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: adForSummary._id } }));
-            }, 100);
-        };
-    } else if (chatAdSummary) {
-        chatAdSummary.classList.add('hidden');
-    }
-
-    // --- Fin mise à jour bandeau ---
-
-    threadListView.classList.remove('active-view');
-    chatView.classList.add('active-view');
+    threadListView?.classList.remove('active-view');
+    chatView?.classList.add('active-view');
     
     // Réinitialisation
     chatMessagesContainer.innerHTML = '';
@@ -444,18 +291,98 @@ async function openChatView(threadId, recipient, threadData = null) {
     if (threadId) {
         await loadMessageHistory(threadId, true);
         setupInfiniteScroll();
-        if (chatMessagesContainer) chatMessagesContainer.dataset.threadId = threadId;
-        socket.emit('joinThread', threadId);
-        console.log(`Socket a rejoint la room: ${threadId}`);
+        chatMessagesContainer.dataset.threadId = threadId;
+        socket?.emit('joinThread', threadId);
     } else {
         chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message !</p>`;
         chatHistoryLoader.classList.remove('hidden');
     }
 }
 
-/**
- * Nettoie l'interface de la messagerie lors de la déconnexion.
- */
+async function verifyThreadAccess(threadId, userId) {
+    try {
+        const response = await secureFetch(`${API_MESSAGES_URL}/threads/${threadId}/verify-access`, {}, false);
+        return response?.success === true;
+    } catch (error) {
+        console.error("Erreur de vérification d'accès:", error);
+        return false;
+    }
+}
+
+function updateChatUI(recipient, threadData) {
+    if (!recipient) return;
+
+    if (chatRecipientAvatar) {
+        chatRecipientAvatar.src = recipient?.avatarUrl || 'avatar-default.svg';
+        chatRecipientAvatar.alt = `Avatar de ${recipient?.name}`;
+    }
+    
+    if (chatRecipientName) {
+        chatRecipientName.textContent = sanitizeHTML(recipient?.name || 'Nouveau contact');
+    }
+    
+    if (chatRecipientStatus) {
+        updateRecipientStatus(recipient);
+    }
+
+    updateChatAdSummary(threadData?.ad);
+}
+
+function updateRecipientStatus(recipient) {
+    if (!recipient) return;
+    
+    if (recipient?.isOnline) {
+        chatRecipientStatus.textContent = 'en ligne';
+    } else if (recipient?.lastSeen) {
+        const diff = Date.now() - new Date(recipient.lastSeen).getTime();
+        const minutes = Math.floor(diff / 60000);
+        if (minutes < 1) chatRecipientStatus.textContent = 'vu à l\'instant';
+        else if (minutes < 60) chatRecipientStatus.textContent = `vu il y a ${minutes} minute${minutes>1?'s':''}`;
+        else {
+            const hours = Math.floor(minutes/60);
+            chatRecipientStatus.textContent = `vu il y a ${hours}h`;
+        }
+    } else {
+        chatRecipientStatus.textContent = '';
+    }
+}
+
+function updateChatAdSummary(ad) {
+    const chatAdSummary = document.getElementById('chat-ad-summary');
+    if (!chatAdSummary) return;
+
+    if (ad) {
+        chatAdSummary.classList.remove('hidden');
+        const thumb = document.getElementById('chat-ad-thumbnail');
+        const link = document.getElementById('chat-ad-link');
+        const price = document.getElementById('chat-ad-price');
+
+        if (thumb) {
+            thumb.src = (ad.imageUrls?.[0]) ? ad.imageUrls[0] : 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
+            thumb.alt = `Miniature pour ${ad.title}`;
+        }
+        
+        if (link) {
+            link.textContent = sanitizeHTML(ad.title);
+            link.onclick = (e) => {
+                e.preventDefault();
+                document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'messages-modal' } }));
+                setTimeout(() => {
+                    document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { 
+                        detail: { adId: ad._id || ad.id } 
+                    }));
+                }, 100);
+            };
+        }
+        
+        if (price) {
+            price.textContent = formatCurrency(ad.price, ad.currency);
+        }
+    } else {
+        chatAdSummary.classList.add('hidden');
+    }
+}
+
 function clearMessagesUI() {
     if (threadListUl) threadListUl.innerHTML = '';
     if (chatMessagesContainer) chatMessagesContainer.innerHTML = '';
@@ -465,56 +392,54 @@ function clearMessagesUI() {
     updateGlobalUnreadCount(0);
 }
 
-// --- LOGIQUE DE GESTION DES DONNÉES (API & RENDU) ---
+// --- GESTION DONNÉES ---
 
-/**
- * Récupère les conversations de l'utilisateur depuis l'API.
- */
 async function loadThreads(role = 'purchases') {
     if (!threadListUl) return;
+    
     threadListUl.innerHTML = '<div class="loader-container"><div class="spinner"></div></div>';
+    noThreadsPlaceholder?.classList.add('hidden');
+
     try {
         const response = await secureFetch(`${API_MESSAGES_URL}/threads?role=${role}`, {}, false);
         renderThreadList(response?.data?.threads || []);
     } catch (error) {
         console.error("Erreur chargement threads:", error);
         renderThreadList([]);
-        noThreadsPlaceholder.textContent = "Erreur de chargement des conversations.";
+        if (noThreadsPlaceholder) {
+            noThreadsPlaceholder.textContent = "Erreur de chargement des conversations.";
+            noThreadsPlaceholder.classList.remove('hidden');
+        }
     }
 }
 
-/**
- * Affiche la liste des conversations dans l'interface.
- * @param {Array} threadsData - Les données des conversations.
- */
 function renderThreadList(threadsData) {
     if (!threadListUl || !threadItemTemplate) return;
     threadListUl.innerHTML = '';
 
     const currentUser = state.getCurrentUser();
     if (!currentUser) {
-        noThreadsPlaceholder.classList.remove('hidden');
+        noThreadsPlaceholder?.classList.remove('hidden');
         return;
     }
 
-    if (!threadsData || threadsData.length === 0) {
-        noThreadsPlaceholder.classList.remove('hidden');
+    if (!threadsData?.length) {
+        noThreadsPlaceholder?.classList.remove('hidden');
         return;
     }
-    noThreadsPlaceholder.classList.add('hidden');
+    noThreadsPlaceholder?.classList.add('hidden');
 
-    const totalUnread = threadsData.reduce((sum, t) => (sum + (t.unreadCount || 0)), 0);
+    const totalUnread = threadsData.reduce((sum, t) => sum + (t.unreadCount || 0), 0);
     updateGlobalUnreadCount(totalUnread);
 
     threadsData.forEach(thread => {
-        // La logique pour trouver le 'recipient' et 'currentUser' reste la même
         const recipient = thread.participants.find(p => p._id !== currentUser._id);
         if (!recipient) return;
 
         const clone = threadItemTemplate.content.cloneNode(true);
         const li = clone.querySelector('.thread-item');
+        li.dataset.threadId = thread._id;
 
-        // Cibler les nouveaux éléments
         const thumbnail = li.querySelector('.thread-item__thumbnail');
         const adTitle = li.querySelector('.thread-item__ad-title');
         const userNameEl = li.querySelector('.thread-item__user-name');
@@ -522,64 +447,48 @@ function renderThreadList(threadsData) {
         const timeEl = li.querySelector('.thread-time');
         const unreadBadge = li.querySelector('.unread-badge');
 
-        li.dataset.threadId = thread._id;
-
-        // Remplir avec les données de l'annonce
+        // Remplissage des données
         if (thread.ad) {
             if (thumbnail) {
-                thumbnail.src = (thread.ad.imageUrls && thread.ad.imageUrls[0])
-                                ? thread.ad.imageUrls[0]
-                                : 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
+                thumbnail.src = thread.ad.imageUrls?.[0] || 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
                 thumbnail.alt = `Image pour ${sanitizeHTML(thread.ad.title)}`;
             }
-            if (adTitle) {
-                adTitle.textContent = sanitizeHTML(thread.ad.title);
-            }
+            if (adTitle) adTitle.textContent = sanitizeHTML(thread.ad.title);
         } else {
-            // Fallback si la discussion n'est pas liée à une annonce
             if (thumbnail) thumbnail.src = recipient.avatarUrl || 'https://placehold.co/60x60/e0e0e0/757575?text=User';
             if (adTitle) adTitle.textContent = "Discussion directe";
         }
 
-        // Remplir avec les détails du message
         const lastMessageSender = thread.lastMessage?.sender?.toString() === currentUser._id ? "Vous" : recipient.name;
         const previewText = thread.lastMessage?.text
-                            ? sanitizeHTML(thread.lastMessage.text)
-                            : (thread.lastMessage?.imageUrl ? '[Image]' : 'Début de la conversation');
+            ? sanitizeHTML(thread.lastMessage.text)
+            : (thread.lastMessage?.imageUrl ? '[Image]' : 'Début de la conversation');
 
         if (userNameEl) userNameEl.textContent = `${sanitizeHTML(lastMessageSender)}: `;
         if (messagePreviewEl) messagePreviewEl.textContent = previewText;
+        if (timeEl) timeEl.textContent = thread.lastMessage 
+            ? formatDate(thread.lastMessage.createdAt, { hour: '2-digit', minute: '2-digit' }) 
+            : '';
 
-        // La logique pour l'heure et le badge non lu reste la même
-        if (timeEl) timeEl.textContent = thread.lastMessage ? formatDate(thread.lastMessage.createdAt, { hour: '2-digit', minute: '2-digit' }) : '';
         const unreadCountForThread = thread.unreadCount || 0;
-
-        if (unreadCountForThread > 0) {
-            li.classList.add('thread-unread');
-        }
-
+        if (unreadCountForThread > 0) li.classList.add('thread-unread');
         if (unreadBadge) {
             unreadBadge.textContent = unreadCountForThread;
             unreadBadge.classList.toggle('hidden', unreadCountForThread === 0);
         }
 
-        // L'écouteur d'événement reste le même
         li.addEventListener('click', () => openChatView(thread._id, recipient, thread));
         threadListUl.appendChild(clone);
     });
 }
 
-/**
- * Charge l'historique des messages pour un thread donné.
- * @param {string} threadId - L'ID du thread.
- * @param {boolean} isInitialLoad - Indique s'il s'agit du premier chargement.
- */
 async function loadMessageHistory(threadId, isInitialLoad = false) {
-    if (isLoadingHistory || allMessagesLoaded) return;
+    if (isLoadingHistory || allMessagesLoaded || !threadId) return;
     isLoadingHistory = true;
+    
     if (isInitialLoad) {
-        chatMessagesContainer.innerHTML = ''; // Nettoyer pour un nouveau chargement
-        chatHistoryLoader.classList.remove('hidden');
+        chatMessagesContainer.innerHTML = '';
+        chatHistoryLoader?.classList.remove('hidden');
     }
 
     const oldestMessage = chatMessagesContainer.querySelector('.chat-message:first-child');
@@ -589,57 +498,57 @@ async function loadMessageHistory(threadId, isInitialLoad = false) {
         const url = `${API_MESSAGES_URL}/threads/${threadId}/messages?limit=20&before=${beforeTimestamp}`;
         const response = await secureFetch(url, {}, false);
         const messages = response?.data?.messages || [];
+        const currentUserId = state.getCurrentUser()?._id;
         const messagesToMarkAsRead = [];
-        const currentUserId = state.getCurrentUser()._id;
 
-        if (messages.length < 20) {
-            allMessagesLoaded = true;
-            if (isInitialLoad && messages.length === 0) {
-                chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message !</p>`;
-            } else {
-                chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Début de la conversation</p>`;
-            }
+        if (messages.length < 20) allMessagesLoaded = true;
+
+        if (isInitialLoad && messages.length === 0) {
+            chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message !</p>`;
+        } else if (messages.length < 20) {
+            chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Début de la conversation</p>`;
         }
+
         messages.forEach(m => {
             if (m.status !== 'read' && (m.senderId?._id || m.senderId) !== currentUserId) {
                 messagesToMarkAsRead.push(m._id);
             }
         });
+
         renderMessages(messages, 'prepend');
+        
         if (messagesToMarkAsRead.length > 0) {
-            markMessagesAsRead(messagesToMarkAsRead);
+            await markMessagesAsRead(messagesToMarkAsRead);
         }
     } catch (error) {
+        console.error("Erreur de chargement de l'historique:", error);
         showToast("Erreur de chargement de l'historique.", "error");
     } finally {
         isLoadingHistory = false;
-        if (isInitialLoad && !allMessagesLoaded) {
-            chatHistoryLoader.classList.add('hidden');
-        }
+        if (isInitialLoad) chatHistoryLoader?.classList.add('hidden');
     }
 }
 
-/**
- * Affiche les messages dans le conteneur de chat.
- * @param {Array} messages - Tableau de messages à afficher.
- * @param {string} method - 'prepend' pour ajouter au début, 'append' pour ajouter à la fin.
- */
 function renderMessages(messages, method) {
-    if (!messages || messages.length === 0) return;
+    if (!messages?.length || !chatMessageTemplate) return;
 
     const fragment = document.createDocumentFragment();
-    const currentUserId = state.getCurrentUser()._id;
-
+    const currentUserId = state.getCurrentUser()?._id;
     let lastDay = null;
-    messages.forEach((msg, index) => {
+
+    messages.forEach((msg) => {
         const msgDate = new Date(msg.createdAt);
         const msgDayKey = msgDate.toDateString();
+        
+        // Ajouter un séparateur de date si nécessaire
         if (lastDay && lastDay !== msgDayKey) {
             const sep = document.createElement('div');
             sep.className = 'date-separator';
             sep.textContent = msgDate.toLocaleDateString();
             fragment.appendChild(sep);
         }
+        lastDay = msgDayKey;
+
         const clone = chatMessageTemplate.content.cloneNode(true);
         const messageEl = clone.querySelector('.chat-message');
         const textEl = messageEl.querySelector('.message-text');
@@ -648,92 +557,15 @@ function renderMessages(messages, method) {
 
         if (msg._id) messageEl.dataset.messageId = msg._id;
         if (msg.tempId) messageEl.dataset.tempId = msg.tempId;
-        messageEl.dataset.messageTimestamp = new Date(msg.createdAt).getTime();
+        messageEl.dataset.messageTimestamp = msgDate.getTime();
 
         const isSentByMe = (msg.senderId?._id || msg.senderId) === currentUserId;
         messageEl.dataset.senderId = isSentByMe ? 'me' : 'other';
         if (msg.status === 'sending') messageEl.classList.add('sending');
         if (msg.status === 'failed') messageEl.classList.add('message-failed');
-        // classes de groupage déterminées après insertion
 
-        switch (msg.type) {
-            case 'image':
-                if (msg.imageUrl) {
-                    const img = document.createElement('img');
-                    img.src = msg.imageUrl;
-                    img.className = 'chat-image-attachment';
-                    img.alt = 'Image envoyée';
-                    textEl.innerHTML = '';
-                    textEl.appendChild(img);
-                    if (msg.text) {
-                         const caption = document.createElement('p');
-                         caption.textContent = sanitizeHTML(msg.text);
-                         caption.style.marginTop = '4px';
-                         textEl.appendChild(caption);
-                    }
-                }
-                break;
-            case 'offer':
-                const offerTpl = document.getElementById('offer-card-template');
-                if (offerTpl) {
-                    const card = offerTpl.content.firstElementChild.cloneNode(true);
-                    card.querySelector('.offer-amount').textContent = msg.metadata.amount;
-                    card.querySelector('.offer-status').textContent = msg.metadata.status || '';
-                    if (!isSentByMe && msg.metadata.status === 'pending') {
-                        card.querySelector('.offer-accept-btn')?.addEventListener('click', () => handleOfferAction(msg._id, true));
-                        card.querySelector('.offer-decline-btn')?.addEventListener('click', () => handleOfferAction(msg._id, false));
-                    } else {
-                        card.querySelector('.offer-actions')?.remove();
-                    }
-                    textEl.innerHTML = '';
-                    textEl.appendChild(card);
-                } else {
-                    textEl.textContent = `Offre: ${msg.metadata.amount}`;
-                }
-                break;
-            case 'appointment':
-                const appTpl = document.getElementById('appointment-card-template');
-                if (appTpl) {
-                    const card = appTpl.content.firstElementChild.cloneNode(true);
-                    card.querySelector('.appointment-date').textContent = new Date(msg.metadata.date).toLocaleDateString();
-                    card.querySelector('.appointment-time').textContent = new Date(msg.metadata.date).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-                    card.querySelector('.appointment-location').textContent = msg.metadata.location || '';
-                    card.querySelector('.appointment-status').textContent = msg.metadata.status || '';
-                    if (!isSentByMe && msg.metadata.status === 'pending') {
-                        card.querySelector('.appointment-confirm-btn')?.addEventListener('click', () => sendMessage());
-                        card.querySelector('.appointment-cancel-btn')?.addEventListener('click', () => sendMessage());
-                    } else {
-                        card.querySelector('.appointment-actions')?.remove();
-                    }
-                    textEl.innerHTML = '';
-                    textEl.appendChild(card);
-                }
-                break;
-            case 'location':
-                const locTpl = document.getElementById('location-card-template');
-                if (locTpl) {
-                    const card = locTpl.content.firstElementChild.cloneNode(true);
-                    card.querySelector('.location-coords').textContent = `${msg.metadata.latitude}, ${msg.metadata.longitude}`;
-                    card.querySelector('.location-map-link').href = `https://maps.google.com/?q=${msg.metadata.latitude},${msg.metadata.longitude}`;
-                    textEl.innerHTML = '';
-                    textEl.appendChild(card);
-                }
-                break;
-            case 'system':
-                const sysTpl = document.getElementById('system-message-template');
-                if (sysTpl) {
-                    const card = sysTpl.content.firstElementChild.cloneNode(true);
-                    card.textContent = sanitizeHTML(msg.text);
-                    textEl.innerHTML = '';
-                    textEl.appendChild(card);
-                } else {
-                    textEl.textContent = sanitizeHTML(msg.text);
-                }
-                messageEl.classList.add('system-message');
-                break;
-            default:
-                textEl.innerHTML = sanitizeHTML(msg.text || '').replace(/\n/g, '<br>');
-        }
+        // Rendu du contenu du message selon le type
+        renderMessageContent(msg, textEl, isSentByMe);
 
         timeEl.textContent = formatDate(msg.createdAt, { hour: '2-digit', minute: '2-digit' });
 
@@ -742,21 +574,130 @@ function renderMessages(messages, method) {
         } else if (statusEl) {
             statusEl.innerHTML = '';
         }
+
         fragment.appendChild(clone);
-        lastDay = msgDayKey;
     });
 
     if (method === 'prepend') {
         const oldScrollHeight = chatMessagesContainer.scrollHeight;
         const oldScrollTop = chatMessagesContainer.scrollTop;
         chatMessagesContainer.prepend(fragment);
-        // Conserver la position du scroll pour ne pas sauter lors du chargement de l'historique
         chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight - oldScrollHeight + oldScrollTop;
     } else {
         chatMessagesContainer.appendChild(fragment);
         scrollToBottom(chatMessagesContainer);
     }
+
     updateMessageGrouping();
+}
+
+function renderMessageContent(msg, container, isSentByMe) {
+    container.innerHTML = '';
+
+    switch (msg.type) {
+        case 'image':
+            if (msg.imageUrl) {
+                const img = document.createElement('img');
+                img.src = msg.imageUrl;
+                img.className = 'chat-image-attachment';
+                img.alt = 'Image envoyée';
+                container.appendChild(img);
+                if (msg.text) {
+                    const caption = document.createElement('p');
+                    caption.textContent = sanitizeHTML(msg.text);
+                    caption.style.marginTop = '4px';
+                    container.appendChild(caption);
+                }
+            }
+            break;
+            
+        case 'offer':
+            renderOfferMessage(msg, container, isSentByMe);
+            break;
+            
+        case 'appointment':
+            renderAppointmentMessage(msg, container, isSentByMe);
+            break;
+            
+        case 'location':
+            renderLocationMessage(msg, container);
+            break;
+            
+        case 'system':
+            renderSystemMessage(msg, container);
+            break;
+            
+        default:
+            container.innerHTML = sanitizeHTML(msg.text || '').replace(/\n/g, '<br>');
+    }
+}
+
+function renderOfferMessage(msg, container, isSentByMe) {
+    const offerTpl = document.getElementById('offer-card-template');
+    if (!offerTpl) {
+        container.textContent = `Offre: ${msg.metadata.amount}`;
+        return;
+    }
+
+    const card = offerTpl.content.firstElementChild.cloneNode(true);
+    card.querySelector('.offer-amount').textContent = msg.metadata.amount;
+    card.querySelector('.offer-status').textContent = msg.metadata.status || '';
+    
+    if (!isSentByMe && msg.metadata.status === 'pending') {
+        card.querySelector('.offer-accept-btn')?.addEventListener('click', () => handleOfferAction(msg._id, true));
+        card.querySelector('.offer-decline-btn')?.addEventListener('click', () => handleOfferAction(msg._id, false));
+    } else {
+        card.querySelector('.offer-actions')?.remove();
+    }
+    
+    container.appendChild(card);
+}
+
+function renderAppointmentMessage(msg, container, isSentByMe) {
+    const appTpl = document.getElementById('appointment-card-template');
+    if (!appTpl) {
+        container.textContent = 'Rendez-vous proposé';
+        return;
+    }
+
+    const card = appTpl.content.firstElementChild.cloneNode(true);
+    card.querySelector('.appointment-date').textContent = new Date(msg.metadata.date).toLocaleDateString();
+    card.querySelector('.appointment-time').textContent = new Date(msg.metadata.date).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    card.querySelector('.appointment-location').textContent = msg.metadata.location || '';
+    card.querySelector('.appointment-status').textContent = msg.metadata.status || '';
+    
+    if (!isSentByMe && msg.metadata.status === 'pending') {
+        card.querySelector('.appointment-confirm-btn')?.addEventListener('click', () => sendMessage());
+        card.querySelector('.appointment-cancel-btn')?.addEventListener('click', () => sendMessage());
+    } else {
+        card.querySelector('.appointment-actions')?.remove();
+    }
+    
+    container.appendChild(card);
+}
+
+function renderLocationMessage(msg, container) {
+    const locTpl = document.getElementById('location-card-template');
+    if (!locTpl) {
+        container.textContent = 'Localisation partagée';
+        return;
+    }
+
+    const card = locTpl.content.firstElementChild.cloneNode(true);
+    card.querySelector('.location-coords').textContent = `${msg.metadata.latitude}, ${msg.metadata.longitude}`;
+    card.querySelector('.location-map-link').href = `https://maps.google.com/?q=${msg.metadata.latitude},${msg.metadata.longitude}`;
+    container.appendChild(card);
+}
+
+function renderSystemMessage(msg, container) {
+    const sysTpl = document.getElementById('system-message-template');
+    if (sysTpl) {
+        const card = sysTpl.content.firstElementChild.cloneNode(true);
+        card.textContent = sanitizeHTML(msg.text);
+        container.appendChild(card);
+    } else {
+        container.textContent = sanitizeHTML(msg.text);
+    }
 }
 
 function renderMessageStatus(message) {
@@ -765,17 +706,13 @@ function renderMessageStatus(message) {
     const readIcon = '<i class="fa-solid fa-check-double" title="Lu" style="color: #4fc3f7;"></i>';
 
     switch (message.status) {
-        case 'read':
-            return readIcon;
-        case 'delivered':
-            return deliveredIcon;
-        case 'sent':
-        default:
-            return sentIcon;
+        case 'read': return readIcon;
+        case 'delivered': return deliveredIcon;
+        default: return sentIcon;
     }
 }
 
-// --- ACTIONS UTILISATEUR ET ENVOI ---
+// --- ACTIONS UTILISATEUR ---
 
 function handleInputKeypress(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -787,20 +724,19 @@ function handleInputKeypress(e) {
 function handleThreadsTabClick(e) {
     const btn = e.target.closest('[data-tab]');
     if (!btn) return;
-    threadsTabs.querySelectorAll('[data-tab]').forEach(b => {
-        b.classList.remove('active');
-    });
+    
+    threadsTabs.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentTabRole = btn.dataset.tab || 'purchases';
     loadThreads(currentTabRole);
 }
 
-// --- ENVOI INTERNE ---
 async function _sendPayload(payload, imageFile = null) {
     const hasImage = Boolean(imageFile);
     const tempId = generateUUID();
     payload.tempId = tempId;
 
+    // Créer un message temporaire
     const tempMessage = {
         tempId,
         threadId: payload.threadId || activeThreadId,
@@ -816,6 +752,7 @@ async function _sendPayload(payload, imageFile = null) {
     const endpoint = hasImage ? `${API_MESSAGES_URL}/messages/image` : `${API_MESSAGES_URL}/messages`;
     const requestOptions = { method: 'POST' };
 
+    // Préparer les données à envoyer
     if (hasImage) {
         const formData = new FormData();
         formData.append('image', imageFile);
@@ -826,12 +763,15 @@ async function _sendPayload(payload, imageFile = null) {
         }
         requestOptions.body = formData;
     } else {
-        requestOptions.body = payload;
+        requestOptions.headers = { 'Content-Type': 'application/json' };
+        requestOptions.body = JSON.stringify(payload);
     }
 
+    // Sauvegarder l'état avant envoi pour restauration en cas d'erreur
     const messageInputBeforeSend = chatMessageInput.value;
     const imageFileBeforeSend = tempImageFile;
 
+    // Réinitialiser l'interface
     chatMessageInput.value = '';
     removeImagePreview();
     stopTypingEvent();
@@ -839,9 +779,11 @@ async function _sendPayload(payload, imageFile = null) {
 
     try {
         const response = await secureFetch(endpoint, requestOptions, false);
-        if (!response || !response.success) {
+        if (!response?.success) {
             throw new Error(response?.message || "Erreur d'envoi.");
         }
+
+        // Gérer la création d'un nouveau thread si nécessaire
         if (!activeThreadId && response.data?.threadId) {
             activeThreadId = response.data.threadId;
             newChatContext = null;
@@ -849,11 +791,15 @@ async function _sendPayload(payload, imageFile = null) {
         }
     } catch (error) {
         console.error("Erreur d'envoi du message:", error);
+        
+        // Restaurer l'état précédent
         chatMessageInput.value = messageInputBeforeSend;
         if (imageFileBeforeSend) {
             tempImageFile = imageFileBeforeSend;
             displayImagePreview(imageFileBeforeSend);
         }
+
+        // Marquer le message comme échoué
         const failedEl = chatMessagesContainer.querySelector(`.chat-message[data-temp-id="${tempId}"]`);
         if (failedEl) {
             failedEl.classList.add('message-failed');
@@ -865,22 +811,13 @@ async function _sendPayload(payload, imageFile = null) {
     }
 }
 
-/**
- * Fonction principale pour l'envoi de messages.
- * @param {object|string} [custom] - Texte ou objet personnalisé à envoyer.
- */
 async function sendMessage() {
     const text = chatMessageInput.value.trim();
     const imageFile = tempImageFile;
 
-    if (!text && !imageFile) {
-        return;
-    }
+    if (!text && !imageFile) return;
 
-    const payload = {
-        text: text,
-        // Le type sera déterminé dans _sendPayload
-    };
+    const payload = { text };
 
     if (activeThreadId) {
         payload.threadId = activeThreadId;
@@ -895,14 +832,20 @@ async function sendMessage() {
     await _sendPayload(payload, imageFile);
 }
 
-async function sendOfferMessage(amount) {
-    const val = parseFloat(amount);
-    if (!val) { showToast('Montant invalide', 'warning'); return; }
+async function handleOfferSubmit() {
+    const input = document.getElementById('offer-amount-input');
+    const amount = parseFloat(input?.value);
+    if (!amount) {
+        showToast('Montant invalide', 'warning');
+        return;
+    }
+
     const payload = {
         type: 'offer',
-        text: `Offre: ${formatCurrency(val, 'EUR')}`,
-        metadata: { amount: val, currency: 'EUR', status: 'pending' }
+        text: `Offre: ${formatCurrency(amount, 'EUR')}`,
+        metadata: { amount, currency: 'EUR', status: 'pending' }
     };
+
     if (activeThreadId) {
         payload.threadId = activeThreadId;
     } else if (newChatContext) {
@@ -912,8 +855,37 @@ async function sendOfferMessage(amount) {
         showToast('Contexte de discussion manquant.', 'error');
         return;
     }
+
     await _sendPayload(payload, null);
     document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'offer-modal' } }));
+}
+
+async function handleShareLocation() {
+    if (!navigator.geolocation) {
+        showToast('Géolocalisation non supportée', 'error');
+        return;
+    }
+
+    toggleGlobalLoader(true, "Récupération de votre position...");
+    
+    try {
+        const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
+            });
+        });
+
+        const { latitude, longitude } = position.coords;
+        await sendLocationMessage({ latitude, longitude });
+    } catch (error) {
+        console.error("Erreur de géolocalisation:", error);
+        showToast('Impossible de récupérer la position', 'error');
+    } finally {
+        toggleGlobalLoader(false);
+        toggleComposerMenu(true);
+    }
 }
 
 async function sendLocationMessage(coords) {
@@ -921,7 +893,13 @@ async function sendLocationMessage(coords) {
         showToast('Coordonnées invalides', 'warning');
         return;
     }
-    const payload = { type: 'location', text: 'Localisation', metadata: coords };
+
+    const payload = { 
+        type: 'location', 
+        text: 'Localisation', 
+        metadata: coords 
+    };
+
     if (activeThreadId) {
         payload.threadId = activeThreadId;
     } else if (newChatContext) {
@@ -931,15 +909,47 @@ async function sendLocationMessage(coords) {
         showToast('Contexte de discussion manquant.', 'error');
         return;
     }
+
     await _sendPayload(payload, null);
 }
 
-async function sendAppointmentMessage(appointmentData) {
-    if (!appointmentData?.date || !appointmentData?.location) {
+async function handleMeetRequest() {
+    document.dispatchEvent(new CustomEvent('mapmarket:openModal', { 
+        detail: { 
+            modalId: 'appointment-modal', 
+            triggerElement: chatMeetBtn 
+        } 
+    }));
+    toggleComposerMenu(true);
+}
+
+async function handleAppointmentSubmit() {
+    const date = document.getElementById('appointment-date')?.value;
+    const time = document.getElementById('appointment-time')?.value;
+    const location = document.getElementById('appointment-location')?.value?.trim();
+    
+    if (!date || !time || !location) {
         showToast('Informations RDV manquantes', 'warning');
         return;
     }
-    const payload = { type: 'appointment', text: 'Rendez-vous', metadata: appointmentData };
+
+    const isoDate = new Date(`${date}T${time}`).toISOString();
+    await sendAppointmentMessage({ 
+        date: isoDate, 
+        location, 
+        status: 'pending' 
+    });
+    
+    document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'appointment-modal' } }));
+}
+
+async function sendAppointmentMessage(appointmentData) {
+    const payload = { 
+        type: 'appointment', 
+        text: 'Rendez-vous', 
+        metadata: appointmentData 
+    };
+
     if (activeThreadId) {
         payload.threadId = activeThreadId;
     } else if (newChatContext) {
@@ -949,20 +959,62 @@ async function sendAppointmentMessage(appointmentData) {
         showToast('Contexte de discussion manquant.', 'error');
         return;
     }
+
     await _sendPayload(payload, null);
-    document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'appointment-modal' } }));
+}
+
+async function handleDeleteChat() {
+    const threadIdToDelete = activeThreadId;
+    if (!threadIdToDelete) {
+        showToast("Aucune conversation active à supprimer.", "error");
+        return;
+    }
+
+    chatOptionsMenu?.classList.add('hidden');
+
+    document.dispatchEvent(new CustomEvent('mapmarket:openModal', {
+        detail: {
+            modalId: 'confirmation-modal',
+            title: 'Masquer la conversation',
+            message: 'Cette action masquera la conversation de votre liste. Elle réapparaîtra si vous ou votre interlocuteur envoyez un nouveau message. Continuer ?',
+            confirmButtonText: 'Masquer',
+            cancelButtonText: 'Annuler',
+            isDestructive: true,
+            onConfirm: async () => {
+                toggleGlobalLoader(true, "Masquage en cours...");
+                try {
+                    const response = await secureFetch(`${API_MESSAGES_URL}/threads/${threadIdToDelete}/local`, {
+                        method: 'PATCH'
+                    }, false);
+
+                    if (response?.success) {
+                        showToast("Conversation masquée de votre liste.", "success");
+                        showThreadList();
+                    } else {
+                        throw new Error(response?.message || 'Impossible de masquer la conversation.');
+                    }
+                } catch (error) {
+                    showToast(error.message, 'error');
+                } finally {
+                    toggleGlobalLoader(false);
+                }
+            }
+        }
+    }));
 }
 
 function handleImageFileSelection(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Validation côté client
     if (!VALID_IMAGE_TYPES.includes(file.type)) {
-        return showToast("Format d'image non valide (JPEG, PNG, WebP).", "error");
+        showToast("Format d'image non valide (JPEG, PNG, WebP).", "error");
+        return;
     }
+
     if (file.size > MAX_IMAGE_SIZE_BYTES) {
-        return showToast(`L'image est trop grande (max ${MAX_IMAGE_SIZE_MB}MB).`, "error");
+        showToast(`L'image est trop grande (max ${MAX_IMAGE_SIZE_MB}MB).`, "error");
+        return;
     }
 
     tempImageFile = file;
@@ -974,12 +1026,13 @@ function displayImagePreview(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
         chatImagePreviewContainer.innerHTML = `
-                <img src="${e.target.result}" alt="Aperçu" class="chat-image-preview-thumb" />
-                <button type="button" class="btn btn-icon btn-danger btn-sm chat-remove-preview-btn" aria-label="Retirer l'image">
-                    <i class="fa-solid fa-times"></i>
-                </button>`;
+            <img src="${e.target.result}" alt="Aperçu" class="chat-image-preview-thumb" />
+            <button type="button" class="btn btn-icon btn-danger btn-sm chat-remove-preview-btn" aria-label="Retirer l'image">
+                <i class="fa-solid fa-times"></i>
+            </button>`;
         chatImagePreviewContainer.classList.remove('hidden');
-        chatImagePreviewContainer.querySelector('.chat-remove-preview-btn').addEventListener('click', removeImagePreview);
+        chatImagePreviewContainer.querySelector('.chat-remove-preview-btn')
+            .addEventListener('click', removeImagePreview);
     };
     reader.onerror = () => {
         showToast("Impossible de lire l'image.", 'error');
@@ -997,7 +1050,7 @@ function removeImagePreview() {
 }
 
 function updateSendButtonState() {
-    const hasText = chatMessageInput.value.trim().length > 0;
+    const hasText = chatMessageInput?.value.trim().length > 0;
     const hasImage = !!tempImageFile;
     if (sendChatMessageBtn) {
         sendChatMessageBtn.disabled = !(hasText || hasImage);
@@ -1005,14 +1058,17 @@ function updateSendButtonState() {
 }
 
 function adjustTextareaHeight() {
+    if (!chatMessageInput) return;
+    
     chatMessageInput.style.height = 'auto';
-    let scrollHeight = chatMessageInput.scrollHeight;
+    const scrollHeight = chatMessageInput.scrollHeight;
     const maxHeight = 120;
-    if(scrollHeight > maxHeight) {
-        chatMessageInput.style.height = maxHeight + 'px';
+    
+    if (scrollHeight > maxHeight) {
+        chatMessageInput.style.height = `${maxHeight}px`;
         chatMessageInput.style.overflowY = 'auto';
     } else {
-        chatMessageInput.style.height = scrollHeight + 'px';
+        chatMessageInput.style.height = `${scrollHeight}px`;
         chatMessageInput.style.overflowY = 'hidden';
     }
 }
@@ -1020,71 +1076,106 @@ function adjustTextareaHeight() {
 function updateMessageGrouping() {
     const messages = [...chatMessagesContainer.querySelectorAll('.chat-message:not(.system-message)')];
     messages.forEach((el, idx) => {
-        el.classList.remove('is-first-in-group','is-middle-in-group','is-last-in-group','is-single-message');
+        el.classList.remove(
+            'is-first-in-group',
+            'is-middle-in-group',
+            'is-last-in-group',
+            'is-single-message'
+        );
+
         const prev = messages[idx - 1];
         const next = messages[idx + 1];
         const sender = el.dataset.senderId;
         const prevSender = prev?.dataset.senderId;
         const nextSender = next?.dataset.senderId;
+
         const isFirst = !prev || prevSender !== sender;
         const isLast = !next || nextSender !== sender;
-        if (isFirst && isLast) el.classList.add('is-single-message');
-        else if (isFirst) el.classList.add('is-first-in-group');
-        else if (isLast) el.classList.add('is-last-in-group');
-        else el.classList.add('is-middle-in-group');
+
+        if (isFirst && isLast) {
+            el.classList.add('is-single-message');
+        } else if (isFirst) {
+            el.classList.add('is-first-in-group');
+        } else if (isLast) {
+            el.classList.add('is-last-in-group');
+        } else {
+            el.classList.add('is-middle-in-group');
+        }
     });
 }
 
-// --- GESTION DES ÉVÉNEMENTS SOCKET REÇUS ---
+// --- GESTION ÉVÉNEMENTS SOCKET ---
 
 function handleNewMessageReceived({ message, thread, unreadThreadCount }) {
     if (typeof unreadThreadCount === 'number') {
         state.set('messages.unreadGlobalCount', unreadThreadCount);
     }
-    if (threadListView.classList.contains('active-view')) {
+
+    if (threadListView?.classList.contains('active-view')) {
         loadThreads(currentTabRole);
     }
     
     const currentUser = state.getCurrentUser();
     const isMyMessage = (message.senderId?._id || message.senderId) === currentUser?._id;
 
+    // Mise à jour des messages temporaires
     if (isMyMessage && message.tempId) {
-        const tempMessageEl = document.querySelector(`.chat-message[data-temp-id="${message.tempId}"]`);
-        if (tempMessageEl) {
-            tempMessageEl.dataset.messageId = message._id;
-            tempMessageEl.classList.remove('sending');
-            const statusContainer = tempMessageEl.querySelector('.message-status-icons');
-            if (statusContainer) {
-                statusContainer.innerHTML = renderMessageStatus({ status: 'sent' });
-            }
-            if(message.type === 'image' && message.imageUrl) {
-                const imgEl = tempMessageEl.querySelector('.chat-image-attachment');
-                if (imgEl) imgEl.src = message.imageUrl;
-            }
-            updateMessageGrouping();
-            return;
-        }
+        updateTemporaryMessage(message);
+        return;
     }
     
+    // Affichage du nouveau message
     if (activeThreadId === message.threadId) {
         renderMessages([message], 'append');
         markMessagesAsRead([message._id]);
     } else {
-        const sender = thread.participants.find(p => p.user._id === message.senderId);
-        if (sender && sender.user._id !== currentUser._id) {
-            showToast(`Nouveau message de ${sanitizeHTML(sender.user.name)}`, 'info');
-            if (newMessagesSound) newMessagesSound.play().catch(e => console.warn('Erreur lecture son:', e));
-            loadThreads(currentTabRole);
-        }
+        notifyNewMessage(thread, message, currentUser);
     }
 }
 
-function sendTypingEvent() {
-    if (socket?.connected && activeThreadId) {
-        socket.emit('typing', { threadId: activeThreadId, userName: state.getCurrentUser().name });
-        clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(stopTypingEvent, 1500);
+function updateTemporaryMessage(message) {
+    const tempMessageEl = document.querySelector(`.chat-message[data-temp-id="${message.tempId}"]`);
+    if (!tempMessageEl) return;
+
+    tempMessageEl.dataset.messageId = message._id;
+    tempMessageEl.classList.remove('sending');
+    
+    const statusContainer = tempMessageEl.querySelector('.message-status-icons');
+    if (statusContainer) {
+        statusContainer.innerHTML = renderMessageStatus({ status: 'sent' });
     }
+    
+    if (message.type === 'image' && message.imageUrl) {
+        const imgEl = tempMessageEl.querySelector('.chat-image-attachment');
+        if (imgEl) imgEl.src = message.imageUrl;
+    }
+    
+    updateMessageGrouping();
+}
+
+function notifyNewMessage(thread, message, currentUser) {
+    const sender = thread.participants.find(p => p.user._id === message.senderId);
+    if (!sender || sender.user._id === currentUser._id) return;
+
+    showToast(`Nouveau message de ${sanitizeHTML(sender.user.name)}`, 'info');
+    
+    if (newMessagesSound) {
+        newMessagesSound.play().catch(e => console.warn('Erreur lecture son:', e));
+    }
+    
+    loadThreads(currentTabRole);
+}
+
+function sendTypingEvent() {
+    if (!socket?.connected || !activeThreadId) return;
+    
+    socket.emit('typing', { 
+        threadId: activeThreadId, 
+        userName: state.getCurrentUser().name 
+    });
+    
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(stopTypingEvent, 1500);
 }
 
 function stopTypingEvent() {
@@ -1099,46 +1190,68 @@ async function handleOfferAction(messageId, accept) {
     const endpoint = `${API_MESSAGES_URL}/messages/${messageId}/offer/${accept ? 'accept' : 'decline'}`;
     try {
         const res = await secureFetch(endpoint, { method: 'POST' }, false);
-        if (!res || !res.success) throw new Error(res?.message || 'Erreur');
+        if (!res?.success) throw new Error(res?.message || 'Erreur');
     } catch (e) {
         showToast(e.message, 'error');
     }
 }
 
 function handleTypingEventReceived({ userName }) {
-    if (userName !== state.getCurrentUser()?.name) {
-        chatTypingIndicator.textContent = `${sanitizeHTML(userName)} est en train d'écrire...`;
-        chatTypingIndicator.classList.remove('hidden');
-    }
+    if (!chatTypingIndicator || userName === state.getCurrentUser()?.name) return;
+    
+    chatTypingIndicator.textContent = `${sanitizeHTML(userName)} est en train d'écrire...`;
+    chatTypingIndicator.classList.remove('hidden');
+    
+    clearTimeout(typingIndicatorTimer);
+    typingIndicatorTimer = setTimeout(() => {
+        chatTypingIndicator.classList.add('hidden');
+        chatTypingIndicator.textContent = '';
+    }, TYPING_TIMEOUT);
 }
 
 function handleStopTypingEvent() {
+    if (!chatTypingIndicator) return;
+    
     chatTypingIndicator.classList.add('hidden');
     chatTypingIndicator.textContent = '';
+    clearTimeout(typingIndicatorTimer);
 }
 
+function handleMessagesReadEvent({ threadId, readerId }) {
+    if (activeThreadId !== threadId || readerId === state.getCurrentUser()?._id) return;
+    
+    document.querySelectorAll('.chat-message[data-sender-id="me"] .message-status-icons').forEach(statusEl => {
+        const icon = statusEl.querySelector('i');
+        if (icon && icon.style.color !== 'rgb(79, 195, 247)') {
+            statusEl.innerHTML = '<i class="fa-solid fa-check-double" title="Lu" style="color: #4fc3f7;"></i>';
+        }
+    });
+}
 
 function handleUserStatusUpdate({ userId, statusText }) {
-    if (currentRecipient && currentRecipient._id === userId && chatRecipientStatus) {
+    if (currentRecipient?._id === userId && chatRecipientStatus) {
         chatRecipientStatus.textContent = statusText;
     }
 }
 
-// --- FONCTIONS AUXILIAIRES ---
+// --- FONCTIONS UTILITAIRES ---
 
-/**
- * Informe le serveur que le thread a été lu.
- * @param {string} threadId - L'ID du thread.
- */
 async function markThreadAsRead(threadId) {
+    if (!threadId) return;
+    
     if (socket) {
         socket.emit('markThreadRead', { threadId });
     }
+    
     try {
-        const response = await secureFetch(`/api/messages/threads/${threadId}/read`, { method: 'POST' }, false);
-        if (response && response.success && typeof response.data.unreadThreadCount === 'number') {
+        const response = await secureFetch(`/api/messages/threads/${threadId}/read`, { 
+            method: 'POST' 
+        }, false);
+        
+        if (response?.success && typeof response.data.unreadThreadCount === 'number') {
             state.set('messages.unreadGlobalCount', response.data.unreadThreadCount);
         }
+        
         loadThreads(currentTabRole);
     } catch (e) {
         console.error('Erreur mise à jour lecture thread:', e);
@@ -1146,15 +1259,18 @@ async function markThreadAsRead(threadId) {
 }
 
 async function markMessagesAsRead(messageIds) {
+    if (!messageIds?.length) return;
+    
     try {
         await secureFetch('/api/messages/read', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ messageIds })
         }, false);
+        
         loadThreads(currentTabRole);
     } catch (error) {
-        showToast(error.message, 'error');
+        console.error("Erreur de marquage des messages comme lus:", error);
     }
 }
 
@@ -1167,47 +1283,53 @@ function updateGlobalUnreadCount(count) {
 }
 
 function scrollToBottom(container) {
-    if (container) {
-        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-    }
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
 }
 
 function setupInfiniteScroll() {
     if (messageObserver) messageObserver.disconnect();
+    
     messageObserver = new IntersectionObserver(entries => {
         if (entries[0]?.isIntersecting && !isLoadingHistory && !allMessagesLoaded) {
             loadMessageHistory(activeThreadId);
         }
-    }, { root: chatMessagesContainer, threshold: 0.1 });
+    }, { 
+        root: chatMessagesContainer, 
+        threshold: 0.1 
+    });
+    
     if (chatHistoryLoader) {
         messageObserver.observe(chatHistoryLoader);
     }
 }
 
-/**
- * Gère l'initiation d'une conversation depuis une autre partie de l'application.
- * @param {CustomEvent} event - L'événement contenant les détails { adId, recipientId }.
- */
 async function handleInitiateChatEvent(event) {
     const { recipientId, adId } = event.detail;
-
     const currentUser = state.getCurrentUser();
+
     if (!currentUser) {
         showToast("Session non trouvée. Veuillez vous reconnecter.", "error");
-        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' }}));
+        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { 
+            detail: { modalId: 'auth-modal' }
+        }));
         return;
     }
 
-    if (!recipientId || !adId) return showToast("Informations manquantes pour démarrer la discussion.", "error");
+    if (!recipientId || !adId) {
+        showToast("Informations manquantes pour démarrer la discussion.", "error");
+        return;
+    }
 
     toggleGlobalLoader(true, "Ouverture de la discussion...");
+    
     try {
         const response = await secureFetch(`${API_MESSAGES_URL}/threads/initiate`, {
             method: 'POST',
             body: { recipientId, adId }
         });
 
-        if (!response || !response.success) {
+        if (!response?.success) {
             throw new Error(response?.message || 'Erreur lors de l\'initiation de la discussion.');
         }
 
@@ -1216,12 +1338,14 @@ async function handleInitiateChatEvent(event) {
 
         if (recipientData) {
             openChatView(thread._id, recipientData, thread);
-            document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'messages-modal' } }));
+            document.dispatchEvent(new CustomEvent('mapmarket:openModal', { 
+                detail: { modalId: 'messages-modal' } 
+            }));
         } else {
             throw new Error('Impossible de trouver les informations du destinataire.');
         }
-
     } catch (error) {
+        console.error("Erreur d'initiation de discussion:", error);
         showToast(error.message, "error");
     } finally {
         toggleGlobalLoader(false);
@@ -1261,12 +1385,4 @@ function closeComposerMenuOnClickOutside(event) {
         !chatComposerBtn.contains(event.target) && !chatComposerMenu.contains(event.target)) {
         toggleComposerMenu(true);
     }
-}
-
-if(chatComposerMenu) {
-    chatComposerMenu.addEventListener('click', (e) => {
-        if (e.target.closest('button')) {
-            toggleComposerMenu(true);
-        }
-    });
 }
