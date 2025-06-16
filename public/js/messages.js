@@ -50,7 +50,7 @@ let newChatContext = null; // Contexte pour une nouvelle discussion (non liée �
 let messageObserver = null;
 let isLoadingHistory = false;
 let allMessagesLoaded = false;
-let typingTimer = null;
+let typingTimeout = null;
 let typingIndicatorTimer = null;
 let tempImageFile = null;
 let currentTabRole = 'purchases';
@@ -301,6 +301,7 @@ function connectSocket() {
         fetchInitialUnreadCount();
     });
     socket.on('typing', handleTypingEventReceived);
+    socket.on('stopTyping', handleStopTypingEvent);
     socket.on('newThread', (newThreadData) => {
         console.log('Nouveau thread reçu !', newThreadData);
         loadThreads(currentTabRole);
@@ -442,7 +443,6 @@ async function openChatView(threadId, recipient, threadData = null) {
     
     if (threadId) {
         await loadMessageHistory(threadId, true);
-        await markMessagesAsRead(threadId);
         setupInfiniteScroll();
         if (chatMessagesContainer) chatMessagesContainer.dataset.threadId = threadId;
         socket.emit('joinThread', threadId);
@@ -589,6 +589,8 @@ async function loadMessageHistory(threadId, isInitialLoad = false) {
         const url = `${API_MESSAGES_URL}/threads/${threadId}/messages?limit=20&before=${beforeTimestamp}`;
         const response = await secureFetch(url, {}, false);
         const messages = response?.data?.messages || [];
+        const messagesToMarkAsRead = [];
+        const currentUserId = state.getCurrentUser()._id;
 
         if (messages.length < 20) {
             allMessagesLoaded = true;
@@ -598,7 +600,15 @@ async function loadMessageHistory(threadId, isInitialLoad = false) {
                 chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Début de la conversation</p>`;
             }
         }
+        messages.forEach(m => {
+            if (m.status !== 'read' && (m.senderId?._id || m.senderId) !== currentUserId) {
+                messagesToMarkAsRead.push(m._id);
+            }
+        });
         renderMessages(messages, 'prepend');
+        if (messagesToMarkAsRead.length > 0) {
+            markMessagesAsRead(messagesToMarkAsRead);
+        }
     } catch (error) {
         showToast("Erreur de chargement de l'historique.", "error");
     } finally {
@@ -1058,7 +1068,7 @@ function handleNewMessageReceived({ message, thread, unreadThreadCount }) {
     
     if (activeThreadId === message.threadId) {
         renderMessages([message], 'append');
-        markMessagesAsRead(activeThreadId);
+        markMessagesAsRead([message._id]);
     } else {
         const sender = thread.participants.find(p => p.user._id === message.senderId);
         if (sender && sender.user._id !== currentUser._id) {
@@ -1071,18 +1081,18 @@ function handleNewMessageReceived({ message, thread, unreadThreadCount }) {
 
 function sendTypingEvent() {
     if (socket?.connected && activeThreadId) {
-        if (!typingTimer) socket.emit('typing', { threadId: activeThreadId, isTyping: true });
-        clearTimeout(typingTimer);
-        typingTimer = setTimeout(stopTypingEvent, TYPING_TIMEOUT);
+        socket.emit('typing', { threadId: activeThreadId, userName: state.getCurrentUser().name });
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(stopTypingEvent, 1500);
     }
 }
 
 function stopTypingEvent() {
     if (socket?.connected && activeThreadId) {
-        clearTimeout(typingTimer);
-        typingTimer = null;
-        socket.emit('typing', { threadId: activeThreadId, isTyping: false });
+        socket.emit('stopTyping', { threadId: activeThreadId });
     }
+    clearTimeout(typingTimeout);
+    typingTimeout = null;
 }
 
 async function handleOfferAction(messageId, accept) {
@@ -1095,19 +1105,16 @@ async function handleOfferAction(messageId, accept) {
     }
 }
 
-function handleTypingEventReceived({ threadId, userName, isTyping }) {
-    if (threadId === activeThreadId && userName !== state.getCurrentUser()?.name) {
-        if (isTyping) {
-            chatTypingIndicator.classList.remove('hidden');
-            chatTypingIndicator.querySelector('span').textContent = `${sanitizeHTML(userName)} est en train d'écrire`;
-            clearTimeout(typingIndicatorTimer);
-            typingIndicatorTimer = setTimeout(() => {
-                chatTypingIndicator.classList.add('hidden');
-            }, TYPING_TIMEOUT);
-        } else {
-            chatTypingIndicator.classList.add('hidden');
-        }
+function handleTypingEventReceived({ userName }) {
+    if (userName !== state.getCurrentUser()?.name) {
+        chatTypingIndicator.textContent = `${sanitizeHTML(userName)} est en train d'écrire...`;
+        chatTypingIndicator.classList.remove('hidden');
     }
+}
+
+function handleStopTypingEvent() {
+    chatTypingIndicator.classList.add('hidden');
+    chatTypingIndicator.textContent = '';
 }
 
 
@@ -1138,11 +1145,16 @@ async function markThreadAsRead(threadId) {
     }
 }
 
-async function markMessagesAsRead(threadId) {
+async function markMessagesAsRead(messageIds) {
     try {
-        await secureFetch(`/api/messages/read/${threadId}`, { method: 'PUT' }, false);
+        await secureFetch('/api/messages/read', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messageIds })
+        }, false);
+        loadThreads(currentTabRole);
     } catch (error) {
-        console.error('Erreur lors de la mise à jour du statut des messages:', error);
+        showToast(error.message, 'error');
     }
 }
 

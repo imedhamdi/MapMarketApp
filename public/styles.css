@@ -73,6 +73,25 @@
     --category-autres-color: var(--gray-500);
 }
 
+/* Toast Notifications */
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  padding: 12px 20px; border-radius: 25px; color: white;
+  background-color: #333; font-size: 14px; z-index: 10000;
+  opacity: 0; visibility: hidden;
+  transition: all 0.4s ease;
+}
+.toast--visible { opacity: 1; visibility: visible; bottom: 40px; }
+.toast--success { background-color: #4CAF50; }
+.toast--error { background-color: #f44336; }
+.toast--info { background-color: #2196F3; }
+
+/* Typing Indicator */
+.typing-indicator {
+    font-style: italic; color: #888; font-size: 0.8rem;
+    height: 1.2rem; padding: 0 15px; transition: all 0.3s;
+}
+
 *,
 *::before,
 *::after {
