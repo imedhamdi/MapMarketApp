@@ -255,7 +255,6 @@ async function openChatView(threadId, recipient, threadData = null) {
             }
         } catch (error) {
             console.error("Erreur de vérification d'accès:", error);
-            showToast("Erreur de chargement de la conversation.", "error");
             return showThreadList();
         }
     }
