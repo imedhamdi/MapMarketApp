@@ -7,9 +7,8 @@
  */
 
 import * as Utils from './utils.js';
-import { setUnreadThreadsCount } from './state.js';
 import { secureFetch } from './utils.js';
-import * as State from './state.js';
+import * as state from './store.js';
 import * as Auth from './auth.js';
 import * as Modals from './modals.js';
 import * as MapCtrl from './map.js';

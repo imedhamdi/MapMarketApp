@@ -6,7 +6,7 @@
  * marquage comme lu/non-lu, et mise à jour du badge de notification.
  */
 
-import * as state from './state.js';
+import * as state from './store.js';
 import {
     showToast,
     secureFetch,

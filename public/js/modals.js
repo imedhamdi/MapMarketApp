@@ -7,7 +7,7 @@
  * les animations (via classes CSS) et les attributs ARIA pour toutes les modales.
  */
 
-import * as state from './state.js';
+import * as state from './store.js';
 import { showToast } from './utils.js'; // Au cas où on voudrait notifier qqch depuis ici
 
 // Variable pour garder une trace de l'élément qui a déclenché l'ouverture de la modale active

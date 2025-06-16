@@ -4,7 +4,7 @@
  * Version corrigée avec gestion robuste des autorisations et des erreurs.
  */
 
-import * as state from './state.js';
+import * as state from './store.js';
 import { fetchInitialUnreadCount } from './main.js';
 import {
     showToast,

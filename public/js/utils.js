@@ -1,5 +1,5 @@
 // js/utils.js
-import * as state from './state.js';
+import * as state from './store.js';
 
 /**
  * @file utils.js

@@ -7,7 +7,7 @@
  * et de permettre à l'utilisateur de supprimer l'historique.
  */
 
-import * as state from './state.js'; // Pour accéder aux données des annonces si besoin, et à la langue
+import * as state from './store.js'; // Pour accéder aux données des annonces si besoin, et à la langue
 import {
     showToast,
     sanitizeHTML,
