@@ -22,6 +22,8 @@ import * as Messages from './messages.js';
 import * as PWA from './pwa.js';
 import * as Onboarding from './onboarding.js';
 import * as History from './history.js';
+
+export const socket = io();
 import * as Settings from './settings.js';
 import * as NotificationsDisplay from './notifications.js';
 

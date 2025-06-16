@@ -203,8 +203,30 @@ app.all('/api/*', (req, res, next) => {
 app.use(globalErrorHandler);
 
 // --- SOCKET.IO ---
+const { Server } = require('socket.io');
+
 const server = http.createServer(app);
-const io = require('socket.io')(server, { cors: corsOptions });
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    methods: ['GET', 'POST']
+  }
+});
+
+app.set('io', io);
+
+io.on('connection', (socket) => {
+  console.log('✅ Un utilisateur est connecté via WebSocket');
+
+  socket.on('joinThread', (threadId) => {
+    socket.join(threadId);
+    console.log(`Un utilisateur a rejoint la room: ${threadId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('❌ Un utilisateur s\'est déconnecté');
+  });
+});
 
 // Utiliser un middleware d'authentification pour le namespace /chat
 io.of(SOCKET_NAMESPACE).use(async (socket, next) => {
@@ -287,7 +309,7 @@ io.of(SOCKET_NAMESPACE).on('connection', (socket) => {
 messageCtrl.initializeSocketIO(io);
 
 // --- Démarrage du serveur
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   logger.info(`Serveur démarré en mode ${process.env.NODE_ENV} sur le port ${PORT}`);
 });
