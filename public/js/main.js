@@ -7,6 +7,8 @@
  */
 
 import * as Utils from './utils.js';
+import { setUnreadThreadsCount } from './state.js';
+import { secureFetch } from './utils.js';
 import * as State from './state.js';
 import * as Auth from './auth.js';
 import * as Modals from './modals.js';
@@ -236,8 +238,47 @@ class App {
 
 const mapMarketApp = new App();
 
+
+function initNavBadge() {
+    window.addEventListener('unreadCountChanged', (e) => {
+        updateNavBadge(e.detail.count);
+    });
+}
+
+function updateNavBadge(count) {
+    const badge = document.getElementById('messages-nav-badge');
+    if (!badge) return;
+    badge.dataset.count = count;
+    badge.textContent = count > 9 ? '9+' : count;
+    if (count > 0) {
+        badge.classList.remove('hidden');
+        badge.setAttribute('aria-hidden', 'false');
+    } else {
+        badge.classList.add('hidden');
+        badge.setAttribute('aria-hidden', 'true');
+    }
+}
+
+async function fetchInitialUnreadCount() {
+    try {
+        const data = await secureFetch('/api/threads/unread-count');
+        const count = data?.count ?? data?.unreadCount;
+        if (typeof count === 'number') {
+            setUnreadThreadsCount(count);
+        }
+    } catch (error) {
+        console.error('Could not fetch initial unread count:', error);
+    }
+}
+
+export { fetchInitialUnreadCount };
+
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => mapMarketApp.init());
+    document.addEventListener('DOMContentLoaded', () => {
+        initNavBadge();
+        mapMarketApp.init();
+    });
 } else {
+    initNavBadge();
     mapMarketApp.init();
 }

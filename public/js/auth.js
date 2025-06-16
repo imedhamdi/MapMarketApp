@@ -16,6 +16,7 @@ import {
     sanitizeHTML
 } from './utils.js';
 import * as state from './state.js';
+import { fetchInitialUnreadCount } from './main.js';
 // import { openModal, closeModal, switchAuthView } from './modals.js'; // modals.js gérera ses propres ouvertures/fermetures
 
 const API_BASE_URL = '/api/auth'; // Ajustez selon votre configuration backend
@@ -560,12 +561,7 @@ async function checkInitialAuthState() {
                 updateUIAfterLogin(userData);
 
                 // Charger le décompte initial de messages non lus
-                secureFetch('/api/messages/threads/unread-count', {}, false)
-                    .then(countResponse => {
-                        if (countResponse && countResponse.success) {
-                            state.set('messages.unreadGlobalCount', countResponse.data.unreadCount);
-                        }
-                    });
+                fetchInitialUnreadCount();
                 console.log('Utilisateur authentifié via token existant:', userData.name);
 
                 if (!userData.emailVerified) {
