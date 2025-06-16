@@ -3809,3 +3809,18 @@ body.dark-mode .chat-recipient:hover, body.dark-mode .chat-recipient:focus {
   display: none !important;
 }
 
+/* Styles pour améliorer l'animation "Spiderfy" de Leaflet.markercluster */
+
+/* Style pour les lignes (pattes de l'araignée) */
+.leaflet-cluster-spider-leg {
+    transition: all 0.3s ease-out;
+    stroke-width: 1.5;
+    stroke: #2c3e50;
+    stroke-opacity: 0.8;
+}
+
+/* Style pour les marqueurs quand ils sont "spiderfied" */
+.leaflet-marker-icon.leaflet-cluster-spider-child {
+    transition: margin 0.2s ease-in-out;
+}
+

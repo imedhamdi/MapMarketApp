@@ -148,9 +148,10 @@ export function init() {
 
         if (typeof L.markerClusterGroup === 'function') {
             adMarkersLayer = L.markerClusterGroup({
-                spiderfyOnMaxZoom: true,
+                spiderfyOnMaxZoom: false,
                 showCoverageOnHover: false,
-                zoomToBoundsOnClick: true,
+                zoomToBoundsOnClick: false,
+                spiderfyDistanceMultiplier: 1.5,
                 iconCreateFunction: function(cluster) {
                     const count = cluster.getChildCount();
                     let c = ' marker-cluster-';
