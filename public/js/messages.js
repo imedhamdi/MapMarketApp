@@ -8,7 +8,7 @@
  */
 
 import * as state from './state.js';
-import { fetchInitialUnreadCount } from './main.js';
+import { fetchInitialUnreadCount, socket } from './main.js';
 import {
     showToast,
     secureFetch,
@@ -437,6 +437,9 @@ async function openChatView(threadId, recipient, threadData = null) {
         await loadMessageHistory(threadId, true);
         await markMessagesAsRead(threadId);
         setupInfiniteScroll();
+        if (chatMessagesContainer) chatMessagesContainer.dataset.threadId = threadId;
+        socket.emit('joinThread', threadId);
+        console.log(`Socket a rejoint la room: ${threadId}`);
     } else {
         chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message !</p>`;
         chatHistoryLoader.classList.remove('hidden');
@@ -1248,3 +1251,37 @@ if(chatComposerMenu) {
         }
     });
 }
+
+// --- Fonctions ajoutées pour la messagerie temps réel simplifiée ---
+function appendMessageToUI(message) {
+    const messagesContainer = document.getElementById('chat-messages-container');
+    if (!messagesContainer) return;
+
+    const currentUserId = document.body.dataset.userId;
+    const senderId = message.senderId._id || message.senderId;
+    const isSender = senderId.toString() === currentUserId;
+
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message', isSender ? 'sent' : 'received');
+
+    messageElement.innerHTML = `
+        <img src="${message.senderId.avatarUrl || 'default-avatar.png'}" alt="${message.senderId.name}" class="avatar">
+        <div class="message-content">
+            <p>${message.text}</p>
+            <span class="timestamp">${new Date(message.createdAt).toLocaleTimeString()}</span>
+        </div>
+    `;
+
+    messagesContainer.appendChild(messageElement);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+socket.on('newMessage', (message) => {
+    const messagesContainer = document.getElementById('chat-messages-container');
+    const activeThreadId = messagesContainer.dataset.threadId;
+
+    if (activeThreadId && message.threadId.toString() === activeThreadId) {
+        console.log('Nouveau message reçu en temps réel:', message);
+        appendMessageToUI(message);
+    }
+});

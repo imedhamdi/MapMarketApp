@@ -394,6 +394,34 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
     });
 });
 
+// --- Nouvelle fonction simplifiée pour la messagerie temps réel ---
+exports.createMessage = async (req, res) => {
+  try {
+    const { content } = req.body;
+    const { threadId } = req.params;
+    const sender = req.user.id;
+
+    if (!content) {
+      return res.status(400).json({ message: 'Le contenu du message ne peut pas être vide.' });
+    }
+
+    const message = await Message.create({
+      threadId,
+      senderId: sender,
+      text: content
+    });
+
+    const io = req.app.get('io');
+    const populatedMessage = await message.populate('senderId', 'name avatarUrl');
+    io.to(threadId).emit('newMessage', populatedMessage);
+
+    res.status(201).json(populatedMessage);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur lors de la création du message.' });
+  }
+};
+
 
 /**
  * Marquer les messages d'un thread comme lus par l'utilisateur connecté.
