@@ -38,7 +38,7 @@ let messagesNavBadge, navMessagesBtn;
 let newMessagesSound;
 
 // --- État du module ---
-let socket = null;
+
 let activeThreadId = null;
 let currentRecipient = null;
 let newChatContext = null; // Contexte pour une nouvelle discussion (non liée à un thread existant)
