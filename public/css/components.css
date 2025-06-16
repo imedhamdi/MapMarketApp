@@ -1,0 +1,110 @@
+/* GLOBAL LOADER & OFFLINE INDICATOR */
+#global-loader-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(var(--body-bg), 0.85);
+    backdrop-filter: blur(3px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1900;
+    transition: opacity var(--transition-duration-medium) var(--transition-timing-function), visibility var(--transition-duration-medium) var(--transition-timing-function);
+}
+
+#global-loader-container.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+#global-loader-message {
+    margin-top: var(--spacing-md);
+    font-size: 1.1rem;
+    color: var(--gray-700);
+}
+
+#offline-indicator-container {
+    position: fixed;
+    bottom: calc(var(--bottom-nav-height) + var(--spacing-md));
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--warning-color);
+    color: var(--dark-color);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-md);
+    z-index: 1500;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+/* PWA INSTALL PROMPT */
+#pwa-install-prompt-container {
+    position: fixed;
+    bottom: var(--spacing-md);
+    left: var(--spacing-md);
+    right: var(--spacing-md);
+    background-color: var(--primary-color);
+    color: var(--light-color);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-lg);
+    z-index: 1500;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    transform: translateY(200%);
+    transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+
+#pwa-install-prompt-container:not(.hidden) {
+    transform: translateY(0);
+}
+
+.pwa-install-icon {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+}
+
+.pwa-install-text {
+    flex-grow: 1;
+}
+
+.pwa-install-text h3 {
+    color: var(--light-color);
+    font-size: 1.1rem;
+    margin-bottom: 2px;
+}
+
+.pwa-install-text p {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-bottom: 0;
+}
+
+#pwa-install-accept-btn {
+    background-color: var(--light-color);
+    color: var(--primary-color);
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+#pwa-install-dismiss-btn {
+    color: var(--light-color);
+    opacity: 0.8;
+    padding: var(--spacing-xs);
+    flex-shrink: 0;
+    background: transparent;
+}
+
+#pwa-install-dismiss-btn:hover {
+    opacity: 1;
+    background-color: rgba(var(--light-color), 0.1);
+}
+
+
+/* RESPONSIVENESS */

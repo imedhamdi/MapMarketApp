@@ -1,0 +1,112 @@
+/* DARK MODE */
+body.dark-mode {
+    --body-bg: var(--gray-900);
+    --component-bg: var(--gray-800);
+    --modal-bg: var(--gray-800);
+    --text-color-base: var(--gray-300);
+    --text-color-headings: var(--gray-100);
+    --border-color: var(--gray-700);
+    --border-color-light: var(--gray-700);
+    --input-border-color: var(--gray-600);
+    --input-focus-border-color: var(--primary-color-light);
+    --gray-50: #1f2937;
+    --gray-100: #1f2937;
+    --gray-200: #374151;
+    --gray-300: #4b5563;
+    --btn-secondary-bg: var(--gray-700);
+    --btn-secondary-color: var(--gray-200);
+    --btn-secondary-border: var(--gray-600);
+    --btn-secondary-hover-bg: var(--gray-600);
+    --btn-secondary-hover-color: var(--gray-100);
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.15);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.15);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.15);
+}
+
+body.dark-mode .logo,
+body.dark-mode .logo span[itemprop="name"] {
+    color: var(--gray-100);
+}
+
+body.dark-mode .search-input {
+    background-color: var(--gray-700);
+}
+
+body.dark-mode .search-input:focus {
+    background-color: var(--gray-600);
+    box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.2);
+}
+
+body.dark-mode .search-input::placeholder {
+    color: var(--gray-500);
+}
+
+body.dark-mode .btn-secondary {
+    background-color: var(--btn-secondary-bg);
+    color: var(--btn-secondary-color);
+    border-color: var(--btn-secondary-border);
+}
+
+body.dark-mode .btn-secondary:hover:not(:disabled) {
+    background-color: var(--btn-secondary-hover-bg);
+    color: var(--btn-secondary-hover-color);
+}
+
+body.dark-mode .nav-btn:hover,
+body.dark-mode .nav-btn.active {
+    background-color: var(--gray-700);
+}
+
+body.dark-mode .map-info-bar {
+    background-color: rgba(var(--dark-color), 0.9);
+}
+
+body.dark-mode .toast-notification {
+    background-color: var(--gray-200);
+    color: var(--dark-color);
+}
+
+body.dark-mode .toast-notification[data-toast-type="success"] {
+    background-color: var(--success-color);
+    color: var(--light-color);
+}
+
+body.dark-mode .toast-notification[data-toast-type="error"] {
+    background-color: var(--danger-color);
+    color: var(--light-color);
+}
+
+body.dark-mode .toast-notification[data-toast-type="warning"] {
+    background-color: var(--warning-color);
+    color: var(--dark-color);
+}
+
+body.dark-mode .toast-close-btn {
+    color: inherit;
+}
+
+body.dark-mode select.form-control {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23cccccc' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+}
+/* Animation du badge */
+.badge-bounce {
+    animation: bounce 0.3s ease;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+}
+
+/* Animation du cœur */
+.heart-fill-animation i {
+    animation: heartFill 0.8s ease;
+}
+
+@keyframes heartFill {
+    0% { transform: scale(1); }
+    25% { transform: scale(1.3); }
+    50% { transform: scale(1); }
+    75% { transform: scale(1.2); }
+    100% { transform: scale(1); }
