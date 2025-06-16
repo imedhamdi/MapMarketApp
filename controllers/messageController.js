@@ -381,6 +381,7 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
                 thread: thread.toObject(),
                 unreadThreadCount: totalUnreadCountForParticipant
             });
+            ioInstance.of('/chat').to(room).emit('update_unread_count');
         }
     }
 
@@ -452,6 +453,7 @@ exports.markThreadAsRead = asyncHandler(async (req, res, next) => {
 
     if (ioInstance) {
         ioInstance.of('/chat').to(`user_${userId}`).emit('unreadCountUpdated', { unreadThreadCount: totalUnreadCount });
+        ioInstance.of('/chat').to(`user_${userId}`).emit('update_unread_count');
     }
 });
 
@@ -534,10 +536,12 @@ exports.acceptOffer = asyncHandler(async (req, res, next) => {
     if (ioInstance) {
         const thread = await Thread.findById(message.threadId).populate('participants.user', 'name avatarUrl isOnline lastSeen');
         thread.participants.forEach(p => {
-            ioInstance.of('/chat').to(`user_${p.user._id}`).emit('newMessage', {
+            const room = `user_${p.user._id}`;
+            ioInstance.of('/chat').to(room).emit('newMessage', {
                 message: populatedSystem.toObject(),
                 thread: thread.toObject()
             });
+            ioInstance.of('/chat').to(room).emit('update_unread_count');
         });
     }
 
@@ -565,10 +569,12 @@ exports.declineOffer = asyncHandler(async (req, res, next) => {
     if (ioInstance) {
         const thread = await Thread.findById(message.threadId).populate('participants.user', 'name avatarUrl isOnline lastSeen');
         thread.participants.forEach(p => {
-            ioInstance.of('/chat').to(`user_${p.user._id}`).emit('newMessage', {
+            const room = `user_${p.user._id}`;
+            ioInstance.of('/chat').to(room).emit('newMessage', {
                 message: populatedSystem.toObject(),
                 thread: thread.toObject()
             });
+            ioInstance.of('/chat').to(room).emit('update_unread_count');
         });
     }
 

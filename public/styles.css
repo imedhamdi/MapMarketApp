@@ -3606,3 +3606,20 @@ body.dark-mode .chat-recipient:hover, body.dark-mode .chat-recipient:focus {
   display: none !important;
 }
 
+#messages-nav-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background-color: red;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    border: 1px solid white;
+}
+

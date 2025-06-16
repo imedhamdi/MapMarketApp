@@ -310,4 +310,18 @@ export function setMapState(mapStateChanges) {
     set('ui.map', { ...currentMapState, ...mapStateChanges });
 }
 
+// --- Gestion du compteur global de discussions non lues ---
+let unreadThreadsCount = 0;
+
+export function getUnreadThreadsCount() {
+    return unreadThreadsCount;
+}
+
+export function setUnreadThreadsCount(count) {
+    const newCount = Math.max(0, count);
+    if (newCount === unreadThreadsCount) return;
+    unreadThreadsCount = newCount;
+    window.dispatchEvent(new CustomEvent('unreadCountChanged', { detail: { count: unreadThreadsCount } }));
+}
+
 console.log('state.js chargé (avec catégories en dur).');

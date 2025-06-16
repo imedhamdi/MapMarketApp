@@ -8,6 +8,7 @@
  */
 
 import * as state from './state.js';
+import { fetchInitialUnreadCount } from './main.js';
 import {
     showToast,
     secureFetch,
@@ -290,6 +291,9 @@ function connectSocket() {
         if (typeof unreadThreadCount === 'number') {
             state.set('messages.unreadGlobalCount', unreadThreadCount);
         }
+    });
+    socket.on('update_unread_count', () => {
+        fetchInitialUnreadCount();
     });
     socket.on('typing', handleTypingEventReceived);
     socket.on('newThread', (newThreadData) => {
