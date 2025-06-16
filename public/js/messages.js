@@ -316,12 +316,13 @@ function connectSocket() {
     socket.on('userStatusUpdate', handleUserStatusUpdate);
 
     // Écoute additionnelle pour mettre à jour l'UI simplifiée en temps réel
-    socket.on('newMessage', (message) => {
+    socket.on('newMessage', (payload) => {
+        const msg = payload?.message || payload;
         const messagesContainer = document.getElementById('chat-messages-container');
         const activeId = messagesContainer?.dataset.threadId;
-        if (activeId && message.threadId.toString() === activeId) {
-            console.log('Nouveau message reçu en temps réel:', message);
-            appendMessageToUI(message);
+        if (activeId && msg?.threadId && msg.threadId.toString() === activeId) {
+            console.log('Nouveau message reçu en temps réel:', msg);
+            appendMessageToUI(msg);
         }
     });
 }
