@@ -8,6 +8,16 @@
  */
 
 import * as state from './state.js';
+// --- DEBUT DE LA MODIFICATION ---
+const socket = io();
+let currentThreadId = null;
+
+socket.on('newMessage', (message) => {
+  if (message.thread === currentThreadId) {
+    appendMessage(message);
+  }
+});
+// --- FIN DE LA MODIFICATION ---
 import { fetchInitialUnreadCount } from './main.js';
 import {
     showToast,
@@ -1289,3 +1299,29 @@ function appendMessageToUI(message) {
     messagesContainer.appendChild(messageElement);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
+
+// --- DEBUT DE LA MODIFICATION ---
+function appendMessage(message) {
+    const messageList = document.getElementById('message-list');
+    if (!messageList) return;
+
+    const currentUserId = state.user?.id || state.getCurrentUser()?.id || state.getCurrentUser()?._id;
+
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message-item');
+
+    if (message.sender && message.sender._id === currentUserId) {
+        messageElement.classList.add('sent');
+    } else {
+        messageElement.classList.add('received');
+    }
+
+    messageElement.innerHTML = `
+        <p class="message-content">${message.content}</p>
+        <span class="message-timestamp">${new Date(message.createdAt).toLocaleTimeString()}</span>
+    `;
+
+    messageList.appendChild(messageElement);
+    messageList.scrollTop = messageList.scrollHeight;
+}
+// --- FIN DE LA MODIFICATION ---
