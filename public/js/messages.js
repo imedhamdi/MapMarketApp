@@ -8,7 +8,7 @@
  */
 
 import * as state from './state.js';
-import { fetchInitialUnreadCount, socket } from './main.js';
+import { fetchInitialUnreadCount } from './main.js';
 import {
     showToast,
     secureFetch,
@@ -38,6 +38,9 @@ let messagesNavBadge, navMessagesBtn;
 let newMessagesSound;
 
 // --- État du module ---
+
+// Instance Socket.IO gérée localement pour éviter les dépendances circulaires
+let socket = null;
 
 let activeThreadId = null;
 let currentRecipient = null;
@@ -311,6 +314,16 @@ function connectSocket() {
         }
     });
     socket.on('userStatusUpdate', handleUserStatusUpdate);
+
+    // Écoute additionnelle pour mettre à jour l'UI simplifiée en temps réel
+    socket.on('newMessage', (message) => {
+        const messagesContainer = document.getElementById('chat-messages-container');
+        const activeId = messagesContainer?.dataset.threadId;
+        if (activeId && message.threadId.toString() === activeId) {
+            console.log('Nouveau message reçu en temps réel:', message);
+            appendMessageToUI(message);
+        }
+    });
 }
 
 /**
@@ -1275,13 +1288,3 @@ function appendMessageToUI(message) {
     messagesContainer.appendChild(messageElement);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
-
-socket.on('newMessage', (message) => {
-    const messagesContainer = document.getElementById('chat-messages-container');
-    const activeThreadId = messagesContainer.dataset.threadId;
-
-    if (activeThreadId && message.threadId.toString() === activeThreadId) {
-        console.log('Nouveau message reçu en temps réel:', message);
-        appendMessageToUI(message);
-    }
-});
