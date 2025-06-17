@@ -43,7 +43,7 @@ app.use(helmet());
 app.use(xss());
 app.use(mongoSanitize());
 app.use(hpp());
-app.use(rateLimit);
+app.use(rateLimit.generalRateLimiter);
 if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev'));
 }
