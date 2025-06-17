@@ -156,7 +156,12 @@ self.addEventListener('fetch', (event) => {
                 // On vérifie le type de ressource demandé pour fournir un fallback approprié.
                 if (event.request.destination === 'image') {
                     // Si c'est une image, on retourne l'image de secours qui a été mise en cache.
-                    return caches.match('/images/placeholder-image.svg');
+                    return caches.match('/images/placeholder-image.svg')
+                        .then(fallback => fallback || new Response('Image indisponible', {
+                            status: 404,
+                            statusText: 'Not Found',
+                            headers: { 'Content-Type': 'text/plain' }
+                        }));
                 }
                 
                 // Pour tout autre cas (ex: un script ou une police qui n'a pas pu être chargé),

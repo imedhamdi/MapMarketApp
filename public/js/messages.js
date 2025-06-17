@@ -4,7 +4,7 @@
  * Cette version supprime tout le polling et repose sur la communication en temps réel.
  */
 
-import io from 'socket.io-client';
+// Socket.IO est chargé via le CDN dans index.html et exposé globalement sous la variable `io`.
 import * as state from './state.js';
 import { fetchInitialUnreadCount } from './main.js';
 import {
