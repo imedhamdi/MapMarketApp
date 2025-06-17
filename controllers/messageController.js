@@ -433,48 +433,45 @@ exports.sendMessage = asyncHandler(async (req, res, next) => {
 });
 
 // --- Nouvelle fonction simplifiée pour la messagerie temps réel ---
-exports.createMessage = async (req, res) => {
-  try {
-    const { threadId, content } = req.body;
-    const senderId = req.user.id;
+exports.createMessage = asyncHandler(async (req, res, next) => {
+  const { threadId } = req.params;
+  const { content } = req.body;
+  const senderId = req.user.id;
 
-    if (!content) {
-      return res.status(400).json({ message: 'Le contenu du message ne peut pas être vide.' });
-    }
-
-    const thread = await Thread.findById(threadId);
-
-    if (!thread) {
-      return res.status(404).json({ status: 'fail', message: 'Conversation non trouvée.' });
-    }
-
-    if (!thread.participants.some(p => {
-      const id = p.user && p.user._id ? p.user._id.toString() : p.user.toString();
-      return id === senderId;
-    })) {
-      return res.status(403).json({ status: 'fail', message: 'Vous ne pouvez pas envoyer de message dans cette conversation.' });
-    }
-
-    const newMessage = await Message.create({
-      threadId,
-      senderId,
-      text: content
-    });
-
-    const populatedMessage = await Message.findById(newMessage._id).populate('senderId', 'name avatarUrl');
-
-    const io = req.app.get('socketio');
-    io.to(threadId).emit('newMessage', populatedMessage);
-
-    thread.updatedAt = Date.now();
-    await thread.save();
-
-    res.status(201).json(populatedMessage);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur lors de la création du message.' });
+  if (!content) {
+    return next(new AppError('Le contenu du message ne peut pas être vide.', 400));
   }
-};
+
+  // 1. Sauvegarder le message en base de données
+  const message = await Message.create({
+    threadId,
+    senderId,
+    text: content,
+  });
+
+  // 2. Mettre à jour le thread parent
+  await Thread.findByIdAndUpdate(threadId, {
+    lastMessage: message._id,
+    updatedAt: Date.now(),
+    $inc: { messageCount: 1 },
+  });
+
+  // 3. Populer le message avec les informations de l'expéditeur pour l'envoyer au client
+  const populatedMessage = await Message.findById(message._id).populate('senderId', 'name avatarUrl');
+
+  // 4. Émettre l'événement WebSocket à tous les clients dans la "room" du thread
+  if (req.chatNamespace) {
+    req.chatNamespace.to(`thread_${threadId}`).emit('newMessage', populatedMessage);
+  }
+
+  // 5. Envoyer une réponse de succès à l'expéditeur original
+  res.status(201).json({
+    status: 'success',
+    data: {
+      message: populatedMessage,
+    },
+  });
+});
 
 
 /**
