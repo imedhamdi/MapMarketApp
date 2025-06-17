@@ -47,6 +47,48 @@ let typingIndicatorTimer = null;
 let tempImageFile = null;
 let currentTabRole = 'purchases';
 
+// Nouveaux helpers pour la gestion des threads via Socket.IO
+function openThread(threadId, recipientId) {
+    if (socket) socket.emit('joinThread', threadId);
+    const form = document.getElementById('message-form');
+    if (form) {
+        form.dataset.recipientId = recipientId;
+    }
+    activeThreadId = threadId;
+}
+
+function closeThread(threadId) {
+    if (socket) socket.emit('leaveThread', threadId);
+}
+
+const messageForm = document.getElementById('message-form');
+const messageInput = document.getElementById('message-input');
+if (messageForm) {
+    messageForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const content = messageInput ? messageInput.value : '';
+        const threadId = activeThreadId;
+        const recipientId = messageForm.dataset.recipientId;
+
+        if (content && threadId && recipientId && socket) {
+            socket.emit('sendMessage', {
+                threadId,
+                content,
+                recipientId
+            });
+            if (messageInput) messageInput.value = '';
+        }
+    });
+}
+
+if (socket) {
+    socket.on('newMessage', (message) => {
+        if (message.thread === activeThreadId) {
+            appendMessageToUI(message);
+        }
+    });
+}
+
 /**
  * Initialise le module de messagerie.
  */

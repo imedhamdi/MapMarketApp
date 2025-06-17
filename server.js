@@ -24,8 +24,6 @@ const sanitizationMiddleware = require('./middlewares/sanitizationMiddleware'); 
 
 // Modèles
 const User = require('./models/userModel'); //
-const Message = require('./models/messageModel'); //
-const Thread = require('./models/threadModel'); //
 
 // Routes
 const authRoutes = require('./routes/authRoutes'); //
@@ -186,9 +184,6 @@ app.use(globalErrorHandler);
 
 // =================================================================
 // --- CONFIGURATION DE SOCKET.IO ---
-// =================================================================
-const SOCKET_NAMESPACE = '/chat';
-
 const io = new Server(server, {
   cors: corsOptions,
   transports: ['websocket', 'polling'],
@@ -198,104 +193,28 @@ const io = new Server(server, {
   }
 });
 
-// Middleware d'authentification pour le namespace /chat
-io.of(SOCKET_NAMESPACE).use(async (socket, next) => {
-    try {
-        const token = socket.handshake.auth.token;
-        if (!token) {
-            logger.warn(`Socket.IO Auth: Connexion refusée (token manquant) pour socket ${socket.id}`);
-            return next(new Error('Authentication error: Token manquant.'));
-        }
-        
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const currentUser = await User.findById(decoded.id).select('+isActive');
-
-        if (!currentUser || !currentUser.isActive) {
-            return next(new Error('Authentication error: Utilisateur invalide ou inactif.'));
-        }
-        if (currentUser.changedPasswordAfter(decoded.iat)) {
-            return next(new Error('Authentication error: Mot de passe récemment changé.'));
-        }
-
-        socket.user = currentUser;
-        next();
-
-    } catch (err) {
-        logger.error(`Socket.IO Auth Error: ${err.message}`);
-        next(new Error('Authentication error: Token invalide ou expiré.'));
+// Middleware d'authentification pour Socket.IO
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth.token;
+    if (!token) {
+      return next(new Error('Authentication Error: Token not provided.'));
     }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const currentUser = await User.findById(decoded.id).select('-password');
+    if (!currentUser) {
+      return next(new Error('Authentication Error: User does not exist.'));
+    }
+    socket.user = currentUser;
+    next();
+  } catch (error) {
+    console.error("Socket Authentication Error:", error.message);
+    next(new Error('Authentication Error: Invalid token.'));
+  }
 });
 
-// Gestion des connexions sur le namespace /chat
-io.of(SOCKET_NAMESPACE).on('connection', (socket) => {
-    logger.info(`✅  Socket.IO: Utilisateur connecté: ${socket.user.username} (${socket.id})`);
-
-    socket.join(`user_${socket.user.id}`);
-    User.findByIdAndUpdate(socket.user.id, { isOnline: true }, { new: true }).exec();
-    
-    socket.on('joinThread', ({ threadId }) => {
-        socket.join(`thread_${threadId}`);
-        logger.info(`Socket ${socket.id} a rejoint la room thread_${threadId}`);
-    });
-    socket.on('leaveThread', ({ threadId }) => {
-        socket.leave(`thread_${threadId}`);
-        logger.info(`Socket ${socket.id} a quitté la room thread_${threadId}`);
-    });
-
-    socket.on('sendMessage', async (data, callback) => {
-        const { threadId, content } = data;
-        
-        try {
-            if (!content || !threadId) throw new Error("Contenu ou threadId manquant.");
-
-            const thread = await Thread.findById(threadId);
-            // Vérification de la participation de l'utilisateur (méthode robuste) - Corrigé
-            if (!thread || !thread.participants.some(p => p.equals(socket.user.id))) {
-                 throw new Error("Accès au thread non autorisé.");
-            }
-            
-            const message = await Message.create({
-                thread: threadId,
-                sender: socket.user.id,
-                content,
-            });
-
-            // Mise à jour du thread, incluant messageCount - Corrigé
-            await Thread.findByIdAndUpdate(threadId, {
-                lastMessage: message._id,
-                updatedAt: Date.now(),
-                $inc: { messageCount: 1 } // Ajout de l'incrémentation
-            });
-
-            const populatedMessage = await message.populate({
-                path: 'sender',
-                select: 'username profilePicture'
-            });
-
-            io.of(SOCKET_NAMESPACE).to(`thread_${threadId}`).emit('newMessage', populatedMessage);
-            if (callback) callback({ status: 'ok', message: populatedMessage });
-
-        } catch (error) {
-            logger.error(`Socket sendMessage Error: ${error.message} pour user ${socket.user.id}`);
-            if (callback) callback({ status: 'error', message: error.message });
-        }
-    });
-
-    socket.on('typing', ({ threadId, isTyping }) => {
-        socket.to(`thread_${threadId}`).emit('userTyping', { 
-            threadId, 
-            userId: socket.user.id,
-            username: socket.user.username,
-            isTyping 
-        });
-    });
-
-    socket.on('disconnect', () => {
-        logger.info(`❌  Socket.IO: Utilisateur déconnecté: ${socket.user.username} (${socket.id})`);
-        User.findByIdAndUpdate(socket.user.id, { isOnline: false, lastSeen: new Date() }).exec();
-    });
-});
-
+require('./socketHandler')(io);
 
 // --- DÉMARRAGE DU SERVEUR ---
 const PORT = process.env.PORT || 3000;

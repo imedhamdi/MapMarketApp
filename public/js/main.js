@@ -28,6 +28,36 @@ import * as History from './history.js';
 import * as Settings from './settings.js';
 import * as NotificationsDisplay from './notifications.js';
 
+const token = localStorage.getItem('token');
+let socket;
+
+if (token) {
+    socket = io({
+      auth: {
+        token: token
+      }
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('Socket connection failed:', err.message);
+      if (err.message.includes('Authentication Error')) {
+        alert('Votre session a expiré. Veuillez vous reconnecter.');
+        window.location.href = '/login.html';
+      }
+    });
+
+    socket.on('newMessageNotification', (data) => {
+        console.log(`Notification: New message in thread ${data.threadId}`);
+        const messageIcon = document.getElementById('messages-icon');
+        if(messageIcon) {
+            messageIcon.classList.add('has-new-messages');
+        }
+    });
+
+} else {
+    console.log("No token found, socket connection not established.");
+}
+
 class App {
     constructor() {
         this.isInitialized = false;
