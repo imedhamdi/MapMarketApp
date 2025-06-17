@@ -1,49 +1,100 @@
 // MapMarketApp-1 (Copie)/socketHandler.js
 
 const logger = require('./config/winston');
+const jwt = require('jsonwebtoken');
+const User = require('./models/userModel');
 
 // CRUCIAL: Déclarer la Map ici pour qu'elle persiste entre les connexions
 const userSocketMap = new Map();
+const onlineUsers = new Map();
 
 const socketHandler = (io) => {
-  io.on('connection', (socket) => {
-    const userId = socket.handshake.query.userId;
-    if (userId && userId !== 'null' && userId !== 'undefined') {
-      userSocketMap.set(userId, socket.id);
-      logger.info(`User connected: ${userId} with socket ID: ${socket.id}`);
-      console.log('Current user map:', userSocketMap);
+  io.use(async (socket, next) => {
+    try {
+      const tokenWithBearer = socket.handshake.auth?.token;
+      if (!tokenWithBearer || !tokenWithBearer.startsWith('Bearer ')) {
+        logger.error('Socket Auth Error: Token not found or malformed');
+        return next(new Error('Authentication error'));
+      }
+
+      const token = tokenWithBearer.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.id).select('-password');
+      if (!user) {
+        logger.error(`Socket Auth Error: User ${decoded.id} not found`);
+        return next(new Error('Authentication error'));
+      }
+
+      socket.user = user;
+      next();
+    } catch (error) {
+      logger.error('Socket Auth Error:', error.message);
+      next(new Error('Authentication error'));
     }
+  });
 
-    socket.on('sendMessage', (data) => {
-        const { recipientId, message, senderId, threadId } = data;
-        const recipientSocketId = userSocketMap.get(recipientId);
+  io.on('connection', (socket) => {
+    const userId = socket.user.id.toString();
+    userSocketMap.set(userId, socket.id);
+    onlineUsers.set(userId, { socketId: socket.id, name: socket.user.name });
+    User.findByIdAndUpdate(userId, { isOnline: true }).catch((err) => logger.error('Presence update error:', err));
+    logger.info(`User connected: ${userId} with socket ID: ${socket.id}`);
+    io.emit('userStatusUpdate', { userId, statusText: 'en ligne' });
 
-        logger.info(`Message from ${senderId} to ${recipientId}: "${message}"`);
+    socket.on('joinThread', (threadId) => {
+      if (threadId) socket.join(threadId);
+    });
 
-        if (recipientSocketId) {
-            io.to(recipientSocketId).emit('newMessage', {
-                message,
-                senderId,
-                threadId,
-                timestamp: new Date()
-            });
-            logger.info(`Message successfully sent to recipient: ${recipientId}`);
-        } else {
-            logger.warn(`Recipient ${recipientId} is not connected. Message will be delivered on next login.`);
-            // Ici, vous pourriez ajouter une logique pour les notifications push
+    socket.on('leaveThread', (threadId) => {
+      if (threadId) socket.leave(threadId);
+    });
+
+    socket.on('sendMessage', async (data, callback) => {
+        try {
+            const { recipientId, message, senderId, threadId } = data;
+            if (!message || message.trim() === '') {
+              return callback({ status: 'error', message: 'Le message ne peut pas être vide.' });
+            }
+            if (!threadId || !recipientId) {
+              return callback({ status: 'error', message: 'Données manquantes.' });
+            }
+
+            const recipientSocketId = userSocketMap.get(recipientId);
+            logger.info(`Message from ${senderId} to ${recipientId}: "${message}"`);
+
+            if (recipientSocketId) {
+                io.to(recipientSocketId).emit('newMessage', {
+                    message,
+                    senderId,
+                    threadId,
+                    timestamp: new Date()
+                });
+                logger.info(`Message successfully sent to recipient: ${recipientId}`);
+            } else {
+                logger.warn(`Recipient ${recipientId} is not connected. Message will be delivered on next login.`);
+            }
+
+            callback({ status: 'ok' });
+        } catch (err) {
+            logger.error('sendMessage Error:', err);
+            callback({ status: 'error', message: "Erreur du serveur lors de l'envoi du message." });
         }
     });
 
+    socket.on('typing_start', ({ threadId, userName }) => {
+      socket.to(threadId).emit('user_typing', { userName });
+    });
+
+    socket.on('typing_stop', ({ threadId }) => {
+      socket.to(threadId).emit('user_stopped_typing');
+    });
+
     socket.on('disconnect', () => {
-      // Itérer pour trouver l'utilisateur à supprimer
-      for (let [uid, sid] of userSocketMap.entries()) {
-        if (sid === socket.id) {
-          userSocketMap.delete(uid);
-          logger.info(`User disconnected and removed from map: ${uid}`);
-          console.log('Current user map after disconnect:', userSocketMap);
-          break;
-        }
-      }
+      userSocketMap.delete(userId);
+      onlineUsers.delete(userId);
+      User.findByIdAndUpdate(userId, { isOnline: false, lastSeen: new Date() }).catch((err) => logger.error('Presence update error:', err));
+      io.emit('userStatusUpdate', { userId, statusText: 'hors ligne' });
+      logger.info(`User disconnected and removed from map: ${userId}`);
     });
   });
 };

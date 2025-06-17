@@ -253,13 +253,13 @@ function handleUserChangeForSocket(user) {
 }
 
 function connectSocket() {
-    const currentUserId = state.getCurrentUser()?._id;
-    if (!currentUserId) return;
+    const token = localStorage.getItem('mapmarket_auth_token');
+    if (!token) return;
     if (socket?.connected) return;
     if (socket) socket.disconnect();
 
     socket = io(SOCKET_NAMESPACE, {
-        query: { userId: currentUserId },
+        auth: { token: `Bearer ${token}` },
         reconnectionAttempts: 3,
         reconnectionDelay: 1000
     });
@@ -916,6 +916,13 @@ async function sendMessage(threadId, recipientId, messageContent) {
         message: messageContent,
         senderId: senderId,
         threadId: threadId
+    }, (response) => {
+        if (response.status !== 'ok') {
+            console.error('Échec de l\'envoi du message:', response.message);
+            alert(`Erreur: ${response.message}`);
+        } else {
+            console.log('Message envoyé et confirmé par le serveur.');
+        }
     });
 
     // 2. Persistance en base de données via l'API (ceci est correct)
