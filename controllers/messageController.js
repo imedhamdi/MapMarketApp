@@ -244,6 +244,11 @@ exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
 
     const messagesWithFullImageUrls = messages.map(msg => mapMessageImageUrls(req, msg));
 
+    await Message.updateMany(
+        { thread: req.params.threadId, receiver: req.user.id, isRead: false },
+        { $set: { isRead: true } }
+    );
+
     res.status(200).json({
         success: true,
         results: messagesWithFullImageUrls.length,
@@ -609,3 +614,21 @@ exports.reportMessage = asyncHandler(async (req, res, next) => {
         message: 'Message signalé. Notre équipe examinera la situation.'
     });
 });
+
+exports.getUnreadConversationsCount = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const unreadMessages = await Message.find({ receiver: userId, isRead: false }).select('thread').lean();
+        const unreadThreadIds = [...new Set(unreadMessages.map(msg => msg.thread.toString()))];
+        res.status(200).json({
+            status: 'success',
+            count: unreadThreadIds.length
+        });
+    } catch (error) {
+        console.error('Error fetching unread conversations count:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Error fetching unread conversations count.'
+        });
+    }
+};

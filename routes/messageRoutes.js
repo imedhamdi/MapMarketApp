@@ -38,4 +38,6 @@ router.put('/read/:threadId', protect, messageController.markMessagesAsRead);
 router.post('/messages/:messageId/report', messageController.reportMessage);
 
 
+router.get('/unread-count', protect, messageController.getUnreadConversationsCount);
+
 module.exports = router;

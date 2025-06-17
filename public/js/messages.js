@@ -18,6 +18,39 @@ import {
     generateUUID
 } from './utils.js';
 
+// ------------------------------------------------------
+//  Mise à jour du compteur de messages non lus
+// ------------------------------------------------------
+export async function updateUnreadMessagesCount() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch('/api/messages/unread-count', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch unread messages count');
+        }
+
+        const data = await response.json();
+        const count = data.count;
+        const countElement = document.getElementById('messages-count');
+
+        if (countElement) {
+            if (count > 0) {
+                countElement.textContent = count;
+                countElement.style.display = 'block';
+            } else {
+                countElement.style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error('Error updating unread messages count:', error);
+    }
+}
+
 // --- Constantes ---
 const API_MESSAGES_URL = '/api/messages';
 const SOCKET_NAMESPACE = '/chat';
@@ -432,6 +465,7 @@ async function openChatView(threadId, recipient, threadData = null) {
     if (threadId) {
         await loadMessageHistory(threadId, true);
         await markMessagesAsRead(threadId);
+        updateUnreadMessagesCount();
         setupInfiniteScroll();
     } else {
         chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message !</p>`;
@@ -585,6 +619,7 @@ async function loadMessageHistory(threadId, isInitialLoad = false) {
             }
         }
         renderMessages(messages, 'prepend');
+        updateUnreadMessagesCount();
     } catch (error) {
         showToast("Erreur de chargement de l'historique.", "error");
     } finally {
