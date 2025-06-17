@@ -40,7 +40,92 @@ connectDB();
 app.use(cors(corsOptions)); // Appliquer CORS aux requêtes HTTP
 app.use(express.json());
 app.use(cookieParser());
-app.use(helmet());
+app.set('trust proxy', 1);
+// Helmet CSP EN PREMIER !
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: false, // Désactive les valeurs par défaut pour un contrôle total
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "http://localhost:5001",
+          "https://unpkg.com",
+          "https://cdn.jsdelivr.net",
+          "https://cdnjs.cloudflare.com",
+          "https://cdn.lordicon.com",
+          "https://cdn.socket.io"
+        ],
+        styleSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com", // Ajouté pour Google Fonts
+          "https://unpkg.com",
+          "https://cdn.jsdelivr.net",
+          "https://cdnjs.cloudflare.com"
+        ],
+        imgSrc: [
+          "'self'",
+          "data:",
+          "blob:",
+          "https://placehold.co",
+          "https://cdn.lordicon.com",
+          "https://cdn.jsdelivr.net",
+          "https://unpkg.com",
+          "https://cdnjs.cloudflare.com",
+          "https://*.tile.openstreetmap.org", // Ajouté pour les tuiles OSM
+          "https://a.tile.openstreetmap.org",
+          "https://b.tile.openstreetmap.org",
+          "https://c.tile.openstreetmap.org"
+        ],
+        fontSrc: [
+          "'self'",
+          "data:",
+          "https://fonts.gstatic.com", // Ajouté pour Google Fonts
+          "https://cdnjs.cloudflare.com",
+          "https://cdn.jsdelivr.net"
+        ],
+        connectSrc: [
+          "'self'",
+          "http://localhost:5001",
+          "ws://localhost:5001",
+          "wss://localhost:5001",
+          "https://*.tile.openstreetmap.org",
+          "https://unpkg.com",
+          "https://cdn.jsdelivr.net",
+          "https://cdnjs.cloudflare.com",
+          "https://cdn.socket.io",
+          "https://nominatim.openstreetmap.org" 
+        ],
+        frameSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        // Ajout des directives pour les nouvelles fonctionnalités CSP
+        scriptSrcElem: [
+          "'self'",
+          "https://unpkg.com",
+          "https://cdn.jsdelivr.net",
+          "https://cdnjs.cloudflare.com",
+          "https://cdn.lordicon.com",
+          "https://cdn.socket.io"
+        ],
+        styleSrcElem: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com",
+          "https://unpkg.com",
+          "https://cdn.jsdelivr.net",
+          "https://cdnjs.cloudflare.com"
+        ]
+      }
+    }
+  })
+);
+
 app.use(xss());
 app.use(mongoSanitize());
 app.use(hpp());
