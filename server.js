@@ -16,6 +16,7 @@ const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const hpp = require('hpp');
 const cookieParser = require('cookie-parser');
+const sanitizationMiddleware = require('./middlewares/sanitizationMiddleware');
 
 dotenv.config();
 
@@ -127,6 +128,7 @@ app.use(
 );
 
 app.use(xss());
+app.use(sanitizationMiddleware);
 app.use(mongoSanitize());
 app.use(hpp());
 app.use(rateLimit.generalRateLimiter);

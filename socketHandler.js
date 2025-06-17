@@ -26,6 +26,11 @@ const socketHandler = (io) => {
         return next(new Error('Authentication error'));
       }
 
+      if (user.changedPasswordAfter(decoded.iat)) {
+        logger.warn(`Socket Auth Error: password changed for user ${decoded.id}`);
+        return next(new Error('Authentication error'));
+      }
+
       socket.user = user;
       next();
     } catch (error) {

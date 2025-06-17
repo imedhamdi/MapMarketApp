@@ -224,8 +224,8 @@ exports.verifyThreadAccess = asyncHandler(async (req, res, next) => {
  */
 const mapMessageImageUrls = (req, message) => {
     const messageObj = message.toObject ? message.toObject() : { ...message };
-    if (messageObj.image && !messageObj.image.startsWith('http')) {
-        messageObj.imageUrl = `${req.protocol}://${req.get('host')}/uploads/messages/${messageObj.image}`;
+    if (messageObj.imageUrl && !messageObj.imageUrl.startsWith('http')) {
+        messageObj.imageUrl = `${req.protocol}://${req.get('host')}/uploads/${messageObj.imageUrl}`;
     }
     return messageObj;
 };
@@ -261,8 +261,8 @@ exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
     }
 
     // 4. Construire la requête pour les messages avec filtres et pagination
-    const queryOptions = { 
-        thread: threadId, // Correction: le champ dans le modèle de message est 'thread'
+    const queryOptions = {
+        threadId,
         deletedFor: { $ne: userId }, // Ne pas montrer les messages supprimés par l'utilisateur
         isDeletedGlobally: { $ne: true } // Ne pas montrer les messages supprimés pour tous
     };
@@ -276,8 +276,7 @@ exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
 
     // 5. Exécuter la requête
     const messages = await Message.find(queryOptions)
-        // Correction : le champ dans le modèle est 'sender', pas 'senderId'. Populer avec les champs de userModel.
-        .populate('sender', 'username profile') 
+        .populate('senderId', 'name avatarUrl')
         .sort({ createdAt: -1 }) // Les plus récents d'abord pour la pagination inversée
         .limit(limit);
 
@@ -674,8 +673,8 @@ exports.reportMessage = asyncHandler(async (req, res, next) => {
     await message.save({ validateBeforeSave: false });
 
     logger.info(`Message ${messageId} signalé par l'utilisateur ${reporterId}. Raison: ${reason || 'Non spécifiée'}`);
-    // TODO: Créer une entrée dans une collection 'Reports'
-    Report.create({ messageId, reportedBy: reporterId, reason, threadId: message.threadId, content: message.text });
+    // TODO: enregistrer le report dans une collection dédiée
+    // Report.create({ messageId, reportedBy: reporterId, reason, threadId: message.threadId, content: message.text });
 
     res.status(200).json({
         success: true,
