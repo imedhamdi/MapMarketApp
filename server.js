@@ -7,7 +7,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const morgan = require('morgan');
 const path = require('path');
-const logger = require('./config/winston');
+// Importer uniquement le logger depuis la configuration Winston
+const { logger } = require('./config/winston');
 const errorHandler = require('./middlewares/errorHandler');
 const rateLimit = require('./config/rateLimit');
 const helmet = require('helmet');
