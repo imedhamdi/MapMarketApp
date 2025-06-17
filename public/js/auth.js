@@ -242,7 +242,14 @@ async function handleLogin(event) {
 
             // 1. Stocker le token et mettre à jour l'état global de l'application
             localStorage.setItem(JWT_STORAGE_KEY, response.token);
+            localStorage.setItem('token', response.token);
+            localStorage.setItem('userId', loggedInUser._id || loggedInUser.id);
             state.setCurrentUser(loggedInUser);
+
+            // --> POINT CRUCIAL : Initialiser le socket ici <--
+            if (typeof initializeSocket === 'function') {
+                initializeSocket(loggedInUser._id || loggedInUser.id);
+            }
 
             // 2. Mettre à jour les éléments communs de l'interface utilisateur (ex: en-tête, menu)
             // Cette fonction est cruciale pour refléter l'état connecté sans rechargement complet.

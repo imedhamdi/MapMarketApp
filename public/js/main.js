@@ -28,35 +28,51 @@ import * as History from './history.js';
 import * as Settings from './settings.js';
 import * as NotificationsDisplay from './notifications.js';
 
-const token = localStorage.getItem('token');
+// Déclarer le socket dans une portée accessible
 let socket;
 
-if (token) {
-    socket = io({
-      auth: {
-        token: token
-      }
+/**
+ * Initialise la connexion WebSocket au serveur.
+ * Doit être appelée après que l'utilisateur se soit authentifié.
+ * @param {string} userId - L'ID de l'utilisateur qui se connecte.
+ */
+function initializeSocket(userId) {
+    if (!userId) {
+        console.error("Tentative d'initialisation du socket sans userId.");
+        return;
+    }
+
+    // Se connecter au port correct du serveur (5000)
+    socket = io('http://localhost:5000', {
+        query: { userId }
+    });
+
+    socket.on('connect', () => {
+        console.log('Connexion WebSocket établie avec succès. Socket ID:', socket.id);
     });
 
     socket.on('connect_error', (err) => {
-      console.error('Socket connection failed:', err.message);
-      if (err.message.includes('Authentication Error')) {
-        alert('Votre session a expiré. Veuillez vous reconnecter.');
-        window.location.href = '/login.html';
-      }
+        console.error('Erreur de connexion WebSocket:', err.message);
     });
 
-    socket.on('newMessageNotification', (data) => {
-        console.log(`Notification: New message in thread ${data.threadId}`);
-        const messageIcon = document.getElementById('messages-icon');
-        if(messageIcon) {
-            messageIcon.classList.add('has-new-messages');
+    // Centraliser la réception des messages ici
+    socket.on('newMessage', (data) => {
+        console.log('Nouveau message reçu:', data);
+        // Appeler une fonction pour mettre à jour l'interface utilisateur
+        // Cette fonction doit être définie dans messages.js ou un autre fichier UI
+        if (typeof handleNewMessageUI === 'function') {
+            handleNewMessageUI(data);
         }
     });
-
-} else {
-    console.log("No token found, socket connection not established.");
 }
+
+// Appeler l'initialisation au chargement de la page si l'utilisateur est déjà connecté
+document.addEventListener('DOMContentLoaded', () => {
+    const currentUserId = localStorage.getItem('userId');
+    if (currentUserId) {
+        initializeSocket(currentUserId);
+    }
+});
 
 class App {
     constructor() {
