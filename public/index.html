@@ -957,7 +957,8 @@
                             <ul id="thread-list" class="item-list">
                                 <template id="thread-item-template">
                                     <li class="thread-item list-item-card" tabindex="0" role="button" data-thread-id="">
-                                        <img src="https://placehold.co/60x60/e0e0e0/757575?text=Ad" alt="Aperçu de l'annonce" class="thread-item__thumbnail item-image">
+                                        <img src="https://placehold.co/60x60/e0e0e0/757575?text=Ad"
+                                            alt="Aperçu de l'annonce" class="thread-item__thumbnail item-image">
 
                                         <div class="thread-item__info item-info">
                                             <h4 class="thread-item__ad-title">Titre de l'annonce ici</h4>
@@ -979,12 +980,16 @@
 
                     <div id="chat-view" class="messages-view">
                         <div class="modal-header chat-header">
-                            <button id="back-to-threads-btn" type="button" class="btn btn-icon" aria-label="Retour aux discussions">
+                            <button id="back-to-threads-btn" type="button" class="btn btn-icon"
+                                aria-label="Retour aux discussions">
                                 <i class="fa-solid fa-arrow-left"></i>
                             </button>
 
-                            <div id="chat-recipient-info-block" class="chat-recipient" role="button" tabindex="0" aria-label="Voir le profil de l'utilisateur">
-                                <img id="chat-recipient-avatar" src="avatar-default.svg" alt="Avatar de l'interlocuteur" class="chat-recipient-avatar" onerror="this.src='https://placehold.co/36x36/e0e0e0/757575?text=User';">
+                            <div id="chat-recipient-info-block" class="chat-recipient" role="button" tabindex="0"
+                                aria-label="Voir le profil de l'utilisateur">
+                                <img id="chat-recipient-avatar" src="avatar-default.svg" alt="Avatar de l'interlocuteur"
+                                    class="chat-recipient-avatar"
+                                    onerror="this.src='https://placehold.co/36x36/e0e0e0/757575?text=User';">
                                 <div class="chat-recipient-details">
                                     <h2 id="chat-recipient-name" class="modal-title chat-title"></h2>
                                     <span id="chat-recipient-status" class="chat-recipient-status"></span>
@@ -992,12 +997,15 @@
                             </div>
 
                             <div class="chat-header-actions">
-                                <button id="chat-options-btn" type="button" class="btn btn-icon" aria-label="Options du chat" aria-haspopup="true" aria-expanded="false">
+                                <button id="chat-options-btn" type="button" class="btn btn-icon"
+                                    aria-label="Options du chat" aria-haspopup="true" aria-expanded="false">
                                     <i class="fa-solid fa-ellipsis-v"></i>
                                 </button>
                                 <div id="chat-options-menu" class="dropdown-menu hidden" role="menu">
-                                    <button role="menuitem" id="block-user-chat-btn" data-i18n="chat.blockUser">Bloquer</button>
-                                    <button role="menuitem" id="delete-chat-btn" data-i18n="chat.delete">Supprimer</button>
+                                    <button role="menuitem" id="block-user-chat-btn"
+                                        data-i18n="chat.blockUser">Bloquer</button>
+                                    <button role="menuitem" id="delete-chat-btn"
+                                        data-i18n="chat.delete">Supprimer</button>
                                 </div>
                             </div>
                         </div>
@@ -1033,8 +1041,10 @@
                                 <div class="offer-card">
                                     <p>Offre: <span class="offer-amount"></span>€ <span class="offer-status"></span></p>
                                     <div class="offer-actions">
-                                        <button type="button" class="btn btn-sm btn-primary offer-accept-btn">Accepter</button>
-                                        <button type="button" class="btn btn-sm btn-danger offer-decline-btn">Refuser</button>
+                                        <button type="button"
+                                            class="btn btn-sm btn-primary offer-accept-btn">Accepter</button>
+                                        <button type="button"
+                                            class="btn btn-sm btn-danger offer-decline-btn">Refuser</button>
                                     </div>
                                 </div>
                             </template>
@@ -1044,15 +1054,18 @@
                                     <p class="appointment-location"></p>
                                     <span class="appointment-status"></span>
                                     <div class="appointment-actions">
-                                        <button type="button" class="btn btn-sm btn-primary appointment-confirm-btn">Confirmer</button>
-                                        <button type="button" class="btn btn-sm btn-danger appointment-cancel-btn">Annuler</button>
+                                        <button type="button"
+                                            class="btn btn-sm btn-primary appointment-confirm-btn">Confirmer</button>
+                                        <button type="button"
+                                            class="btn btn-sm btn-danger appointment-cancel-btn">Annuler</button>
                                     </div>
                                 </div>
                             </template>
                             <template id="location-card-template">
                                 <div class="location-card">
                                     <p class="location-coords"></p>
-                                    <a href="#" target="_blank" class="location-map-link btn btn-sm btn-secondary">Ouvrir dans Plans</a>
+                                    <a href="#" target="_blank"
+                                        class="location-map-link btn btn-sm btn-secondary">Ouvrir dans Plans</a>
                                 </div>
                             </template>
                             <template id="system-message-template">
@@ -1064,23 +1077,31 @@
                         </div>
 
                         <div id="chat-composer-menu" class="composer-menu hidden">
-                            <button type="button" id="chat-make-offer-btn" class="btn btn-secondary btn-sm">Faire une offre</button>
-                            <button type="button" id="chat-share-location-btn" class="btn btn-secondary btn-sm">Partager la position</button>
-                            <button type="button" id="chat-meet-btn" class="btn btn-secondary btn-sm">Proposer un RDV</button>
-                            <button type="button" id="chat-attach-image-btn" class="btn btn-secondary btn-sm">Joindre une image</button>
+                            <button type="button" id="chat-make-offer-btn" class="btn btn-secondary btn-sm">Faire une
+                                offre</button>
+                            <button type="button" id="chat-share-location-btn" class="btn btn-secondary btn-sm">Partager
+                                la position</button>
+                            <button type="button" id="chat-meet-btn" class="btn btn-secondary btn-sm">Proposer un
+                                RDV</button>
+                            <button type="button" id="chat-attach-image-btn" class="btn btn-secondary btn-sm">Joindre
+                                une image</button>
                         </div>
 
                         <div id="chat-image-preview-container" class="hidden"></div>
                         <div id="chat-input-area" class="chat-input-footer">
-                            <input type="file" id="chat-image-upload-input" class="visually-hidden" accept="image/jpeg,image/png,image/webp">
+                            <input type="file" id="chat-image-upload-input" class="visually-hidden"
+                                accept="image/jpeg,image/png,image/webp">
 
-                            <button type="button" id="chat-composer-btn" class="btn btn-icon" aria-label="Plus d'actions" aria-haspopup="true" aria-expanded="false">
+                            <button type="button" id="chat-composer-btn" class="btn btn-icon"
+                                aria-label="Plus d'actions" aria-haspopup="true" aria-expanded="false">
                                 <i class="fa-solid fa-plus"></i>
                             </button>
 
-                            <textarea id="chat-message-input" class="form-control message-input" placeholder="Écrire un message..." aria-label="Votre message" rows="1"></textarea>
-                            
-                            <button id="send-chat-message-btn" type="button" class="btn btn-primary btn-icon send-btn" aria-label="Envoyer le message" disabled>
+                            <textarea id="chat-message-input" class="form-control message-input"
+                                placeholder="Écrire un message..." aria-label="Votre message" rows="1"></textarea>
+
+                            <button id="send-chat-message-btn" type="button" class="btn btn-primary btn-icon send-btn"
+                                aria-label="Envoyer le message" disabled>
                                 <i class="fa-solid fa-paper-plane"></i>
                             </button>
                         </div>
@@ -1144,7 +1165,8 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h2 id="contact-seller-title" class="modal-title"><i class="fa-solid fa-envelope"></i>
-                            <span>Contacter le vendeur</span></h2>
+                            <span>Contacter le vendeur</span>
+                        </h2>
                         <button class="modal-close-btn" data-dismiss-modal="contact-seller-modal" type="button"
                             aria-label="Fermer la prise de contact">
                             <i class="fa-solid fa-times"></i>
@@ -1177,15 +1199,16 @@
                     <div class="modal-body">
                         <form id="filters-form" novalidate>
                             <div class="form-group">
-                                <label for="filter-keywords" data-i18n="filters.keywords">Mots-clés</label>
+                                <div class="form-group">
+                                    <label data-i18n="filters.category">Catégorie</label>
+                                    <div id="filter-category-pills" class="category-pills-container"></div>
+                                </div> <label for="filter-keywords" data-i18n="filters.keywords">Mots-clés</label>
                                 <input type="text" id="filter-keywords" name="keywords" class="form-control"
                                     placeholder="Ex: vélo électrique, canapé cuir">
                             </div>
                             <div class="form-group">
-                                <label for="filter-category" data-i18n="filters.category">Catégorie</label>
-                                <select id="filter-category" name="category" class="form-control">
-                                    <option value="" data-i18n="filters.allCategories">Toutes les catégories</option>
-                                </select>
+                                <label data-i18n="filters.category">Catégorie</label>
+                                <div id="filter-category-pills" class="category-pills-container"></div>
                             </div>
                             <div class="form-group">
                                 <label for="filter-price-min" data-i18n="filters.minPrice">Prix Minimum (€)</label>
