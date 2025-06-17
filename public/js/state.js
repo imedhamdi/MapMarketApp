@@ -323,5 +323,12 @@ export function setUnreadThreadsCount(count) {
     unreadThreadsCount = newCount;
     window.dispatchEvent(new CustomEvent('unreadCountChanged', { detail: { count: unreadThreadsCount } }));
 }
+export function getFilterState() {
+    return get('filters');
+}
 
+export function setFilterState(filterUpdates) {
+    const currentFilters = get('filters');
+    set('filters', { ...currentFilters, ...filterUpdates });
+}
 console.log('state.js chargé (avec catégories en dur).');
