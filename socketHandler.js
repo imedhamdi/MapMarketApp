@@ -1,6 +1,7 @@
 // MapMarketApp-1 (Copie)/socketHandler.js
 
-const logger = require('./config/winston');
+// Importer uniquement le logger depuis la configuration Winston
+const { logger } = require('./config/winston');
 const jwt = require('jsonwebtoken');
 const User = require('./models/userModel');
 
