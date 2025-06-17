@@ -57,6 +57,12 @@ const messageSchema = new mongoose.Schema({
         type: String,
         trim: true,
     },
+    /**
+     * Statut de lecture du message.
+     * - sent: message envoyé
+     * - delivered: reçu par le serveur
+     * - read: lu par le destinataire
+     */
     status: {
         type: String,
         enum: ['sent', 'delivered', 'read'],

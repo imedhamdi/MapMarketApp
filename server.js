@@ -196,21 +196,28 @@ const io = new Server(server, {
 // Middleware d'authentification pour Socket.IO
 io.use(async (socket, next) => {
   try {
-    const token = socket.handshake.auth.token;
-    if (!token) {
-      return next(new Error('Authentication Error: Token not provided.'));
+    const { userId, token } = socket.handshake.query;
+    if (!userId) {
+      return next(new Error('Authentication error'));
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const currentUser = await User.findById(decoded.id).select('-password');
-    if (!currentUser) {
-      return next(new Error('Authentication Error: User does not exist.'));
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded.id !== userId) {
+        return next(new Error('Authentication error'));
+      }
+      const currentUser = await User.findById(userId).select('-password');
+      if (!currentUser) {
+        return next(new Error('Authentication error'));
+      }
+      socket.user = currentUser;
+    } else {
+      socket.user = { id: userId };
     }
-    socket.user = currentUser;
     next();
   } catch (error) {
-    console.error("Socket Authentication Error:", error.message);
-    next(new Error('Authentication Error: Invalid token.'));
+    console.error('Socket Authentication Error:', error.message);
+    next(new Error('Authentication error'));
   }
 });
 

@@ -47,18 +47,24 @@ let typingIndicatorTimer = null;
 let tempImageFile = null;
 let currentTabRole = 'purchases';
 
-// Nouveaux helpers pour la gestion des threads via Socket.IO
-function openThread(threadId, recipientId) {
-    if (socket) socket.emit('joinThread', threadId);
-    const form = document.getElementById('message-form');
-    if (form) {
-        form.dataset.recipientId = recipientId;
+/**
+ * Rejoint une room de discussion côté serveur.
+ * @param {string} threadId - Identifiant du thread à rejoindre
+ */
+function joinChatThread(threadId) {
+    if (socket?.connected && threadId) {
+        socket.emit('joinThread', threadId);
     }
-    activeThreadId = threadId;
 }
 
-function closeThread(threadId) {
-    if (socket) socket.emit('leaveThread', threadId);
+/**
+ * Quitte la room de discussion actuellement ouverte.
+ * @param {string} threadId - Identifiant du thread à quitter
+ */
+function leaveChatThread(threadId) {
+    if (socket?.connected && threadId) {
+        socket.emit('leaveThread', threadId);
+    }
 }
 
 const messageForm = document.getElementById('message-form');
@@ -251,23 +257,19 @@ function handleUserChangeForSocket(user) {
 }
 
 function connectSocket() {
-    const token = localStorage.getItem('mapmarket_auth_token');
-    if (!token) return;
+    const currentUserId = state.getCurrentUser()?._id;
+    if (!currentUserId) return;
     if (socket?.connected) return;
     if (socket) socket.disconnect();
 
-    socket = io(SOCKET_NAMESPACE, { 
-        auth: { token },
+    socket = io(SOCKET_NAMESPACE, {
+        query: { userId: currentUserId },
         reconnectionAttempts: 3,
         reconnectionDelay: 1000
     });
 
     socket.on('connect', () => {
         console.log('Socket.IO connecté au namespace /chat:', socket.id);
-        const currentUser = state.getCurrentUser();
-        if (currentUser) {
-            socket.emit('joinUserRoom', { userId: currentUser._id });
-        }
     });
 
     socket.on('disconnect', (reason) => console.log('Socket.IO déconnecté:', reason));
@@ -281,10 +283,12 @@ function connectSocket() {
         }
     });
     socket.on('update_unread_count', fetchInitialUnreadCount);
-    socket.on('typing', handleTypingEventReceived);
-    socket.on('stopTyping', handleStopTypingEvent);
+    socket.on('user_typing', handleTypingEventReceived);
+    socket.on('user_stopped_typing', handleStopTypingEvent);
     socket.on('newThread', loadThreads.bind(null, currentTabRole));
     socket.on('messagesRead', handleMessagesReadEvent);
+    socket.on('message_status_updated', updateMessageStatus);
+    socket.on('chat_error', (err) => { console.error(err); alert(err); });
     socket.on('userStatusUpdate', handleUserStatusUpdate);
 }
 
@@ -373,7 +377,7 @@ async function openChatView(threadId, recipient, threadData = null) {
         await loadMessageHistory(threadId, true);
         setupInfiniteScroll();
         chatMessagesContainer.dataset.threadId = threadId;
-        socket?.emit('joinThread', threadId);
+        joinChatThread(threadId);
     } else {
         chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message !</p>`;
         chatHistoryLoader.classList.remove('hidden');
@@ -1250,9 +1254,9 @@ function notifyNewMessage(thread, message, currentUser) {
 function sendTypingEvent() {
     if (!socket?.connected || !activeThreadId) return;
     
-    socket.emit('typing', { 
-        threadId: activeThreadId, 
-        userName: state.getCurrentUser().name 
+    socket.emit('typing_start', {
+        threadId: activeThreadId,
+        userName: state.getCurrentUser().name
     });
     
     clearTimeout(typingTimeout);
@@ -1261,7 +1265,7 @@ function sendTypingEvent() {
 
 function stopTypingEvent() {
     if (socket?.connected && activeThreadId) {
-        socket.emit('stopTyping', { threadId: activeThreadId });
+        socket.emit('typing_stop', { threadId: activeThreadId });
     }
     clearTimeout(typingTimeout);
     typingTimeout = null;
@@ -1315,6 +1319,18 @@ function handleUserStatusUpdate({ userId, statusText }) {
     }
 }
 
+/**
+ * Met à jour l'affichage du statut de lecture d'un message.
+ * @param {{messageId:string, status:string}} param0
+ */
+function updateMessageStatus({ messageId, status }) {
+    if (status !== 'read') return;
+    const el = document.querySelector(`.chat-message[data-message-id="${messageId}"] .message-status-icons`);
+    if (el) {
+        el.innerHTML = '<i class="fa-solid fa-check-double" title="Lu" style="color: #4fc3f7;"></i>';
+    }
+}
+
 // --- FONCTIONS UTILITAIRES ---
 
 async function markThreadAsRead(threadId) {
@@ -1341,14 +1357,20 @@ async function markThreadAsRead(threadId) {
 
 async function markMessagesAsRead(messageIds) {
     if (!messageIds?.length) return;
-    
+
     try {
         await secureFetch('/api/messages/read', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ messageIds })
         }, false);
-        
+
+        if (socket?.connected) {
+            messageIds.forEach(id => {
+                socket.emit('message_read', { messageId: id, threadId: activeThreadId });
+            });
+        }
+
         loadThreads(currentTabRole);
     } catch (error) {
         console.error("Erreur de marquage des messages comme lus:", error);
