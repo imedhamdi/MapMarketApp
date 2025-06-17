@@ -37,7 +37,7 @@ const TYPING_TIMEOUT = 3000;
 // --- Éléments du DOM ---
 let messagesModal, threadListView, chatView, threadListUl, threadItemTemplate, noThreadsPlaceholder;
 let backToThreadsBtn, chatRecipientAvatar, chatRecipientName, chatRecipientStatus, chatOptionsBtn, chatOptionsMenu, blockUserChatBtn, deleteChatBtn;
-let chatForm, chatInput, chatMessages, chatSendBtn, fileInput;
+let chatInput, chatMessages, chatSendBtn, fileInput;
 
 let typingTimeout;
 let currentThreadId = null;
@@ -46,27 +46,26 @@ let typing = false;
 
 // --- Initialisation ---
 export function initMessagesUI() {
-  messagesModal = document.getElementById('messagesModal');
-  threadListView = document.getElementById('threadListView');
-  chatView = document.getElementById('chatView');
-  threadListUl = document.getElementById('threadList');
-  threadItemTemplate = document.getElementById('threadItemTemplate');
-  noThreadsPlaceholder = document.getElementById('noThreadsPlaceholder');
+  messagesModal = document.getElementById('messages-modal');
+  threadListView = document.getElementById('thread-list-view');
+  chatView = document.getElementById('chat-view');
+  threadListUl = document.getElementById('thread-list');
+  threadItemTemplate = document.getElementById('thread-item-template');
+  noThreadsPlaceholder = document.getElementById('no-threads-placeholder');
 
-  backToThreadsBtn = document.getElementById('backToThreadsBtn');
-  chatRecipientAvatar = document.getElementById('chatRecipientAvatar');
-  chatRecipientName = document.getElementById('chatRecipientName');
-  chatRecipientStatus = document.getElementById('chatRecipientStatus');
-  chatOptionsBtn = document.getElementById('chatOptionsBtn');
-  chatOptionsMenu = document.getElementById('chatOptionsMenu');
-  blockUserChatBtn = document.getElementById('blockUserChatBtn');
-  deleteChatBtn = document.getElementById('deleteChatBtn');
+  backToThreadsBtn = document.getElementById('back-to-threads-btn');
+  chatRecipientAvatar = document.getElementById('chat-recipient-avatar');
+  chatRecipientName = document.getElementById('chat-recipient-name');
+  chatRecipientStatus = document.getElementById('chat-recipient-status');
+  chatOptionsBtn = document.getElementById('chat-options-btn');
+  chatOptionsMenu = document.getElementById('chat-options-menu');
+  blockUserChatBtn = document.getElementById('block-user-chat-btn');
+  deleteChatBtn = document.getElementById('delete-chat-btn');
 
-  chatForm = document.getElementById('chatForm');
-  chatInput = document.getElementById('chatInput');
-  chatMessages = document.getElementById('chatMessages');
-  chatSendBtn = document.getElementById('chatSendBtn');
-  fileInput = document.getElementById('fileInput');
+  chatInput = document.getElementById('chat-message-input');
+  chatMessages = document.getElementById('chat-messages-container');
+  chatSendBtn = document.getElementById('send-chat-message-btn');
+  fileInput = document.getElementById('chat-image-upload-input');
 
   addEventListeners();
   fetchThreads();
@@ -74,10 +73,24 @@ export function initMessagesUI() {
 
 // --- Événements UI ---
 function addEventListeners() {
-  chatForm.addEventListener('submit', sendMessage);
-  chatInput.addEventListener('input', emitTyping);
-  backToThreadsBtn.addEventListener('click', () => switchView('threads'));
-  fileInput.addEventListener('change', handleFileUpload);
+  if (chatSendBtn) {
+    chatSendBtn.addEventListener('click', sendMessage);
+  }
+  if (chatInput) {
+    chatInput.addEventListener('input', emitTyping);
+    chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  }
+  if (backToThreadsBtn) {
+    backToThreadsBtn.addEventListener('click', () => switchView('threads'));
+  }
+  if (fileInput) {
+    fileInput.addEventListener('change', handleFileUpload);
+  }
 }
 
 function switchView(view) {
@@ -148,7 +161,7 @@ function scrollToBottom() {
 }
 
 async function sendMessage(event) {
-  event.preventDefault();
+  if (event) event.preventDefault();
   const text = chatInput.value.trim();
   if (!text) return;
 
