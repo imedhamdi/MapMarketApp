@@ -1018,6 +1018,13 @@ async function loadAndDisplayAdDetails(adId) {
                 adDetailFavoriteBtn.dataset.adId = ad._id;
             }
 
+            if (adDetailContactSellerBtn) {
+                adDetailContactSellerBtn.dataset.adId = ad._id;
+                if (ad.userId && ad.userId._id) {
+                    adDetailContactSellerBtn.dataset.sellerId = ad.userId._id;
+                }
+            }
+
             // Re-attacher l'événement du bouton de navigation pour éviter les écouteurs multiples
             if (navigateBtn) {
                 const newNavigateBtn = navigateBtn.cloneNode(true);

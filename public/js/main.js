@@ -18,7 +18,7 @@ import * as Favorites from './favorites.js';
 import * as Profile from './profile.js';
 import * as Filters from './filters.js';
 import * as Alerts from './alerts.js';
-import { initMessagesUI, setSocket as setMessagesSocket } from './messages.js';
+import { initMessagesUI, setSocket as setMessagesSocket, openMessagingUI } from './messages.js';
 import * as PWA from './pwa.js';
 import * as Onboarding from './onboarding.js';
 import * as History from './history.js';
@@ -270,6 +270,39 @@ class App {
                 }
             });
         }
+
+        // Délégation pour le bouton "Contacter le vendeur"
+        document.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.contact-seller-btn');
+            if (!btn) return;
+            const adId = btn.dataset.adId;
+            const sellerId = btn.dataset.sellerId;
+            if (!adId || !sellerId) return;
+
+            try {
+                const token = localStorage.getItem('mapmarket_auth_token');
+                const response = await fetch('/api/threads/find-or-create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    },
+                    body: JSON.stringify({ adId, sellerId })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.data && data.data.thread) {
+                        openMessagingUI(data.data.thread);
+                    }
+                } else {
+                    const err = await response.json().catch(() => ({}));
+                    Utils.showToast(err.message || 'Erreur lors de la création de la conversation', 'error');
+                }
+            } catch (err) {
+                console.error('Erreur lors de la création du thread:', err);
+                Utils.showToast('Erreur réseau', 'error');
+            }
+        });
     }
 
     setupGlobalUIHelpers() {

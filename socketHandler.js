@@ -48,7 +48,10 @@ const socketHandler = (io) => {
     io.emit('userStatusUpdate', { userId, statusText: 'en ligne' });
 
     socket.on('joinThread', (threadId) => {
-      if (threadId) socket.join(threadId);
+      if (threadId) {
+        socket.join(threadId);
+        logger.info(`Socket ${socket.id} joined thread room ${threadId}`);
+      }
     });
 
     socket.on('leaveThread', (threadId) => {
@@ -57,28 +60,22 @@ const socketHandler = (io) => {
 
     socket.on('sendMessage', async (data, callback) => {
         try {
-            const { recipientId, message, senderId, threadId } = data;
+            const { threadId, message, senderId } = data;
             if (!message || message.trim() === '') {
               return callback({ status: 'error', message: 'Le message ne peut pas être vide.' });
             }
-            if (!threadId || !recipientId) {
-              return callback({ status: 'error', message: 'Données manquantes.' });
+            if (!threadId) {
+              return callback({ status: 'error', message: 'threadId manquant.' });
             }
 
-            const recipientSocketId = userSocketMap.get(recipientId);
-            logger.info(`Message from ${senderId} to ${recipientId}: "${message}"`);
+            logger.info(`Message from ${senderId} in thread ${threadId}: "${message}"`);
 
-            if (recipientSocketId) {
-                io.to(recipientSocketId).emit('newMessage', {
-                    message,
-                    senderId,
-                    threadId,
-                    timestamp: new Date()
-                });
-                logger.info(`Message successfully sent to recipient: ${recipientId}`);
-            } else {
-                logger.warn(`Recipient ${recipientId} is not connected. Message will be delivered on next login.`);
-            }
+            io.to(threadId).emit('newMessage', {
+                message,
+                senderId,
+                threadId,
+                timestamp: new Date()
+            });
 
             callback({ status: 'ok' });
         } catch (err) {

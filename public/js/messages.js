@@ -153,13 +153,48 @@ function openThread(thread) {
   currentRecipientId = thread.otherUser._id;
 
   if (socket) {
-    socket.emit('joinRoom', currentThreadId);
+    socket.emit('joinThread', currentThreadId);
   }
 
   switchView('chat');
   renderChatHeader(thread.otherUser);
   renderChatBody(); // **CORRECTION**: Affiche le formulaire et le conteneur de messages
   loadMessages(currentThreadId);
+}
+
+// Ouvre l'interface de messagerie pour un thread donné
+export async function openMessagingUI(thread) {
+  if (!messagesModal) {
+    messagesModal = document.getElementById('messages-modal');
+  }
+  if (!messagesModal) return;
+  messagesModal.classList.remove('hidden');
+  messagesModal.setAttribute('aria-hidden', 'false');
+
+  const currentUser = state.getCurrentUser();
+  if (!currentUser) return;
+
+  currentThreadId = thread._id;
+  const otherParticipant = thread.participants.find(p => p.user._id !== currentUser._id);
+  if (otherParticipant) {
+    currentRecipientId = otherParticipant.user._id;
+  }
+
+  if (socket) {
+    socket.emit('joinThread', currentThreadId);
+  }
+
+  switchView('chat');
+  renderChatHeader(otherParticipant ? otherParticipant.user : {});
+  renderChatBody();
+  await loadMessages(currentThreadId);
+
+  // Mettre à jour le résumé d'annonce
+  if (thread.ad) {
+    document.getElementById('chat-ad-thumbnail').src = thread.ad.imageUrls?.[0] || 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
+    document.getElementById('chat-ad-link').textContent = thread.ad.title;
+    document.getElementById('chat-ad-price').textContent = thread.ad.price != null ? thread.ad.price + '€' : '';
+  }
 }
 
 /**
@@ -249,22 +284,21 @@ async function sendMessage(event) {
   const text = chatInput.value.trim();
   if (!text) return;
 
-  const message = {
+  const messagePayload = {
     threadId: currentThreadId,
-    text: text,
-    recipientId: currentRecipientId,
-    // Un ID temporaire pour l'affichage immédiat
-    tempId: `temp_${Date.now()}`
+    message: text,
+    senderId: state.getCurrentUser()?._id || state.currentUser?._id
   };
 
   if (socket) {
-    socket.emit('sendMessage', message);
+    socket.emit('sendMessage', messagePayload);
   }
 
   // Ajout optimiste du message à l'UI
   appendMessage({
-    ...message,
-    sender: state.currentUser._id
+    threadId: currentThreadId,
+    text,
+    sender: state.getCurrentUser()?._id
   });
   
   chatInput.value = '';
@@ -289,7 +323,7 @@ function emitTyping() {
 function registerSocketListeners() {
   if (!socket) return;
 
-  socket.on('message', (msg) => {
+  socket.on('newMessage', (msg) => {
     if (msg.threadId === currentThreadId) {
       appendMessage(msg);
       scrollToBottom();
@@ -330,7 +364,6 @@ async function handleFileUpload(event) {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('threadId', currentThreadId);
-    formData.append('recipientId', currentRecipientId);
 
     try {
         // Envoi via l'API REST qui retournera l'URL de l'image
@@ -344,8 +377,9 @@ async function handleFileUpload(event) {
             // Une fois l'URL obtenue, on envoie le message via Socket.IO
             const message = {
                 threadId: currentThreadId,
-                recipientId: currentRecipientId,
-                imageUrl: data.imageUrl
+                message: '',
+                imageUrl: data.imageUrl,
+                senderId: state.getCurrentUser()?._id
             };
             socket.emit('sendMessage', message);
             

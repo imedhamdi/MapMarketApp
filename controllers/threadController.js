@@ -70,6 +70,45 @@ exports.createThread = async (req, res, next) => {
     }
 };
 
+// Trouver ou créer un thread spécifique à une annonce entre deux utilisateurs
+exports.findOrCreateThread = async (req, res, next) => {
+    try {
+        const { adId, sellerId } = req.body;
+        const buyerId = req.user.id;
+
+        if (!adId || !sellerId) {
+            return res.status(400).json({ message: 'adId and sellerId are required' });
+        }
+
+        if (sellerId === buyerId) {
+            return res.status(400).json({ message: 'Vous ne pouvez pas contacter votre propre annonce.' });
+        }
+
+        let thread = await Thread.findOne({
+            ad: adId,
+            'participants.user': { $all: [buyerId, sellerId] }
+        }).populate('participants.user').populate('ad');
+
+        if (thread) {
+            return res.status(200).json({ success: true, data: { thread } });
+        }
+
+        await Thread.create({
+            participants: [{ user: buyerId }, { user: sellerId }],
+            ad: adId
+        });
+
+        thread = await Thread.findOne({
+            ad: adId,
+            'participants.user': { $all: [buyerId, sellerId] }
+        }).populate('participants.user').populate('ad');
+
+        return res.status(201).json({ success: true, data: { thread } });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // Soft delete d'un thread pour l'utilisateur
 exports.deleteThread = async (req, res, next) => {
     try {

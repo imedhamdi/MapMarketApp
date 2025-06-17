@@ -23,7 +23,7 @@ const threadSchema = new mongoose.Schema({
     ad: {
         type: mongoose.Schema.ObjectId,
         ref: 'Ad',
-        required: false,
+        required: true,
     },
     hiddenFor: [{
         type: mongoose.Schema.ObjectId,
@@ -45,6 +45,25 @@ const threadSchema = new mongoose.Schema({
 threadSchema.index({ 'participants.user': 1, ad: 1 }); // <= à ajouter
 threadSchema.index({ 'participants.user': 1, updatedAt: -1 });
 threadSchema.index({ ad: 1, 'participants.user': 1 });
+
+// Empêche la création de doublons : un seul thread par annonce et participants
+threadSchema.pre('save', async function(next) {
+    if (!this.isNew) return next();
+    try {
+        const participantIds = this.participants.map(p => p.user.toString()).sort();
+        const existing = await this.constructor.findOne({
+            ad: this.ad,
+            'participants.user': { $all: participantIds },
+            participants: { $size: participantIds.length }
+        });
+        if (existing) {
+            return next(new Error('Thread already exists for these users and ad'));
+        }
+        next();
+    } catch (err) {
+        next(err);
+    }
+});
 
 threadSchema.pre(/^find/, function(next) {
     this.populate('participants.user', 'name avatarUrl isOnline lastSeen')
