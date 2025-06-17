@@ -20,7 +20,15 @@ import {
 // --- Constantes ---
 const API_MESSAGES_URL = '/api/messages';
 const SOCKET_NAMESPACE = '/chat';
-const socket = io(SOCKET_NAMESPACE);
+// La connexion Socket.IO est initialisée depuis main.js afin de disposer du
+// jeton d'authentification. On définit donc la variable ici puis on fournit
+// une fonction pour l'initialiser.
+let socket = null;
+
+export function setSocket(ioSocket) {
+  socket = ioSocket;
+  registerSocketListeners();
+}
 const MAX_IMAGE_SIZE_MB = 2;
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 const VALID_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -105,7 +113,9 @@ function renderThreads(threads) {
 function openThread(thread) {
   currentThreadId = thread._id;
   currentRecipientId = thread.otherUser._id;
-  socket.emit('joinRoom', currentThreadId);
+  if (socket) {
+    socket.emit('joinRoom', currentThreadId);
+  }
   switchView('chat');
   renderChatHeader(thread.otherUser);
   loadMessages(currentThreadId);
@@ -148,7 +158,9 @@ async function sendMessage(event) {
     recipientId: currentRecipientId
   };
 
-  socket.emit('sendMessage', message);
+  if (socket) {
+    socket.emit('sendMessage', message);
+  }
   chatInput.value = '';
   appendMessage({ text, sender: state.currentUser._id });
   scrollToBottom();
@@ -156,32 +168,35 @@ async function sendMessage(event) {
 
 // --- Typing ---
 function emitTyping() {
-  if (!typing) {
+  if (!typing && socket) {
     socket.emit('typing', { threadId: currentThreadId });
     typing = true;
     setTimeout(() => (typing = false), TYPING_TIMEOUT);
   }
 }
 
-// --- Socket.IO Listeners ---
-socket.on('message', msg => {
-  if (msg.threadId === currentThreadId) {
-    appendMessage(msg);
-    scrollToBottom();
-  } else {
-    fetchInitialUnreadCount();
-  }
-});
+function registerSocketListeners() {
+  if (!socket) return;
 
-socket.on('typing', ({ senderId }) => {
-  if (senderId === currentRecipientId) {
-    chatRecipientStatus.textContent = 'Écrit...';
-    clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(() => {
-      chatRecipientStatus.textContent = '';
-    }, TYPING_TIMEOUT);
-  }
-});
+  socket.on('message', msg => {
+    if (msg.threadId === currentThreadId) {
+      appendMessage(msg);
+      scrollToBottom();
+    } else {
+      fetchInitialUnreadCount();
+    }
+  });
+
+  socket.on('typing', ({ senderId }) => {
+    if (senderId === currentRecipientId) {
+      chatRecipientStatus.textContent = 'Écrit...';
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        chatRecipientStatus.textContent = '';
+      }, TYPING_TIMEOUT);
+    }
+  });
+}
 
 // --- Upload fichiers ---
 async function handleFileUpload(event) {
@@ -201,11 +216,13 @@ async function handleFileUpload(event) {
     });
     const data = await res.json();
     if (data.message) {
-      socket.emit('sendMessage', {
-        threadId: currentThreadId,
-        imageUrl: data.message.imageUrl,
-        recipientId: currentRecipientId
-      });
+      if (socket) {
+        socket.emit('sendMessage', {
+          threadId: currentThreadId,
+          imageUrl: data.message.imageUrl,
+          recipientId: currentRecipientId
+        });
+      }
       appendMessage({ imageUrl: data.message.imageUrl, sender: state.currentUser._id });
       scrollToBottom();
     }

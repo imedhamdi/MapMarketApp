@@ -18,7 +18,7 @@ import * as Favorites from './favorites.js';
 import * as Profile from './profile.js';
 import * as Filters from './filters.js';
 import * as Alerts from './alerts.js';
-import * as Messages from './messages.js';
+import { initMessagesUI, setSocket as setMessagesSocket } from './messages.js';
 import * as PWA from './pwa.js';
 import * as Onboarding from './onboarding.js';
 import * as History from './history.js';
@@ -42,13 +42,15 @@ function initializeSocket(userId) {
         return;
     }
 
-    // Se connecter au port correct du serveur (5000)
+    const token = localStorage.getItem('token');
     socket = io('http://localhost:5000', {
+        auth: { token: token ? `Bearer ${token}` : '' },
         query: { userId }
     });
 
     socket.on('connect', () => {
         console.log('Connexion WebSocket établie avec succès. Socket ID:', socket.id);
+        setMessagesSocket(socket);
     });
 
     socket.on('connect_error', (err) => {
@@ -97,7 +99,7 @@ class App {
             Alerts.init();
             Favorites.init();
             Profile.init();
-            Messages.init();
+            initMessagesUI();
             History.init();
             NotificationsDisplay.init();
             Onboarding.init();
