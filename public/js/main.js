@@ -327,9 +327,17 @@ export { fetchInitialUnreadCount };
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         initNavBadge();
-        mapMarketApp.init();
+        mapMarketApp.init().then(() => {
+            if (localStorage.getItem('mapmarket_auth_token')) {
+                Auth.fetchInitialUserData();
+            }
+        });
     });
 } else {
     initNavBadge();
-    mapMarketApp.init();
+    mapMarketApp.init().then(() => {
+        if (localStorage.getItem('mapmarket_auth_token')) {
+            Auth.fetchInitialUserData();
+        }
+    });
 }
