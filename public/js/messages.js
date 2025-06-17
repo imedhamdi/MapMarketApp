@@ -76,12 +76,8 @@ if (messageForm) {
         const threadId = activeThreadId;
         const recipientId = messageForm.dataset.recipientId;
 
-        if (content && threadId && recipientId && socket) {
-            socket.emit('sendMessage', {
-                threadId,
-                content,
-                recipientId
-            });
+        if (content && threadId && recipientId) {
+            sendMessage(threadId, recipientId, content);
             if (messageInput) messageInput.value = '';
         }
     });
@@ -802,7 +798,10 @@ function renderMessageStatus(message) {
 function handleInputKeypress(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        sendMessage();
+        const content = chatMessageInput ? chatMessageInput.value : '';
+        const threadId = activeThreadId;
+        const recipientId = messageForm?.dataset.recipientId;
+        sendMessage(threadId, recipientId, content);
     }
 }
 
@@ -896,25 +895,51 @@ async function _sendPayload(payload, imageFile = null) {
     }
 }
 
-async function sendMessage() {
-    const text = chatMessageInput.value.trim();
-    const imageFile = tempImageFile;
+async function sendMessage(threadId, recipientId, messageContent) {
+    threadId = threadId || activeThreadId;
+    recipientId = recipientId || messageForm?.dataset.recipientId || newChatContext?.recipientId;
+    messageContent = messageContent || (chatMessageInput ? chatMessageInput.value.trim() : '');
 
-    if (!text && !imageFile) return;
+    if (!messageContent) return;
 
-    const payload = { text };
-
-    if (activeThreadId) {
-        payload.threadId = activeThreadId;
-    } else if (newChatContext) {
-        payload.recipientId = newChatContext.recipientId;
-        payload.adId = newChatContext.adId;
-    } else {
-        showToast('Contexte de discussion manquant.', 'error');
+    if (!socket || !socket.connected) {
+        console.error("Le socket n'est pas initialisé ou connecté. Impossible d'envoyer le message.");
+        alert("Erreur de connexion au chat. Veuillez rafrâchir la page.");
         return;
     }
 
-    await _sendPayload(payload, imageFile);
+    const senderId = localStorage.getItem('userId');
+
+    // 1. Émission temps réel via Socket.IO
+    socket.emit('sendMessage', {
+        recipientId: recipientId,
+        message: messageContent,
+        senderId: senderId,
+        threadId: threadId
+    });
+
+    // 2. Persistance en base de données via l'API (ceci est correct)
+    try {
+        await fetch('/api/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+                threadId: threadId,
+                content: messageContent,
+                recipientId: recipientId
+            })
+        });
+
+        // Ajouter le message à l'UI de l'expéditeur immédiatement
+        // pour une expérience utilisateur fluide.
+        appendMessageToUI(messageContent, senderId, new Date());
+
+    } catch (error) {
+        console.error('Échec de la sauvegarde du message via API:', error);
+    }
 }
 
 async function handleOfferSubmit() {
