@@ -1,7 +1,8 @@
 /**
  * @file messages.js
  * @description Version WebSocket (Socket.IO) de la messagerie instantanée de MapMarket.
- * Cette version supprime tout le polling et repose sur la communication en temps réel.
+ * Cette version est corrigée pour éviter les erreurs d'initialisation et utilise
+ * un formulaire pour une gestion robuste de l'envoi de messages.
  */
 
 // Socket.IO est chargé via le CDN dans index.html et exposé globalement sous la variable `io`.
@@ -10,42 +11,38 @@ import { fetchInitialUnreadCount } from './main.js';
 import {
   showToast,
   secureFetch,
-  toggleGlobalLoader,
   sanitizeHTML,
-  formatDate,
-  formatCurrency,
-  generateUUID
 } from './utils.js';
 
 // --- Constantes ---
 const API_MESSAGES_URL = '/api/messages';
-const SOCKET_NAMESPACE = '/chat';
-// La connexion Socket.IO est initialisée depuis main.js afin de disposer du
-// jeton d'authentification. On définit donc la variable ici puis on fournit
-// une fonction pour l'initialiser.
-let socket = null;
+const TYPING_TIMEOUT = 3000; // 3 secondes
 
+// --- État du module ---
+let socket = null;
+let currentThreadId = null;
+let currentRecipientId = null;
+let typing = false;
+let typingTimeout;
+
+// --- Éléments du DOM (statiques) ---
+let messagesModal, threadListView, chatView, threadListUl, threadItemTemplate, noThreadsPlaceholder;
+let backToThreadsBtn, chatRecipientAvatar, chatRecipientName, chatRecipientStatus;
+
+/**
+ * Initialise le socket et enregistre les écouteurs globaux.
+ * @param {object} ioSocket - L'instance du socket connecté depuis main.js
+ */
 export function setSocket(ioSocket) {
   socket = ioSocket;
   registerSocketListeners();
 }
-const MAX_IMAGE_SIZE_MB = 2;
-const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
-const VALID_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const TYPING_TIMEOUT = 3000;
 
-// --- Éléments du DOM ---
-let messagesModal, threadListView, chatView, threadListUl, threadItemTemplate, noThreadsPlaceholder;
-let backToThreadsBtn, chatRecipientAvatar, chatRecipientName, chatRecipientStatus, chatOptionsBtn, chatOptionsMenu, blockUserChatBtn, deleteChatBtn;
-let chatInput, chatMessages, chatSendBtn, fileInput;
-
-let typingTimeout;
-let currentThreadId = null;
-let currentRecipientId = null;
-let typing = false;
-
-// --- Initialisation ---
+/**
+ * Initialise les composants principaux de l'interface de messagerie (ceux qui sont toujours présents).
+ */
 export function initMessagesUI() {
+  console.log("Initialisation de l'UI des messages.");
   messagesModal = document.getElementById('messages-modal');
   threadListView = document.getElementById('thread-list-view');
   chatView = document.getElementById('chat-view');
@@ -53,150 +50,255 @@ export function initMessagesUI() {
   threadItemTemplate = document.getElementById('thread-item-template');
   noThreadsPlaceholder = document.getElementById('no-threads-placeholder');
 
+  // Éléments de l'en-tête du chat (statiques dans la vue chat)
   backToThreadsBtn = document.getElementById('back-to-threads-btn');
   chatRecipientAvatar = document.getElementById('chat-recipient-avatar');
   chatRecipientName = document.getElementById('chat-recipient-name');
   chatRecipientStatus = document.getElementById('chat-recipient-status');
-  chatOptionsBtn = document.getElementById('chat-options-btn');
-  chatOptionsMenu = document.getElementById('chat-options-menu');
-  blockUserChatBtn = document.getElementById('block-user-chat-btn');
-  deleteChatBtn = document.getElementById('delete-chat-btn');
 
-  chatInput = document.getElementById('chat-message-input');
-  chatMessages = document.getElementById('chat-messages-container');
-  chatSendBtn = document.getElementById('send-chat-message-btn');
-  fileInput = document.getElementById('chat-image-upload-input');
-
-  addEventListeners();
-  fetchThreads();
-}
-
-// --- Événements UI ---
-function addEventListeners() {
-  if (chatSendBtn) {
-    chatSendBtn.addEventListener('click', sendMessage);
-  }
-  if (chatInput) {
-    chatInput.addEventListener('input', emitTyping);
-    chatInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
-  }
+  // Ajout de l'écouteur pour le bouton de retour (toujours présent)
   if (backToThreadsBtn) {
     backToThreadsBtn.addEventListener('click', () => switchView('threads'));
   }
+
+  fetchThreads();
+}
+
+/**
+ * Ajoute les écouteurs d'événements spécifiques à la vue de chat (formulaire, input, etc.).
+ * Cette fonction est appelée UNIQUEMENT après que l'interface du chat ait été rendue.
+ */
+function addChatEventListeners() {
+  const chatForm = document.getElementById('chatForm');
+  const chatInput = document.getElementById('chat-message-input');
+  const fileInput = document.getElementById('chat-image-upload-input');
+
+  if (chatForm) {
+    // Gère à la fois le clic sur le bouton et la touche "Entrée"
+    chatForm.addEventListener('submit', sendMessage);
+  } else {
+    console.error("Erreur critique : Le formulaire de chat 'chatForm' est introuvable.");
+  }
+
+  if (chatInput) {
+    chatInput.addEventListener('input', emitTyping);
+  }
+
   if (fileInput) {
     fileInput.addEventListener('change', handleFileUpload);
   }
 }
 
+/**
+ * Bascule entre la vue de la liste des discussions et la vue du chat.
+ * @param {'threads' | 'chat'} view - La vue à afficher.
+ */
 function switchView(view) {
-  threadListView.style.display = view === 'threads' ? 'block' : 'none';
-  chatView.style.display = view === 'chat' ? 'block' : 'none';
+  if (threadListView && chatView) {
+    threadListView.style.display = view === 'threads' ? 'block' : 'none';
+    chatView.style.display = view === 'chat' ? 'block' : 'none';
+  }
 }
 
-// --- Threads ---
+// --- Gestion des Threads (Conversations) ---
+
+/**
+ * Récupère et affiche la liste des conversations de l'utilisateur.
+ */
 async function fetchThreads() {
   try {
     const threads = await secureFetch(`${API_MESSAGES_URL}/threads`);
     renderThreads(threads);
   } catch (error) {
-    showToast('Erreur lors du chargement des discussions');
+    console.error("Erreur lors du chargement des discussions:", error);
+    showToast('Erreur lors du chargement des discussions', 'error');
   }
 }
 
+/**
+ * Construit la liste des conversations dans le DOM.
+ * @param {Array<object>} threads - La liste des threads.
+ */
 function renderThreads(threads) {
+  if (!threadListUl || !threadItemTemplate) return;
   threadListUl.innerHTML = '';
-  threads.forEach(thread => {
-    const clone = threadItemTemplate.content.cloneNode(true);
-    const item = clone.querySelector('.thread-item');
-    item.dataset.threadId = thread._id;
-    item.addEventListener('click', () => openThread(thread));
-    item.querySelector('.thread-name').textContent = thread.otherUser?.name || 'Utilisateur';
-    item.querySelector('.thread-last-message').textContent = thread.lastMessage?.text || '';
-    threadListUl.appendChild(clone);
-  });
+  if (threads.length > 0) {
+    threads.forEach(thread => {
+      const clone = threadItemTemplate.content.cloneNode(true);
+      const item = clone.querySelector('.thread-item');
+      item.dataset.threadId = thread._id;
+      // S'assure que otherUser existe avant d'essayer d'accéder à ses propriétés
+      item.querySelector('.thread-name').textContent = thread.otherUser?.name || 'Utilisateur supprimé';
+      item.querySelector('.thread-last-message').textContent = thread.lastMessage?.text ? sanitizeHTML(thread.lastMessage.text) : 'Aucun message';
+      
+      const avatar = item.querySelector('.thread-avatar');
+      if (avatar) {
+          avatar.src = thread.otherUser?.avatar || 'assets/default-avatar.png';
+      }
+
+      item.addEventListener('click', () => openThread(thread));
+      threadListUl.appendChild(clone);
+    });
+  }
   noThreadsPlaceholder.style.display = threads.length === 0 ? 'block' : 'none';
 }
 
-// --- Messages ---
+// --- Gestion des Messages ---
+
+/**
+ * Ouvre une conversation spécifique.
+ * @param {object} thread - L'objet de la conversation à ouvrir.
+ */
 function openThread(thread) {
   currentThreadId = thread._id;
   currentRecipientId = thread.otherUser._id;
+
   if (socket) {
     socket.emit('joinRoom', currentThreadId);
   }
+
   switchView('chat');
   renderChatHeader(thread.otherUser);
+  renderChatBody(); // **CORRECTION**: Affiche le formulaire et le conteneur de messages
   loadMessages(currentThreadId);
 }
 
+/**
+ * Met à jour l'en-tête de la vue de chat avec les informations du destinataire.
+ * @param {object} otherUser - L'objet de l'utilisateur destinataire.
+ */
+function renderChatHeader(otherUser) {
+    chatRecipientName.textContent = otherUser.name || 'Utilisateur';
+    chatRecipientAvatar.src = otherUser.avatar || 'assets/default-avatar.png';
+    chatRecipientStatus.textContent = ''; // Réinitialise le statut "écrit..."
+}
+
+/**
+ * **NOUVELLE FONCTION**
+ * Injecte le HTML pour le conteneur de messages et le formulaire, puis attache les écouteurs.
+ */
+function renderChatBody() {
+    const chatBody = chatView.querySelector('.chat-body');
+    if (!chatBody) return;
+
+    // Injection de la structure HTML du chat
+    chatBody.innerHTML = `
+        <div id="chat-messages-container" class="chat-messages"></div>
+        <form id="chatForm" class="chat-input-form">
+            <input type="text" id="chat-message-input" class="chat-input" placeholder="Écrivez votre message..." autocomplete="off">
+            <label for="chat-image-upload-input" class="chat-attach-btn">📎</label>
+            <input type="file" id="chat-image-upload-input" accept="image/png, image/jpeg, image/webp" style="display: none;">
+            <button type="submit" class="chat-send-btn">Envoyer</button>
+        </form>
+    `;
+    
+    // **CORRECTION**: Appel des écouteurs APRÈS la création des éléments.
+    addChatEventListeners();
+}
+
+/**
+ * Charge les messages d'une conversation et les affiche.
+ * @param {string} threadId - L'ID de la conversation.
+ */
 async function loadMessages(threadId) {
   try {
     const messages = await secureFetch(`${API_MESSAGES_URL}/threads/${threadId}/messages`);
-    renderMessages(messages);
+    const chatMessagesContainer = document.getElementById('chat-messages-container');
+    chatMessagesContainer.innerHTML = ''; // Vide les anciens messages
+    messages.forEach(msg => appendMessage(msg));
     scrollToBottom();
-  } catch {
-    showToast('Impossible de charger les messages');
+  } catch (error) {
+    console.error("Impossible de charger les messages:", error);
+    showToast('Impossible de charger les messages', 'error');
   }
 }
 
-function renderMessages(messages) {
-  chatMessages.innerHTML = '';
-  messages.forEach(msg => appendMessage(msg));
-}
-
+/**
+ * Ajoute un seul message au conteneur de chat.
+ * @param {object} msg - L'objet message.
+ */
 function appendMessage(msg) {
+  const chatMessages = document.getElementById('chat-messages-container');
+  if (!chatMessages) return;
+
   const div = document.createElement('div');
-  div.className = `message ${msg.sender === state.currentUser._id ? 'sent' : 'received'}`;
-  div.textContent = msg.text;
+  const isSent = msg.sender === state.currentUser?._id;
+  div.className = `message ${isSent ? 'sent' : 'received'}`;
+  div.innerHTML = `
+    <div class="message-content">
+      ${msg.text ? sanitizeHTML(msg.text) : ''}
+      ${msg.imageUrl ? `<img src="${msg.imageUrl}" alt="Image envoyée" class="message-image">` : ''}
+    </div>
+  `;
   chatMessages.appendChild(div);
 }
 
 function scrollToBottom() {
-  chatMessages.scrollTop = chatMessages.scrollHeight;
+  const chatMessages = document.getElementById('chat-messages-container');
+  if (chatMessages) {
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
 }
 
+/**
+ * Gère la soumission du formulaire pour envoyer un message.
+ * @param {Event} event - L'événement de soumission du formulaire.
+ */
 async function sendMessage(event) {
-  if (event) event.preventDefault();
+  event.preventDefault(); // Empêche le rechargement de la page
+  const chatInput = document.getElementById('chat-message-input');
   const text = chatInput.value.trim();
   if (!text) return;
 
   const message = {
     threadId: currentThreadId,
-    text,
-    recipientId: currentRecipientId
+    text: text,
+    recipientId: currentRecipientId,
+    // Un ID temporaire pour l'affichage immédiat
+    tempId: `temp_${Date.now()}`
   };
 
   if (socket) {
     socket.emit('sendMessage', message);
   }
+
+  // Ajout optimiste du message à l'UI
+  appendMessage({
+    ...message,
+    sender: state.currentUser._id
+  });
+  
   chatInput.value = '';
-  appendMessage({ text, sender: state.currentUser._id });
   scrollToBottom();
+  chatInput.focus();
 }
 
-// --- Typing ---
+// --- Indicateur "Typing" ---
+
 function emitTyping() {
   if (!typing && socket) {
-    socket.emit('typing', { threadId: currentThreadId });
     typing = true;
-    setTimeout(() => (typing = false), TYPING_TIMEOUT);
+    socket.emit('typing', { threadId: currentThreadId });
+    setTimeout(() => {
+      typing = false;
+    }, TYPING_TIMEOUT);
   }
 }
+
+// --- Écouteurs Socket.IO ---
 
 function registerSocketListeners() {
   if (!socket) return;
 
-  socket.on('message', msg => {
+  socket.on('message', (msg) => {
     if (msg.threadId === currentThreadId) {
       appendMessage(msg);
       scrollToBottom();
     } else {
+      // Mettre à jour le compteur de messages non lus si ce n'est pas la conversation active
+      showToast(`Nouveau message de ${msg.senderName || 'un utilisateur'}`);
       fetchInitialUnreadCount();
+      fetchThreads(); // Met à jour la liste pour afficher le dernier message
     }
   });
 
@@ -205,41 +307,58 @@ function registerSocketListeners() {
       chatRecipientStatus.textContent = 'Écrit...';
       clearTimeout(typingTimeout);
       typingTimeout = setTimeout(() => {
-        chatRecipientStatus.textContent = '';
+        chatRecipientStatus.textContent = ''; // Ou statut en ligne
       }, TYPING_TIMEOUT);
     }
   });
+
+  socket.on('connect_error', (err) => {
+    console.error("Erreur de connexion Socket:", err.message);
+    showToast("Connexion à la messagerie perdue", "error");
+  });
 }
 
-// --- Upload fichiers ---
+// --- Gestion de l'upload de fichiers ---
+
 async function handleFileUpload(event) {
-  const file = event.target.files[0];
-  if (!file || !VALID_IMAGE_TYPES.includes(file.type) || file.size > MAX_IMAGE_SIZE_BYTES) {
-    return showToast('Image invalide');
-  }
+    const file = event.target.files[0];
+    if (!file) return;
 
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('threadId', currentThreadId);
-
-  try {
-    const res = await fetch(`${API_MESSAGES_URL}/upload`, {
-      method: 'POST',
-      body: formData
-    });
-    const data = await res.json();
-    if (data.message) {
-      if (socket) {
-        socket.emit('sendMessage', {
-          threadId: currentThreadId,
-          imageUrl: data.message.imageUrl,
-          recipientId: currentRecipientId
-        });
-      }
-      appendMessage({ imageUrl: data.message.imageUrl, sender: state.currentUser._id });
-      scrollToBottom();
+    if (file.size > 2 * 1024 * 1024) {
+        return showToast("L'image est trop lourde (max 2MB)", "error");
     }
-  } catch {
-    showToast('Échec de l\'envoi du fichier');
-  }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('threadId', currentThreadId);
+    formData.append('recipientId', currentRecipientId);
+
+    try {
+        // Envoi via l'API REST qui retournera l'URL de l'image
+        const data = await secureFetch(`${API_MESSAGES_URL}/upload`, {
+            method: 'POST',
+            body: formData,
+            // secureFetch doit être capable de gérer les FormData (ne pas mettre de Content-Type)
+        });
+
+        if (data.imageUrl && socket) {
+            // Une fois l'URL obtenue, on envoie le message via Socket.IO
+            const message = {
+                threadId: currentThreadId,
+                recipientId: currentRecipientId,
+                imageUrl: data.imageUrl
+            };
+            socket.emit('sendMessage', message);
+            
+            // Ajout optimiste
+            appendMessage({
+                ...message,
+                sender: state.currentUser._id
+            });
+            scrollToBottom();
+        }
+    } catch (error) {
+        console.error("Échec de l'envoi de l'image:", error);
+        showToast("Échec de l'envoi de l'image", 'error');
+    }
 }
