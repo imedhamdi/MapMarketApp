@@ -1,173 +1,103 @@
+// server.js
+
+// --- IMPORTS ---
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
-const morgan = require('morgan');
+const morgan = require('morgan'); // Corrigé
 const path = require('path');
 const mongoSanitize = require('express-mongo-sanitize');
-const sanitizationMiddleware = require('./middlewares/sanitizationMiddleware'); // NOUVEL IMPORT
 const jwt = require('jsonwebtoken');
-const User = require('./models/userModel');
-const SOCKET_NAMESPACE = '/chat';
+const { Server } = require('socket.io');
 
+// --- IMPORTS LOCAUX ---
+// Configuration
+const connectDB = require('./config/db'); //
+const { morganStream, logger } = require('./config/winston'); //
+const { generalRateLimiter } = require('./config/rateLimit'); //
 
-const connectDB = require('./config/db');
-// const corsOptions = require('./config/corsOptions');
-const { morganStream, logger } = require('./config/winston');
-const globalErrorHandler = require('./middlewares/errorHandler');
-const { generalRateLimiter } = require('./config/rateLimit');
+// Middlewares
+const globalErrorHandler = require('./middlewares/errorHandler'); //
+const sanitizationMiddleware = require('./middlewares/sanitizationMiddleware'); //
+
+// Modèles
+const User = require('./models/userModel'); //
+const Message = require('./models/messageModel'); //
+const Thread = require('./models/threadModel'); //
 
 // Routes
-const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes');
-const adRoutes = require('./routes/adRoutes');
-const messageRoutes = require('./routes/messageRoutes');
-const threadRoutes = require('./routes/threadRoutes');
-const alertRoutes = require('./routes/alertRoutes');
-const favoriteRoutes = require('./routes/favoriteRoutes');
-const notificationRoutes = require('./routes/notificationRoutes');
-const settingRoutes = require('./routes/settingRoutes');
-const messageCtrl = require('./controllers/messageController');
+const authRoutes = require('./routes/authRoutes'); //
+const userRoutes = require('./routes/userRoutes'); //
+const adRoutes = require('./routes/adRoutes'); //
+const messageRoutes = require('./routes/messageRoutes'); //
+const threadRoutes = require('./routes/threadRoutes'); //
+const alertRoutes = require('./routes/alertRoutes'); //
+const favoriteRoutes = require('./routes/favoriteRoutes'); //
+const notificationRoutes = require('./routes/notificationRoutes'); //
+const settingRoutes = require('./routes/settingRoutes'); //
 
+// --- INITIALISATION DE L'APPLICATION ---
 const app = express();
-// Render.com est un proxy de confiance.
+const server = http.createServer(app); // Création explicite du serveur HTTP pour Socket.IO
+
+// --- CONFIGURATION DE SÉCURITÉ (HELMET & CORS) ---
 app.set('trust proxy', 1);
-// Helmet CSP EN PREMIER !
+
 app.use(
   helmet({
     contentSecurityPolicy: {
-      useDefaults: false, // Désactive les valeurs par défaut pour un contrôle total
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: [
-          "'self'",
-          "'unsafe-inline'",
-          "'unsafe-eval'",
-          "http://localhost:5001",
-          "https://unpkg.com",
-          "https://cdn.jsdelivr.net",
-          "https://cdnjs.cloudflare.com",
-          "https://cdn.lordicon.com",
-          "https://cdn.socket.io"
-        ],
-        styleSrc: [
-          "'self'",
-          "'unsafe-inline'",
-          "https://fonts.googleapis.com", // Ajouté pour Google Fonts
-          "https://unpkg.com",
-          "https://cdn.jsdelivr.net",
-          "https://cdnjs.cloudflare.com"
-        ],
-        imgSrc: [
-          "'self'",
-          "data:",
-          "blob:",
-          "https://placehold.co",
-          "https://cdn.lordicon.com",
-          "https://cdn.jsdelivr.net",
-          "https://unpkg.com",
-          "https://cdnjs.cloudflare.com",
-          "https://*.tile.openstreetmap.org", // Ajouté pour les tuiles OSM
-          "https://a.tile.openstreetmap.org",
-          "https://b.tile.openstreetmap.org",
-          "https://c.tile.openstreetmap.org"
-        ],
-        fontSrc: [
-          "'self'",
-          "data:",
-          "https://fonts.gstatic.com", // Ajouté pour Google Fonts
-          "https://cdnjs.cloudflare.com",
-          "https://cdn.jsdelivr.net"
-        ],
-        connectSrc: [
-          "'self'",
-          "http://localhost:5001",
-          "ws://localhost:5001",
-          "wss://localhost:5001",
-          "https://*.tile.openstreetmap.org",
-          "https://unpkg.com",
-          "https://cdn.jsdelivr.net",
-          "https://cdnjs.cloudflare.com",
-          "https://cdn.socket.io",
-          "https://nominatim.openstreetmap.org" 
-        ],
-        frameSrc: ["'self'"],
+        scriptSrc: ["'self'", "https://cdn.socket.io", "https://unpkg.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://cdn.lordicon.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com", "https://cdn.jsdelivr.net"],
+        imgSrc: ["'self'", "data:", "blob:", "https://*.tile.openstreetmap.org", "https://res.cloudinary.com"], // Adaptez pour Cloudinary si vous l'utilisez
+        fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+        connectSrc: ["'self'", `ws://${process.env.HOST || 'localhost'}:${process.env.PORT || 3000}`, `wss://${process.env.HOST || 'localhost'}:${process.env.PORT || 3000}`, "https://nominatim.openstreetmap.org", "https://cdn.socket.io"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
-        formAction: ["'self'"],
-        // Ajout des directives pour les nouvelles fonctionnalités CSP
-        scriptSrcElem: [
-          "'self'",
-          "https://unpkg.com",
-          "https://cdn.jsdelivr.net",
-          "https://cdnjs.cloudflare.com",
-          "https://cdn.lordicon.com",
-          "https://cdn.socket.io"
-        ],
-        styleSrcElem: [
-          "'self'",
-          "'unsafe-inline'",
-          "https://fonts.googleapis.com",
-          "https://unpkg.com",
-          "https://cdn.jsdelivr.net",
-          "https://cdnjs.cloudflare.com"
-        ]
-      }
-    }
+        formAction: ["'self'"]
+      },
+    },
   })
 );
-// Statics : public et uploads
-app.use(express.static(path.join(__dirname, 'public')));
-// CETTE LIGNE UNIQUE GÈRE TOUS LES UPLOADS CORRECTEMENT
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/avatars', express.static(path.join(__dirname, 'uploads/avatars')));
-app.use('/ads', express.static(path.join(__dirname, 'uploads/ads')));
-app.use('/messages', express.static(path.join(__dirname, 'uploads/messages')));
 
-// Middlewares de base
 const corsOptions = {
-  origin: [
-    'http://localhost:5001',
-    'https://votredomaine.com' // Ajoutez votre domaine de production ici
-  ],
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'X-Requested-With',
-    'Accept'
-  ],
   credentials: true,
-  optionsSuccessStatus: 200
 };
 
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
-// Ajoutez ce middleware pour gérer les pré-vols OPTIONS
-app.options('*', cors(corsOptions));;
+// --- MIDDLEWARES ---
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(sanitizationMiddleware); // Remplace xss()
+app.use(sanitizationMiddleware);
 app.use(mongoSanitize());
 
+// --- GESTION DES FICHIERS STATIQUES ---
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Logging HTTP
+// --- LOGGING HTTP ---
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev', { stream: morganStream }));
 } else {
   app.use(morgan('combined', { stream: morganStream }));
 }
 
-// Rate Limiter
+// --- RATE LIMITING ---
 if (process.env.NODE_ENV === 'production') {
   app.use('/api/', generalRateLimiter);
 }
 
-// --- Connexion MongoDB ---
+// --- CONNEXION À LA BASE DE DONNÉES ---
 connectDB();
 
-// --- Routes API ---
+// --- ROUTES API ---
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/ads', adRoutes);
@@ -178,161 +108,145 @@ app.use('/api/favorites', favoriteRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/settings', settingRoutes);
 
-// Favicon (évite une erreur inutile dans les logs)
-app.get('/favicon.ico', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
-});
-// Catch-all SPA (doit être après toutes les routes API et fichiers statiques)
+// --- GESTION DE LA SINGLE PAGE APP (SPA) & 404 ---
 app.get('*', (req, res, next) => {
-  // Simplification de la condition
   if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
     return next();
   }
   res.sendFile(path.resolve(__dirname, 'public', 'index.html'));
 });
 
-// 404 pour les routes API (après le SPA catch-all)
-app.all('/api/*', (req, res, next) => {
-  const err = new Error(`Impossible de trouver ${req.originalUrl} sur ce serveur.`);
-  err.status = 'fail';
-  err.statusCode = 404;
-  next(err);
-});
-
-// Gestion des erreurs
 app.use(globalErrorHandler);
 
-// --- SOCKET.IO ---
-const { Server } = require('socket.io');
+// =================================================================
+// --- CONFIGURATION DE SOCKET.IO ---
+// =================================================================
+const SOCKET_NAMESPACE = '/chat';
 
-const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
-    methods: ['GET', 'POST']
+  cors: corsOptions,
+  transports: ['websocket', 'polling'],
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 2 * 60 * 1000,
+    skipMiddlewares: true
   }
 });
 
-// Rendre 'io' accessible globalement dans l'app Express
-app.set('socketio', io);
-
-io.on('connection', (socket) => {
-  console.log('✅ Un utilisateur est connecté via WebSocket');
-
-  socket.on('joinThread', (threadId) => {
-    socket.join(threadId);
-    console.log(`Un utilisateur a rejoint la room: ${threadId}`);
-  });
-
-  socket.on('typing', ({ threadId, userName }) => {
-    socket.to(threadId).emit('typing', { userName });
-  });
-
-  socket.on('stopTyping', ({ threadId }) => {
-    socket.to(threadId).emit('stopTyping');
-  });
-
-  socket.on('disconnect', () => {
-    console.log('❌ Un utilisateur s\'est déconnecté');
-  });
-});
-
-// Utiliser un middleware d'authentification pour le namespace /chat
+// Middleware d'authentification pour le namespace /chat
 io.of(SOCKET_NAMESPACE).use(async (socket, next) => {
-    const token = socket.handshake.auth.token;
-    if (!token) {
-        logger.warn(`Socket.IO: Tentative de connexion sans token pour ${socket.id}.`);
-        return next(new Error('Authentication error: Token manquant.'));
-    }
     try {
-        // 1. Vérification du token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        
-        // 2. Vérifier si l'utilisateur existe toujours
-        const currentUser = await User.findById(decoded.id).select('+isActive');
-        if (!currentUser) {
-            return next(new Error('Authentication error: L\'utilisateur n\'existe plus.'));
+        const token = socket.handshake.auth.token;
+        if (!token) {
+            logger.warn(`Socket.IO Auth: Connexion refusée (token manquant) pour socket ${socket.id}`);
+            return next(new Error('Authentication error: Token manquant.'));
         }
+        
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const currentUser = await User.findById(decoded.id).select('+isActive');
 
-        // 3. Vérifier si le mot de passe a changé après l'émission du token
+        if (!currentUser || !currentUser.isActive) {
+            return next(new Error('Authentication error: Utilisateur invalide ou inactif.'));
+        }
         if (currentUser.changedPasswordAfter(decoded.iat)) {
             return next(new Error('Authentication error: Mot de passe récemment changé.'));
         }
 
-        // 4. Vérifier si le compte est actif
-        if (!currentUser.isActive) {
-            return next(new Error('Authentication error: Compte désactivé.'));
-        }
-
-        // Si tout est bon, on attache l'utilisateur au socket pour un usage ultérieur
         socket.user = currentUser;
         next();
 
     } catch (err) {
-        logger.warn(`Socket.IO: Échec de l'authentification du token pour ${socket.id}: ${err.message}`);
-        return next(new Error('Authentication error: Token invalide ou expiré.'));
+        logger.error(`Socket.IO Auth Error: ${err.message}`);
+        next(new Error('Authentication error: Token invalide ou expiré.'));
     }
 });
 
-
+// Gestion des connexions sur le namespace /chat
 io.of(SOCKET_NAMESPACE).on('connection', (socket) => {
-    // À ce stade, le socket est déjà authentifié grâce au middleware .use() ci-dessus.
-    // L'objet `socket.user` est disponible.
-    logger.info(`Socket.IO: Utilisateur authentifié connecté au namespace /chat: ${socket.id}, UserID: ${socket.user.id}`);
-    
-    socket.join(`user_${socket.user.id}`);
-    logger.info(`Socket.IO: Socket ${socket.id} a rejoint la room user_${socket.user.id}`);
-    User.findByIdAndUpdate(socket.user.id, { isOnline: true }, { new: false }).exec();
-    io.of(SOCKET_NAMESPACE).to(`user_${socket.user.id}`).emit('userStatusUpdate', { userId: socket.user.id, statusText: 'en ligne' });
+    logger.info(`✅  Socket.IO: Utilisateur connecté: ${socket.user.username} (${socket.id})`);
 
-    // Gérer les autres événements Socket.IO
-    socket.on('joinThreadRoom', ({ threadId }) => {
-        if (threadId) {
-            socket.join(`thread_${threadId}`);
-            logger.info(`Socket.IO: Socket ${socket.id} a rejoint la room thread_${threadId}`);
-        }
+    socket.join(`user_${socket.user.id}`);
+    User.findByIdAndUpdate(socket.user.id, { isOnline: true }, { new: true }).exec();
+    
+    socket.on('joinThread', ({ threadId }) => {
+        socket.join(`thread_${threadId}`);
+        logger.info(`Socket ${socket.id} a rejoint la room thread_${threadId}`);
+    });
+    socket.on('leaveThread', ({ threadId }) => {
+        socket.leave(`thread_${threadId}`);
+        logger.info(`Socket ${socket.id} a quitté la room thread_${threadId}`);
     });
 
-    socket.on('leaveThreadRoom', ({ threadId }) => {
-        if (threadId) {
-            socket.leave(`thread_${threadId}`);
-            logger.info(`Socket.IO: Socket ${socket.id} a quitté la room thread_${threadId}`);
+    socket.on('sendMessage', async (data, callback) => {
+        const { threadId, content } = data;
+        
+        try {
+            if (!content || !threadId) throw new Error("Contenu ou threadId manquant.");
+
+            const thread = await Thread.findById(threadId);
+            // Vérification de la participation de l'utilisateur (méthode robuste) - Corrigé
+            if (!thread || !thread.participants.some(p => p.equals(socket.user.id))) {
+                 throw new Error("Accès au thread non autorisé.");
+            }
+            
+            const message = await Message.create({
+                thread: threadId,
+                sender: socket.user.id,
+                content,
+            });
+
+            // Mise à jour du thread, incluant messageCount - Corrigé
+            await Thread.findByIdAndUpdate(threadId, {
+                lastMessage: message._id,
+                updatedAt: Date.now(),
+                $inc: { messageCount: 1 } // Ajout de l'incrémentation
+            });
+
+            const populatedMessage = await message.populate({
+                path: 'sender',
+                select: 'username profilePicture'
+            });
+
+            io.of(SOCKET_NAMESPACE).to(`thread_${threadId}`).emit('newMessage', populatedMessage);
+            if (callback) callback({ status: 'ok', message: populatedMessage });
+
+        } catch (error) {
+            logger.error(`Socket sendMessage Error: ${error.message} pour user ${socket.user.id}`);
+            if (callback) callback({ status: 'error', message: error.message });
         }
     });
 
     socket.on('typing', ({ threadId, isTyping }) => {
-        if (threadId) {
-            const room = `thread_${threadId}`;
-            socket.to(room).emit('typing', { threadId, userName: socket.user.name, isTyping });
-        }
+        socket.to(`thread_${threadId}`).emit('userTyping', { 
+            threadId, 
+            userId: socket.user.id,
+            username: socket.user.username,
+            isTyping 
+        });
     });
 
-    socket.on('disconnect', async (reason) => {
-        logger.info(`Socket.IO: Utilisateur déconnecté du namespace /chat: ${socket.id}. Raison: ${reason}`);
-        await User.findByIdAndUpdate(socket.user.id, { isOnline: false, lastSeen: new Date() });
-        io.of(SOCKET_NAMESPACE).to(`user_${socket.user.id}`).emit('userStatusUpdate', { userId: socket.user.id, statusText: '' });
+    socket.on('disconnect', () => {
+        logger.info(`❌  Socket.IO: Utilisateur déconnecté: ${socket.user.username} (${socket.id})`);
+        User.findByIdAndUpdate(socket.user.id, { isOnline: false, lastSeen: new Date() }).exec();
     });
 });
 
 
-messageCtrl.initializeSocketIO(io);
-
-// --- Démarrage du serveur
+// --- DÉMARRAGE DU SERVEUR ---
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  logger.info(`Serveur démarré en mode ${process.env.NODE_ENV} sur le port ${PORT}`);
+  logger.info(`🚀  Serveur démarré en mode ${process.env.NODE_ENV} sur le port ${PORT}`);
 });
 
-// --- Erreurs globales
+// --- GESTION DES ERREURS GLOBALES NON INTERCEPTÉES ---
 process.on('unhandledRejection', (err) => {
-  logger.error('ERREUR NON INTERCEPTÉE (Unhandled Rejection)! 💥 Arrêt du serveur...');
+  logger.error('UNHANDLED REJECTION! 💥 Arrêt du serveur...');
   logger.error(`${err.name}: ${err.message}\n${err.stack}`);
   server.close(() => process.exit(1));
 });
 process.on('uncaughtException', (err) => {
-  logger.error('ERREUR NON INTERCEPTÉE (Uncaught Exception)! 💥 Arrêt du serveur...');
+  logger.error('UNCAUGHT EXCEPTION! 💥 Arrêt du serveur...');
   logger.error(`${err.name}: ${err.message}\n${err.stack}`);
   server.close(() => process.exit(1));
 });
 
-module.exports = { io };
+module.exports = { app, server, io };
