@@ -17,6 +17,7 @@ import {
 } from './utils.js';
 import * as state from './state.js';
 import { fetchInitialUnreadCount } from './main.js';
+import { fetchThreads } from './messages.js';
 // import { openModal, closeModal, switchAuthView } from './modals.js'; // modals.js gérera ses propres ouvertures/fermetures
 
 const API_BASE_URL = '/api/auth'; // Ajustez selon votre configuration backend
@@ -254,6 +255,7 @@ async function handleLogin(event) {
             // 2. Mettre à jour les éléments communs de l'interface utilisateur (ex: en-tête, menu)
             // Cette fonction est cruciale pour refléter l'état connecté sans rechargement complet.
             updateUIAfterLogin(loggedInUser);
+            await fetchInitialUserData();
 
             // 3. Gérer la suite en fonction de la vérification de l'e-mail
             if (loggedInUser.emailVerified) {
@@ -549,6 +551,18 @@ function updateUIAfterLogout() {
 }
 
 /**
+ * Récupère les données utilisateur initiales après l'authentification.
+ */
+export async function fetchInitialUserData() {
+    try {
+        await fetchThreads();
+        await fetchInitialUnreadCount();
+    } catch (err) {
+        console.error('Erreur lors du chargement des données utilisateur:', err);
+    }
+}
+
+/**
  * Vérifie l'état d'authentification initial au chargement de la page.
  * Si un token JWT valide existe, tente de récupérer les informations de l'utilisateur.
  */
@@ -567,8 +581,8 @@ async function checkInitialAuthState() {
                 state.setCurrentUser(userData);
                 updateUIAfterLogin(userData);
 
-                // Charger le décompte initial de messages non lus
-                fetchInitialUnreadCount();
+                // Charger les données utilisateur initiales
+                await fetchInitialUserData();
                 console.log('Utilisateur authentifié via token existant:', userData.name);
 
                 if (!userData.emailVerified) {

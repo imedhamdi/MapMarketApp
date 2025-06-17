@@ -61,7 +61,6 @@ export function initMessagesUI() {
     backToThreadsBtn.addEventListener('click', () => switchView('threads'));
   }
 
-  fetchThreads();
 }
 
 /**
@@ -105,7 +104,7 @@ function switchView(view) {
 /**
  * Récupère et affiche la liste des conversations de l'utilisateur.
  */
-async function fetchThreads() {
+export async function fetchThreads() {
   try {
     const threads = await secureFetch(`${API_MESSAGES_URL}/threads`);
     renderThreads(threads);
