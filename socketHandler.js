@@ -1,24 +1,30 @@
+/**
+ * Gestionnaire principal des événements Socket.IO.
+ * Définit l'ensemble des listeners utilisés pour la messagerie temps réel.
+ */
 const Thread = require('./models/threadModel');
 const Message = require('./models/messageModel');
 
-const userSockets = new Map();
+/** Map des utilisateurs connectés -> socketId */
+const connectedUsers = new Map();
 
 module.exports = function(io) {
   io.on('connection', (socket) => {
-    console.log(`User connected via socket: ${socket.id} - UserID: ${socket.user.id}`);
+    const userId = socket.handshake.query.userId;
+    console.log(`User connected via socket: ${socket.id} - UserID: ${userId}`);
 
-    userSockets.set(socket.user.id.toString(), socket.id);
+    connectedUsers.set(userId, socket.id);
 
-    socket.join(socket.user.id.toString());
+    socket.join(userId);
 
     socket.on('joinThread', (threadId) => {
       socket.join(threadId);
-      console.log(`User ${socket.user.id} joined thread room: ${threadId}`);
+      console.log(`User ${userId} joined thread room: ${threadId}`);
     });
 
     socket.on('leaveThread', (threadId) => {
       socket.leave(threadId);
-      console.log(`User ${socket.user.id} left thread room: ${threadId}`);
+      console.log(`User ${userId} left thread room: ${threadId}`);
     });
 
     socket.on('sendMessage', async (data) => {
@@ -42,7 +48,7 @@ module.exports = function(io) {
 
         io.to(threadId).emit('newMessage', populatedMessage);
 
-        if (userSockets.has(recipientId.toString())) {
+        if (connectedUsers.has(recipientId.toString())) {
           io.to(recipientId.toString()).emit('newMessageNotification', {
             message: populatedMessage,
             threadId: threadId
@@ -54,10 +60,35 @@ module.exports = function(io) {
       }
     });
 
+    // Indicateur de saisie
+    socket.on('typing_start', ({ threadId }) => {
+      socket.to(threadId).emit('user_typing', {
+        username: socket.user?.name || 'Utilisateur'
+      });
+    });
+
+    socket.on('typing_stop', ({ threadId }) => {
+      socket.to(threadId).emit('user_stopped_typing');
+    });
+
+    // Confirmation de lecture
+    socket.on('message_read', async ({ messageId, threadId }) => {
+      try {
+        await Message.findByIdAndUpdate(messageId, { status: 'read' });
+        io.to(threadId).emit('message_status_updated', {
+          messageId,
+          status: 'read'
+        });
+      } catch (err) {
+        console.error('Error updating read status:', err);
+        socket.emit('chat_error', 'Failed to update read status');
+      }
+    });
+
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.id}`);
       if (socket.user && socket.user.id) {
-        userSockets.delete(socket.user.id.toString());
+        connectedUsers.delete(userId);
       }
     });
   });
