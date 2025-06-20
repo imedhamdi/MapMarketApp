@@ -55,12 +55,17 @@ let currentTabRole = 'purchases';
 export function init() {
     if (!initializeUI()) return;
     setupEventListeners();
+    
+    // Ajoutez ceci :
     state.subscribe('messages.unreadGlobalCountChanged', (count) => {
         updateGlobalUnreadCount(count);
     });
+    
+    // Initialisez avec la valeur actuelle
+    updateGlobalUnreadCount(state.get('messages.unreadGlobalCount') || 0);
+    
     console.log('Module Messages initialisé.');
 }
-
 /**
  * Récupère tous les éléments du DOM nécessaires et vérifie leur existence.
  * @returns {boolean} - True si tous les éléments sont trouvés, false sinon.
@@ -159,7 +164,7 @@ function setupEventListeners() {
     chatMessageInput.addEventListener('input', adjustTextareaHeight);
     chatOptionsBtn.addEventListener('click', toggleChatOptionsMenu);
     document.addEventListener('click', closeOptionsMenuOnClickOutside, true);
-    if(chatComposerBtn) chatComposerBtn.addEventListener('click', () => toggleComposerMenu());
+    if (chatComposerBtn) chatComposerBtn.addEventListener('click', () => toggleComposerMenu());
     document.addEventListener('click', closeComposerMenuOnClickOutside);
     if (chatAttachImageBtn) {
         chatAttachImageBtn.addEventListener('click', () => chatImageUploadInput.click());
@@ -288,7 +293,8 @@ function connectSocket() {
     socket.on('newMessage', handleNewMessageReceived);
     socket.on('unreadCountUpdated', ({ unreadThreadCount }) => {
         if (typeof unreadThreadCount === 'number') {
-            state.set('messages.unreadGlobalCount', unreadThreadCount);
+            state.set('messages.unreadGlobalCount', unreadThreadCount, false); // silent:false pour déclencher l'event
+            updateGlobalUnreadCount(unreadThreadCount); // Mise à jour immédiate
         }
     });
     socket.on('typing', handleTypingEventReceived);
@@ -381,9 +387,9 @@ async function openChatView(threadId, recipient, threadData = null) {
             const diff = Date.now() - new Date(recipient.lastSeen).getTime();
             const minutes = Math.floor(diff / 60000);
             if (minutes < 1) chatRecipientStatus.textContent = 'vu à l\'instant';
-            else if (minutes < 60) chatRecipientStatus.textContent = `vu il y a ${minutes} minute${minutes>1?'s':''}`;
+            else if (minutes < 60) chatRecipientStatus.textContent = `vu il y a ${minutes} minute${minutes > 1 ? 's' : ''}`;
             else {
-                const hours = Math.floor(minutes/60);
+                const hours = Math.floor(minutes / 60);
                 chatRecipientStatus.textContent = `vu il y a ${hours}h`;
             }
         } else {
@@ -401,15 +407,15 @@ async function openChatView(threadId, recipient, threadData = null) {
         const link = document.getElementById('chat-ad-link');
         const price = document.getElementById('chat-ad-price');
 
-        if(thumb) thumb.src = (adForSummary.imageUrls && adForSummary.imageUrls[0]) ? adForSummary.imageUrls[0] : 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
-        if(link) link.textContent = sanitizeHTML(adForSummary.title);
-        if(price) price.textContent = formatCurrency(adForSummary.price, adForSummary.currency);
-        
+        if (thumb) thumb.src = (adForSummary.imageUrls && adForSummary.imageUrls[0]) ? adForSummary.imageUrls[0] : 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
+        if (link) link.textContent = sanitizeHTML(adForSummary.title);
+        if (price) price.textContent = formatCurrency(adForSummary.price, adForSummary.currency);
+
         link.onclick = (e) => {
             e.preventDefault();
             document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'messages-modal' } }));
             setTimeout(() => {
-                 document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: adForSummary._id } }));
+                document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: adForSummary._id } }));
             }, 100);
         };
     } else if (chatAdSummary) {
@@ -420,7 +426,7 @@ async function openChatView(threadId, recipient, threadData = null) {
 
     threadListView.classList.remove('active-view');
     chatView.classList.add('active-view');
-    
+
     // Réinitialisation
     chatMessagesContainer.innerHTML = '';
     chatMessageInput.value = '';
@@ -428,7 +434,7 @@ async function openChatView(threadId, recipient, threadData = null) {
     adjustTextareaHeight();
     removeImagePreview();
     updateSendButtonState();
-    
+
     if (threadId) {
         await loadMessageHistory(threadId, true);
         await markMessagesAsRead(threadId);
@@ -489,8 +495,10 @@ function renderThreadList(threadsData) {
     }
     noThreadsPlaceholder.classList.add('hidden');
 
-    const totalUnread = threadsData.reduce((sum, t) => (sum + (t.unreadCount || 0)), 0);
-    updateGlobalUnreadCount(totalUnread);
+    // Le compte global de threads non lus est géré par le backend via l'événement socket 'unreadCountUpdated'
+    // et potentiellement via la réponse de l'API loadThreads si le backend l'inclut.
+    // Calculer ici la somme des messages non lus par thread pour le badge global serait incorrect.
+    // updateGlobalUnreadCount(state.get('messages.unreadGlobalCount') || 0); // S'assurer que le badge est à jour avec l'état actuel
 
     threadsData.forEach(thread => {
         // La logique pour trouver le 'recipient' et 'currentUser' reste la même
@@ -514,8 +522,8 @@ function renderThreadList(threadsData) {
         if (thread.ad) {
             if (thumbnail) {
                 thumbnail.src = (thread.ad.imageUrls && thread.ad.imageUrls[0])
-                                ? thread.ad.imageUrls[0]
-                                : 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
+                    ? thread.ad.imageUrls[0]
+                    : 'https://placehold.co/60x60/e0e0e0/757575?text=Ad';
                 thumbnail.alt = `Image pour ${sanitizeHTML(thread.ad.title)}`;
             }
             if (adTitle) {
@@ -530,8 +538,8 @@ function renderThreadList(threadsData) {
         // Remplir avec les détails du message
         const lastMessageSender = thread.lastMessage?.sender?.toString() === currentUser._id ? "Vous" : recipient.name;
         const previewText = thread.lastMessage?.text
-                            ? sanitizeHTML(thread.lastMessage.text)
-                            : (thread.lastMessage?.imageUrl ? '[Image]' : 'Début de la conversation');
+            ? sanitizeHTML(thread.lastMessage.text)
+            : (thread.lastMessage?.imageUrl ? '[Image]' : 'Début de la conversation');
 
         if (userNameEl) userNameEl.textContent = `${sanitizeHTML(lastMessageSender)}: `;
         if (messagePreviewEl) messagePreviewEl.textContent = previewText;
@@ -642,10 +650,10 @@ function renderMessages(messages, method) {
                     textEl.innerHTML = '';
                     textEl.appendChild(img);
                     if (msg.text) {
-                         const caption = document.createElement('p');
-                         caption.textContent = sanitizeHTML(msg.text);
-                         caption.style.marginTop = '4px';
-                         textEl.appendChild(caption);
+                        const caption = document.createElement('p');
+                        caption.textContent = sanitizeHTML(msg.text);
+                        caption.style.marginTop = '4px';
+                        textEl.appendChild(caption);
                     }
                 }
                 break;
@@ -672,7 +680,7 @@ function renderMessages(messages, method) {
                 if (appTpl) {
                     const card = appTpl.content.firstElementChild.cloneNode(true);
                     card.querySelector('.appointment-date').textContent = new Date(msg.metadata.date).toLocaleDateString();
-                    card.querySelector('.appointment-time').textContent = new Date(msg.metadata.date).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+                    card.querySelector('.appointment-time').textContent = new Date(msg.metadata.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     card.querySelector('.appointment-location').textContent = msg.metadata.location || '';
                     card.querySelector('.appointment-status').textContent = msg.metadata.status || '';
                     if (!isSentByMe && msg.metadata.status === 'pending') {
@@ -984,7 +992,7 @@ function adjustTextareaHeight() {
     chatMessageInput.style.height = 'auto';
     let scrollHeight = chatMessageInput.scrollHeight;
     const maxHeight = 120;
-    if(scrollHeight > maxHeight) {
+    if (scrollHeight > maxHeight) {
         chatMessageInput.style.height = maxHeight + 'px';
         chatMessageInput.style.overflowY = 'auto';
     } else {
@@ -996,7 +1004,7 @@ function adjustTextareaHeight() {
 function updateMessageGrouping() {
     const messages = [...chatMessagesContainer.querySelectorAll('.chat-message:not(.system-message)')];
     messages.forEach((el, idx) => {
-        el.classList.remove('is-first-in-group','is-middle-in-group','is-last-in-group','is-single-message');
+        el.classList.remove('is-first-in-group', 'is-middle-in-group', 'is-last-in-group', 'is-single-message');
         const prev = messages[idx - 1];
         const next = messages[idx + 1];
         const sender = el.dataset.senderId;
@@ -1014,16 +1022,18 @@ function updateMessageGrouping() {
 // --- GESTION DES ÉVÉNEMENTS SOCKET REÇUS ---
 
 function handleNewMessageReceived({ message, thread, unreadThreadCount }) {
-    if (typeof unreadThreadCount === 'number') {
+    const currentUser = state.getCurrentUser();
+    const isMyMessage = (message.senderId?._id || message.senderId) === currentUser?._id;
+
+     // Ne pas incrémenter si c'est notre propre message
+    if (!isMyMessage && typeof unreadThreadCount === 'number') {
         state.set('messages.unreadGlobalCount', unreadThreadCount);
     }
     if (threadListView.classList.contains('active-view')) {
         loadThreads(currentTabRole);
     }
-    
-    const currentUser = state.getCurrentUser();
-    const isMyMessage = (message.senderId?._id || message.senderId) === currentUser?._id;
 
+    
     if (isMyMessage && message.tempId) {
         const tempMessageEl = document.querySelector(`.chat-message[data-temp-id="${message.tempId}"]`);
         if (tempMessageEl) {
@@ -1033,7 +1043,7 @@ function handleNewMessageReceived({ message, thread, unreadThreadCount }) {
             if (statusContainer) {
                 statusContainer.innerHTML = renderMessageStatus({ status: 'sent' });
             }
-            if(message.type === 'image' && message.imageUrl) {
+            if (message.type === 'image' && message.imageUrl) {
                 const imgEl = tempMessageEl.querySelector('.chat-image-attachment');
                 if (imgEl) imgEl.src = message.imageUrl;
             }
@@ -1041,7 +1051,7 @@ function handleNewMessageReceived({ message, thread, unreadThreadCount }) {
             return;
         }
     }
-    
+
     if (activeThreadId === message.threadId) {
         renderMessages([message], 'append');
         markMessagesAsRead(activeThreadId);
@@ -1135,11 +1145,21 @@ async function markMessagesAsRead(threadId) {
 function updateGlobalUnreadCount(count) {
     const newCount = Math.max(0, count || 0);
     if (messagesNavBadge) {
-        messagesNavBadge.textContent = newCount > 9 ? '9+' : newCount;
-        messagesNavBadge.classList.toggle('hidden', newCount === 0);
+        // Mettre à jour l'attribut data-count
+        messagesNavBadge.dataset.count = newCount;
+
+        // Mettre à jour le texte seulement si > 0
+        messagesNavBadge.textContent = newCount > 9 ? '9+' : newCount.toString();
+
+        // Gérer la visibilité
+        const shouldHide = newCount <= 0;
+        messagesNavBadge.classList.toggle('hidden', shouldHide);
+        messagesNavBadge.setAttribute('aria-hidden', shouldHide ? 'true' : 'false');
+
+        // Mettre à jour le titre pour l'accessibilité
+        messagesNavBadge.setAttribute('title', `${newCount} messages non lus`);
     }
 }
-
 function scrollToBottom(container) {
     if (container) {
         container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
@@ -1168,7 +1188,7 @@ async function handleInitiateChatEvent(event) {
     const currentUser = state.getCurrentUser();
     if (!currentUser) {
         showToast("Session non trouvée. Veuillez vous reconnecter.", "error");
-        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' }}));
+        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' } }));
         return;
     }
 
@@ -1237,7 +1257,7 @@ function closeComposerMenuOnClickOutside(event) {
     }
 }
 
-if(chatComposerMenu) {
+if (chatComposerMenu) {
     chatComposerMenu.addEventListener('click', (e) => {
         if (e.target.closest('button')) {
             toggleComposerMenu(true);

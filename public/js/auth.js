@@ -511,16 +511,19 @@ function updateUIAfterLogin(userData) {
         headerProfileAvatar.src = userData.avatarUrl || 'avatar-default.svg';
         headerProfileAvatar.alt = `Avatar de ${sanitizeHTML(userData.name)}`;
     }
-    // Masquer les options "Connexion/Inscription" si elles sont visibles
-    // Afficher les options "Mon compte", "Déconnexion"
-    // Par exemple, dans le menu "Plus" ou le menu de profil.
     document.body.classList.add('user-logged-in');
     document.body.classList.remove('user-logged-out');
 
-    // Dispatch un événement pour que d'autres modules puissent réagir
+    // Nouveau: Charger immédiatement les messages non lus
+    secureFetch('/api/messages/threads/unread-count', {}, false)
+        .then(countResponse => {
+            if (countResponse && countResponse.success) {
+                state.set('messages.unreadGlobalCount', countResponse.data.unreadCount);
+            }
+        });
+
     document.dispatchEvent(new CustomEvent('mapMarket:userLoggedIn', { detail: userData }));
 }
-
 /**
  * Met à jour l'interface utilisateur après la déconnexion.
  */
@@ -560,12 +563,10 @@ async function checkInitialAuthState() {
                 updateUIAfterLogin(userData);
 
                 // Charger le décompte initial de messages non lus
-                secureFetch('/api/messages/threads/unread-count', {}, false)
-                    .then(countResponse => {
-                        if (countResponse && countResponse.success) {
-                            state.set('messages.unreadGlobalCount', countResponse.data.unreadCount);
-                        }
-                    });
+                const countResponse = await secureFetch('/api/messages/threads/unread-count', {}, false);
+                if (countResponse && countResponse.success) {
+                    state.set('messages.unreadGlobalCount', countResponse.data.unreadCount);
+                }
                 console.log('Utilisateur authentifié via token existant:', userData.name);
 
                 if (!userData.emailVerified) {
@@ -598,7 +599,7 @@ async function checkInitialAuthState() {
             // pour lesquelles secureFetch ou d'autres parties pourraient déjà afficher un message.
             // Une 404 sur /api/auth/me est une erreur serveur critique, mais le client doit se déconnecter.
             if (!(error.message.includes('401') || error.message.includes('403'))) {
-                 showToast("Votre session n'a pas pu être vérifiée. Veuillez vous reconnecter.", "error");
+                showToast("Votre session n'a pas pu être vérifiée. Veuillez vous reconnecter.", "error");
             }
         }
     } else {

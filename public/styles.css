@@ -2573,7 +2573,6 @@ body,
     .ad-price {
         font-size: 1.3rem;
     }
-}
 
 /* DARK MODE */
 body.dark-mode {
@@ -3606,3 +3605,24 @@ body.dark-mode .chat-recipient:hover, body.dark-mode .chat-recipient:focus {
   display: none !important;
 }
 
+.badge.nav-badge .badge.nav-badge{
+    position: absolute;
+    top: -5px;
+
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    font-size: 11px;
+    line-height: 18px;
+    text-align: center;
+    padding: 0 4px;
+    transition: opacity 0.2s;
+}
+
+.badge.nav-badge[data-count="0"] {
+    display: none;
+}
+
+.badge.nav-badge:not([data-count="0"]) {
+    display: inline-block;
+}
