@@ -1,0 +1,1045 @@
+/* Messages Modal */
+#messages-modal .modal-content {
+    max-width: 800px;
+    height: 80vh;
+    max-height: 700px;
+}
+
+#messages-modal.slide-from-right .modal-content {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    height: 100vh;
+    max-height: 100vh;
+    width: 100%;
+    max-width: 400px;
+    border-radius: 0;
+    margin: 0;
+    /* État initial : complètement à droite ET invisible */
+    transform: translateX(100%);
+    opacity: 0;
+}
+
+#messages-modal[aria-hidden="false"].slide-from-right .modal-content {
+    /* État final : à sa place ET complètement visible */
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.messages-view {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+}
+
+.messages-view.active-view {
+    display: flex;
+}
+
+.thread-list-body,
+.chat-messages-body {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: var(--spacing-sm);
+}
+
+.thread-item {
+    cursor: pointer;
+    padding: var(--spacing-sm);
+}
+
+.thread-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+}
+
+.thread-info .thread-user {
+    font-weight: 600;
+}
+
+.thread-info .thread-preview {
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.thread-meta {
+    margin-left: auto;
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    flex-shrink: 0;
+}
+
+.thread-meta .unread-badge {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    margin-top: 4px;
+    display: inline-block;
+}
+
+.chat-header {
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.chat-recipient-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+}
+
+.chat-title {
+    flex-grow: 1;
+    font-size: 1.1rem;
+}
+
+.chat-recipient-status {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+#chat-options-menu {
+    position: absolute;
+    right: var(--spacing-md);
+    top: calc(var(--header-height) - var(--spacing-sm));
+    background-color: var(--component-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 10;
+    padding: var(--spacing-sm) 0;
+    min-width: 180px;
+}
+
+#chat-options-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: none;
+    border: none;
+    font-size: 0.9rem;
+}
+
+#chat-options-menu button:hover {
+    background-color: var(--gray-100);
+}
+
+.chat-messages-body {
+    padding: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.chat-message {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius-lg); /* Un radius généreux par défaut */
+    max-width: 75%;
+    word-wrap: break-word;
+    line-height: 1.4;
+    position: relative;
+    box-shadow: var(--shadow-xs); /* Ajouter une ombre légère */
+}
+
+.chat-message.sending {
+    opacity: 0.7;
+    background-color: var(--gray-400);
+}
+
+.chat-message.message-failed {
+    background-color: var(--danger-color-light, #fee2e2);
+    border: 1px solid var(--danger-color);
+}
+.message-failed .message-text {
+    color: var(--danger-color-dark);
+}
+
+
+.chat-message[data-sender-id="me"] {
+    background-color: var(--primary-color);
+    color: white;
+    margin-left: auto;
+}
+
+
+.chat-message:not([data-sender-id="me"]) {
+    background-color: var(--gray-200);
+    color: var(--text-color-base);
+    margin-right: auto;
+}
+
+.chat-message.is-first-in-group {
+    margin-top: var(--spacing-sm);
+}
+
+.chat-message.is-middle-in-group,
+.chat-message.is-last-in-group {
+    margin-top: 2px;
+}
+.chat-message[data-sender-id="me"].is-last-in-group,
+.chat-message[data-sender-id="me"].is-single-message {
+    border-bottom-right-radius: var(--border-radius-xs);
+}
+
+.chat-message:not([data-sender-id="me"]).is-last-in-group,
+.chat-message:not([data-sender-id="me"]).is-single-message {
+    border-bottom-left-radius: var(--border-radius-xs);
+}
+
+
+
+
+
+.message-time {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--gray-400);
+    margin-top: 4px;
+    text-align: right;
+}
+
+.chat-message[data-sender-id="me"] .message-time {
+    color: rgba(var(--light-color), 0.7);
+}
+
+.read-indicator {
+    margin-left: 4px;
+    font-size: 0.75rem;
+    color: var(--primary-color);
+}
+
+.system-message {
+    background: transparent;
+    color: var(--gray-500);
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    box-shadow: none;
+}
+
+.date-separator {
+    text-align: center;
+    margin: var(--spacing-sm) 0;
+    color: var(--gray-500);
+    font-size: 0.85rem;
+}
+
+.chat-input-footer {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-top: 1px solid var(--border-color-light);
+    background-color: var(--gray-50);
+    gap: var(--spacing-sm);
+}
+
+.composer-menu {
+    position: absolute;
+    bottom: calc(100% + var(--spacing-sm));
+    left: var(--spacing-md);
+    right: var(--spacing-md);
+    background-color: var(--component-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: var(--spacing-sm);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-sm);
+    z-index: 10;
+    transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+    transform: translateY(10px);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.composer-menu:not(.hidden) {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.composer-menu button {
+    text-align: left;
+    justify-content: flex-start;
+}
+
+.message-input {
+    flex-grow: 1;
+    resize: none;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    font-size: 1rem;
+    min-height: 40px;
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+#emoji-palette-container {
+    position: absolute;
+    bottom: calc(100% + var(--spacing-xs));
+    left: var(--spacing-sm);
+    background: white;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-lg);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    z-index: 10;
+}
+
+.typing-indicator {
+    padding: 0 var(--spacing-md) var(--spacing-xs);
+    font-size: 0.8rem;
+    color: var(--gray-500);
+}
+
+.typing-indicator .dots span {
+    animation: blink 1.4s infinite both;
+}
+
+.typing-indicator .dots span:nth-child(2) {
+    animation-delay: .2s;
+}
+
+.typing-indicator .dots span:nth-child(3) {
+    animation-delay: .4s;
+}
+
+.chat-image-preview-thumb {
+    max-width: 80px;
+    max-height: 80px;
+    border-radius: var(--border-radius-sm);
+    object-fit: cover;
+    border: 1px solid var(--border-color-light);
+}
+
+.chat-remove-preview-btn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    transform: translate(50%, -50%);
+    width: 20px;
+    height: 20px;
+    font-size: 0.7rem;
+    line-height: 1;
+    padding: 0;
+}
+
+/* Aperçu de l'image avant envoi */
+#chat-image-preview-container {
+    padding: var(--spacing-xs) var(--spacing-md);
+    position: relative;
+    align-self: flex-start;
+}
+
+/* Image dans une bulle de chat */
+.chat-message .chat-image-attachment {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: var(--border-radius-md);
+    cursor: pointer;
+    margin-top: 4px;
+}
+
+@keyframes blink {
+    0% {
+        opacity: .2;
+    }
+
+    20% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: .2;
+    }
+}
+
+/* ---------- Messagerie améliorée ---------- */
+
+/* Modal de prise de contact */
+#contact-seller-modal .modal-content {
+    max-width: 400px;
+}
+
+#contact-seller-modal textarea {
+    width: 100%;
+    resize: vertical;
+    min-height: 80px;
+}
+
+/* Onglets de discussions */
+#threads-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color-light);
+}
+
+#threads-tabs button {
+    flex: 1;
+    padding: var(--spacing-sm);
+    background: none;
+    border: none;
+    font-weight: 600;
+    color: var(--gray-600);
+    border-bottom: 2px solid transparent;
+}
+
+#threads-tabs button.active {
+    color: var(--text-color-base);
+    border-color: var(--primary-color);
+}
+
+/* En-tête de conversation collant */
+.chat-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: var(--modal-bg);
+}
+
+.chat-ad-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: 1px solid var(--border-color-light);
+    background-color: var(--gray-50);
+    transition: background-color var(--transition-duration-short) var(--transition-timing-function);
+}
+
+body.dark-mode .chat-ad-summary {
+    background-color: var(--gray-700);
+    border-color: var(--gray-600);
+}
+
+.chat-ad-summary:hover {
+    background-color: var(--gray-100);
+}
+
+body.dark-mode .chat-ad-summary:hover {
+    background-color: var(--gray-600);
+}
+
+.chat-ad-thumbnail {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: var(--border-radius-sm);
+    flex-shrink: 0;
+    background-color: var(--gray-200);
+}
+
+.chat-ad-summary-details {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.chat-ad-title-link {
+    font-weight: 600;
+    color: var(--text-color-headings);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chat-ad-title-link:hover {
+    color: var(--primary-color);
+    text-decoration: underline;
+}
+
+.offer-card, .appointment-card, .location-card {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--gray-50);
+    border: 1px solid var(--border-color-light);
+    border-radius: var(--border-radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    position: relative;
+}
+
+.offer-card::before {
+    content: "\f0d6";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: var(--spacing-xs);
+}
+
+.appointment-card::before {
+    content: "\f073";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: var(--spacing-xs);
+}
+
+.location-card::before {
+    content: "\f3c5";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: var(--spacing-xs);
+}
+
+.offer-actions, .appointment-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.chat-ad-price-tag {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--primary-color);
+}
+
+.chat-security-alert {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    background-color: var(--warning-color);
+    color: white;
+    padding: var(--spacing-xs) var(--spacing-md);
+    font-size: 0.85rem;
+}
+
+.chat-actions-toolbar {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-top: 1px solid var(--border-color-light);
+    background-color: var(--gray-50);
+}
+
+.chat-actions-toolbar button {
+    flex: 1;
+}
+
+/* ============================================= */
+/* ==   STYLES POUR LA MODALE D'ANNONCE V2      == */
+/* ============================================= */
+
+/* 1. Comportement de la Bottom Sheet */
+.modal-overlay.modal-bottom-sheet {
+    align-items: flex-end; /* Aligner la modale en bas */
+    padding: 0; /* Pas de padding sur l'overlay lui-même */
+}
+
+.modal-bottom-sheet .modal-content {
+    width: 100%;
+    max-width: 100%;
+    height: auto; /* Hauteur par défaut de la feuille */
+    max-height: 90vh;
+    margin: 0;
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0; /* Coins arrondis seulement en haut */
+    transform: translateY(100%); /* Position initiale cachée en bas */
+    transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1); /* Animation de glissement */
+}
+
+.modal-overlay[aria-hidden="false"].modal-bottom-sheet .modal-content {
+    transform: translateY(0); /* Position visible */
+}
+
+.modal-bottom-sheet .modal-header {
+    cursor: grab; /* Indique qu'on peut "saisir" l'en-tête */
+    position: relative; /* Pour le positionnement du handle */
+    padding-top: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+}
+
+.modal-handle {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background-color: var(--gray-300);
+    border-radius: var(--border-radius-full);
+}
+
+body.dark-mode .modal-handle {
+    background-color: var(--gray-600);
+}
+
+/* 2. Barre d'actions "collante" */
+#ad-detail-actions-container {
+    position: sticky; /* ou position: fixed si la modale scroll tout le body */
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--component-bg);
+    padding: var(--spacing-md);
+    border-top: 1px solid var(--border-color);
+    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.05);
+    z-index: 10;
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+body.dark-mode #ad-detail-actions-container {
+    background-color: var(--gray-800);
+    border-top: 1px solid var(--gray-700);
+}
+
+#ad-detail-actions-container .btn {
+    flex-grow: 1;
+}
+
+#ad-detail-actions-container #ad-detail-favorite-btn {
+    flex-grow: 0; /* Le bouton favori ne prend que sa propre largeur */
+    flex-basis: 50px;
+}
+
+/* 3. Nouveaux éléments d'information */
+.carousel-image-counter {
+    position: absolute;
+    bottom: var(--spacing-md);
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    font-size: 0.8rem;
+    font-weight: 500;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.ad-meta-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin: var(--spacing-md) 0;
+}
+
+.meta-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    background-color: var(--gray-100);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    font-size: 0.85rem;
+    color: var(--gray-700);
+}
+
+body.dark-mode .meta-badge {
+    background-color: var(--gray-700);
+    color: var(--gray-200);
+}
+
+.meta-badge i {
+    color: var(--gray-500);
+}
+
+/* Description extensible */
+.collapsible-description {
+    position: relative;
+    max-height: 80px; /* Hauteur max avant de cacher le texte */
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out;
+}
+.collapsible-description::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    background: linear-gradient(to top, var(--modal-bg), transparent);
+    pointer-events: none;
+}
+.collapsible-description.expanded {
+    max-height: 1000px; /* Valeur suffisamment grande */
+}
+.collapsible-description.expanded::after {
+    display: none;
+}
+
+/* ============================================= */
+/* ==   AMÉLIORATION VISUELLE DES BADGES        == */
+/* ============================================= */
+
+.meta-badge {
+    /* Styles de base déjà présents, on ajoute les couleurs spécifiques */
+    font-weight: 500;
+}
+
+/* Couleur pour la catégorie (basée sur la couleur primaire) */
+#ad-detail-category {
+    background-color: rgba(var(--primary-color-rgb), 0.1);
+    color: var(--primary-color);
+}
+#ad-detail-category i {
+    color: var(--primary-color);
+}
+
+/* Couleur pour la localisation (basée sur la couleur de succès/vert) */
+#ad-detail-location {
+    background-color: rgba(34, 197, 94, 0.1); /* Vert */
+    color: #15803d; /* Vert foncé */
+}
+#ad-detail-location i {
+    color: #15803d;
+}
+
+/* Couleur pour la distance (basée sur la couleur accent/orange) */
+#ad-detail-distance {
+    background-color: rgba(245, 158, 11, 0.1); /* Orange */
+    color: #b45309; /* Orange foncé */
+}
+#ad-detail-distance i {
+    color: #b45309;
+}
+
+/* Couleur pour la date (basée sur le gris neutre) */
+#ad-detail-date {
+    background-color: var(--gray-200);
+    color: var(--gray-600);
+}
+#ad-detail-date i {
+    color: var(--gray-500);
+}
+
+/* Styles pour le mode sombre */
+body.dark-mode #ad-detail-category { background-color: rgba(var(--primary-color-rgb), 0.2); color: var(--primary-color-light); }
+body.dark-mode #ad-detail-category i { color: var(--primary-color-light); }
+body.dark-mode #ad-detail-location { background-color: rgba(74, 222, 128, 0.2); color: #a3e635; }
+body.dark-mode #ad-detail-location i { color: #a3e635; }
+body.dark-mode #ad-detail-distance { background-color: rgba(251, 191, 36, 0.2); color: #facc15; }
+body.dark-mode #ad-detail-distance i { color: #facc15; }
+body.dark-mode #ad-detail-date { background-color: var(--gray-700); color: var(--gray-300); }
+body.dark-mode #ad-detail-date i { color: var(--gray-400); }
+
+/* ===== Ad Preview Bottom Sheet ===== */
+.ad-preview-card {
+    position: absolute;
+    left: var(--spacing-md);
+    right: var(--spacing-md);
+    bottom: calc(var(--bottom-nav-height) + var(--spacing-md));
+    background-color: var(--component-bg);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    transform: translateY(100%);
+    transition: transform 0.3s ease-in-out;
+    z-index: 1000;
+    align-items: center;
+}
+
+.ad-preview-card:not(.hidden) {
+    transform: translateY(0);
+}
+
+.ad-preview-card .preview-card-image {
+    width: 96px;
+    height: 96px;
+    object-fit: cover;
+    border-radius: var(--border-radius-md);
+    flex-shrink: 0;
+}
+
+.ad-preview-card .preview-card-details {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.ad-preview-card h3 {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.2;
+}
+
+.ad-preview-card p {
+    margin: 0;
+    font-weight: 600;
+}
+
+.ad-preview-card .preview-card-meta {
+    display: flex;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+}
+
+.ad-preview-card .favorite-btn {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    background-color: var(--component-bg);
+    border-radius: var(--border-radius-full);
+    box-shadow: var(--shadow-sm);
+}
+
+.ad-preview-card .favorite-btn.active i {
+    color: var(--danger-color);
+}
+/* ============================================= */
+/* ==      STYLES POUR ACTIONS PROPRIÉTAIRE   == */
+/* ============================================= */
+
+.owner-actions-panel {
+    background-color: var(--gray-100);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-md);
+    margin: var(--spacing-lg) 0;
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: space-around;
+}
+
+body.dark-mode .owner-actions-panel {
+    background-color: var(--gray-700);
+    border-color: var(--gray-600);
+}
+
+.owner-actions-panel .btn {
+    flex: 1; /* Pour que les boutons prennent une largeur égale */
+}
+
+/* Le style .btn-danger-outline est déjà dans votre CSS, parfait ! */
+
+/* ===== New & Improved Chat Styles ===== */
+
+/* 1. Meta container for time and status */
+.message-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    font-size: 0.75rem;
+    color: var(--gray-400);
+    margin-top: 4px;
+    gap: 4px;
+}
+
+.chat-message[data-sender-id="me"] .message-meta {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* 2. Status Icons (Read Receipts) */
+.message-status-icons {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+}
+
+.message-status-icons i {
+    font-size: 0.8em;
+}
+
+.message-status-icons .fa-check-double {
+    color: #4fc3f7;
+}
+
+.chat-message:not([data-sender-id="me"]) .message-status-icons {
+    display: none;
+}
+
+
+/* 4. Chat Header Reorganization Styles */
+.chat-header {
+    justify-content: space-between;
+}
+
+.chat-recipient {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-grow: 1;
+    min-width: 0;
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    border-radius: var(--border-radius-md);
+    transition: background-color var(--transition-duration-short);
+}
+
+.chat-recipient:hover, .chat-recipient:focus {
+    background-color: var(--gray-100);
+}
+body.dark-mode .chat-recipient:hover, body.dark-mode .chat-recipient:focus {
+    background-color: var(--gray-700);
+}
+
+.chat-recipient-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.chat-recipient-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.chat-header .chat-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0;
+}
+
+.chat-header-actions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* ============================================= */
+/* ==      STYLES AMÉLIORÉS POUR LA LISTE     == */
+/* ==      DES CONVERSATIONS (THREADS)        == */
+/* ============================================= */
+
+.thread-item {
+    /* list-item-card fournit déjà une bonne base, on peut affiner ici */
+    align-items: flex-start; /* Aligner les items en haut */
+    padding: var(--spacing-md);
+}
+
+.thread-item__thumbnail {
+    width: 60px;
+    height: 60px;
+    border-radius: var(--border-radius-md); /* Coins carrés pour les annonces */
+    flex-shrink: 0;
+}
+
+.thread-item__info {
+    /* item-info fournit flex-grow: 1 et min-width: 0, c'est bon */
+    display: flex;
+    flex-direction: column;
+    gap: 2px; /* Espacement entre le titre et la ligne de message */
+}
+
+.thread-item__ad-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-color-headings);
+    margin: 0;
+    line-height: 1.3;
+    
+    /* Gérer le texte long */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.thread-item__message-line {
+    font-size: 0.9rem;
+    color: var(--text-color-muted);
+    margin: 0;
+    line-height: 1.4;
+
+    /* Gérer le texte long */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.thread-item__user-name {
+    /* Le nom de l'expéditeur du dernier message */
+    font-weight: 500;
+    color: var(--text-color-base);
+}
+
+.thread-item__meta {
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--spacing-xs);
+}
+
+/* S'assurer que le badge non lu est bien visible */
+.thread-item__meta .unread-badge {
+    font-size: 0.75rem;
+    font-weight: bold;
+    background-color: var(--primary-color);
+    color: var(--light-color);
+    border-radius: var(--border-radius-full);
+    min-width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+}
+
+/* Status icons for messages */
+.message .timestamp {
+  font-size: 0.75rem;
+  color: #888;
+  margin-left: 10px;
+  align-self: flex-end;
+}
+
+.status-icon {
+  font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
+  font-weight: bold;
+  color: #888;
+  margin-left: 5px;
+}
+
+.status-icon.read {
+  color: #34b7f1;
+}
+
+.message.sent .timestamp {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+/* Styles pour les conversations non lues */
+.thread-item.thread-unread .thread-item__ad-title,
+.thread-item.thread-unread .thread-item__user-name {
+    font-weight: 700;
+    color: var(--text-color-headings);
+}
+
+.thread-item.thread-unread .thread-item__message-preview {
+    color: var(--text-color-base);
+    font-weight: 500;
+}
+
+.thread-meta .unread-badge {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    min-width: 20px;
+    text-align: center;
+    transition: transform 0.2s ease;
+}
+
+.thread-meta .unread-badge.hidden {
+    transform: scale(0);
+}
+
