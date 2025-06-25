@@ -178,18 +178,17 @@ exports.createInternalNotification = async (notificationData) => {
         logger.info(`Notification interne créée pour l'utilisateur ${notificationData.userId}, type: ${notificationData.type}`);
         
         // Envoyer via Socket.IO à l'utilisateur concerné
-        const { io, userSockets } = require('../server');
+        const { io } = require('../server');
         if (io && notificationData.userId) {
-            const socketId = userSockets[notificationData.userId];
+            const userRoom = `user_${notificationData.userId}`;
             const unreadCount = await Notification.countDocuments({ userId: notificationData.userId, isRead: false });
 
-            if (socketId) {
-                io.to(socketId).emit('new_notification', {
-                    notification,
-                    unreadCount
-                });
-                logger.info(`Notification émise via Socket.IO au socket ${socketId}`);
-            }
+            // On utilise le namespace '/chat' et la room de l'utilisateur comme défini dans server.js
+            io.of('/chat').to(userRoom).emit('new_notification', {
+                notification,
+                unreadCount
+            });
+            logger.info(`Notification émise via Socket.IO à la room ${userRoom}`);
         }
 
     //    Envoyer un email si les préférences de l'utilisateur le permettent

@@ -216,7 +216,7 @@ async function handlePushNotificationsToggle() {
             }
 
             if (permission === 'granted') {
-                const vapidPublicKey = 'BCXjH7YCFwNqX01pZ97duAd3XbA_x0jO3s_pX1_L8fPjV0L1g8tq3zU7fX0f_bYjZ8hH5A_pP0eP6Yk'; // ** REMPLACEZ PAR VOTRE VRAIE CLÉ PUBLIQUE VAPID **
+                const vapidPublicKey = 'BCXjH7YCFwNqX01pZ97duAd3XbA_x0jO3s_pX1_L8fPjV0L1g8tq3zU7fX0f_bYjZ8hH5A_pP0eP6Yk'; // IMPORTANT: REMPLACEZ PAR VOTRE VRAIE CLÉ PUBLIQUE VAPID GÉNÉRÉE PAR VOTRE BACKEND !
                 if (!vapidPublicKey || vapidPublicKey.startsWith('VOTRE')) {
                     console.error("Settings: Clé VAPID publique non configurée ! L'abonnement Push échouera.");
                     showToast("Configuration des notifications push incomplète côté client.", "error");

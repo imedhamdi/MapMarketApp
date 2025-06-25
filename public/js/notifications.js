@@ -18,35 +18,24 @@ const API_BASE_URL = '/api/notifications';
 
 // --- Éléments du DOM ---
 let notificationsPanel, notificationsListContainer, notificationItemTemplate, noNotificationsPlaceholder;
-let notificationsBadgeHeader;
-let notificationDropdown;
-let socket = null;
+let notificationsBadgeHeader; // Badge sur le bouton de l'en-tête
 let markAllAsReadBtn, clearAllNotificationsBtn; // Boutons potentiels dans le panel
 
 // --- État du module ---
 // Les notifications sont stockées dans state.js: state.notifications.list et state.notifications.unreadCount
 
-function connectSocket() {
-    const token = localStorage.getItem('mapmarket_auth_token');
-    if (!token || socket) return;
-    socket = io({ auth: { token } });
-    socket.on('new_notification', (notif) => {
-        handleNewNotificationEvent({ detail: { notificationData: notif } });
-    });
-}
-
 /**
  * Initialise les éléments du DOM et les écouteurs d'événements pour les notifications.
  */
 export function init() {
-    notificationsPanel = document.getElementById('notifications-panel');
-    notificationDropdown = document.getElementById('notification-list');
-    notificationsListContainer = notificationDropdown;
+    notificationsPanel = document.getElementById('notifications-panel'); // C'est une modale dans index.html
+    // Le contenu des notifications sera dans le modal-body de notifications-panel
+    notificationsListContainer = notificationsPanel ? notificationsPanel.querySelector('.modal-body') : null;
     // Il faudra un template pour les items de notification dans le HTML, ou le créer dynamiquement.
     // Pour l'instant, on va le créer dynamiquement si non trouvé.
     notificationItemTemplate = document.getElementById('notification-item-template'); // À ajouter au HTML
 
-    noNotificationsPlaceholder = document.getElementById('no-notifications-placeholder');
+    noNotificationsPlaceholder = document.getElementById('no-notifications-placeholder'); // À ajouter au HTML
     notificationsBadgeHeader = document.getElementById('notifications-badge');
 
     // Boutons optionnels à ajouter dans le panel des notifications
@@ -58,29 +47,20 @@ export function init() {
         // Ne pas bloquer le reste de l'app si le panel n'est pas critique au démarrage.
     }
 
-    const currentUser = state.getCurrentUser();
-    if (currentUser) {
-        connectSocket();
-        loadUserNotifications();
-    } else {
-        updateNotificationsBadge(0);
-    }
-
     // Écouteurs d'événements
     const headerNotificationsBtn = document.getElementById('header-notifications-btn');
-    if (headerNotificationsBtn && notificationDropdown) {
+    if (headerNotificationsBtn) {
         headerNotificationsBtn.addEventListener('click', () => {
-            const hidden = notificationDropdown.classList.contains('hidden');
-            if (hidden) {
-                loadUserNotifications();
-                notificationDropdown.classList.remove('hidden');
-                setTimeout(markVisibleNotificationsAsRead, 3000);
-            } else {
-                notificationDropdown.classList.add('hidden');
-            }
+            // L'ouverture de la modale est gérée par modals.js via aria-controls
+            // On s'assure de charger les notifications à l'ouverture.
         });
     }
 
+    document.addEventListener('mapMarket:modalOpened', (event) => {
+        if (event.detail.modalId === 'notifications-panel') {
+            handleOpenNotificationsPanel();
+        }
+    });
 
     // S'abonner aux changements de l'état des notifications
     state.subscribe('notificationsChanged', (notificationsState) => {
@@ -90,10 +70,30 @@ export function init() {
         }
     });
 
+    // Écouter les messages du Service Worker (pour les nouvelles notifications push)
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data && event.data.type === 'NEW_NOTIFICATION') {
+                console.log("Notifications: Message 'NEW_NOTIFICATION' reçu du SW.", event.data.notificationData);
+                // Dispatcher l'événement interne pour réutiliser la logique existante
+                document.dispatchEvent(new CustomEvent('mapMarket:newNotification', {
+                    detail: { notificationData: event.data.notificationData }
+                }));
+            }
+        });
+    }
     // Écouteur pour un événement de nouvelle notification (dispatché par SW pour Push ou par messages.js, alerts.js etc.)
     document.addEventListener('mapMarket:newNotification', handleNewNotificationEvent);
 
-    // Initialiser le badge avec la valeur actuelle
+    // Charger les notifications initiales et le compteur
+    const currentUser = state.getCurrentUser();
+    if (currentUser) {
+        loadUserNotifications();
+    } else {
+        updateNotificationsBadge(0); // Pas de notifs si pas connecté
+    }
+
+    // Initialiser le badge avec la valeur de l'état (au cas où elle serait déjà là)
     updateNotificationsBadge(state.get('notifications.unreadCount') || 0);
 
 
@@ -406,29 +406,6 @@ async function markNotificationAsRead(notificationId) {
             // Pour l'instant, on garde l'optimisme côté client.
             showToast("Erreur de synchronisation du statut de la notification.", "error");
         }
-    }
-}
-
-async function markVisibleNotificationsAsRead() {
-    if (!notificationDropdown) return;
-    const unreadEls = notificationDropdown.querySelectorAll('.notification-item.unread');
-    const ids = Array.from(unreadEls).map(el => el.dataset.notificationId);
-    if (ids.length === 0) return;
-    try {
-        await secureFetch(`${API_BASE_URL}/mark-as-read`, {
-            method: 'POST',
-            body: { notificationIds: ids }
-        }, false);
-        ids.forEach(id => {
-            const n = state.get('notifications.list').find(n => n.id === id);
-            if (n) n.isRead = true;
-        });
-        state.set('notifications', {
-            list: state.get('notifications.list'),
-            unreadCount: Math.max(0, state.get('notifications.unreadCount') - ids.length)
-        });
-    } catch (e) {
-        console.error('Erreur mark-as-read', e);
     }
 }
 

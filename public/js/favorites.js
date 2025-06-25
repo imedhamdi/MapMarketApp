@@ -157,9 +157,9 @@ async function handleToggleFavoriteEvent(event) {
  */
 async function addFavorite(adId) {
     try {
-        const response = await secureFetch(API_BASE_URL, {
+        const response = await secureFetch(`${API_BASE_URL}/${adId}`, {
             method: 'POST',
-            body: { adId }
+            body: {} // L'ID est maintenant dans l'URL, le corps peut être vide.
         }, false);
 
         if (response && response.success) {

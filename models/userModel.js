@@ -94,7 +94,14 @@ const userSchema = new mongoose.Schema({
         notifications: {
             pushEnabled: { type: Boolean, default: true },
             emailEnabled: { type: Boolean, default: true },
-            // pushSubscription: Object, // Stocker l'objet PushSubscription
+            pushSubscription: { // Stocker l'objet PushSubscription
+                endpoint: String,
+                expirationTime: { type: Number, default: null },
+                keys: {
+                    p256dh: String,
+                    auth: String
+                }
+            },
         }
     },
     

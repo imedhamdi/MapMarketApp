@@ -8,7 +8,15 @@ const CACHE_NAME = 'mapmarket-cache-v1.3'; // Version incrémentée
 const APP_SHELL_URLS = [
     '/', // Alias pour index.html à la racine
     '/index.html',
-    '/styles.css', // Votre fichier CSS principal
+    '/css/main.css',
+    '/css/profile.css',
+    '/css/messages.css',
+    '/css/map.css',
+    '/css/products.css',
+    '/css/transactions.css',
+    '/css/auth.css',
+    '/css/responsive.css',
+    '/css/utilities.css',
     '/manifest.json', // Votre fichier manifest PWA
 
     // Modules JavaScript
@@ -179,4 +187,80 @@ self.addEventListener('message', (event) => {
         console.log('SW: skipWaiting reçu, activation...');
         self.skipWaiting();
     }
+});
+
+// --- NOUVEAU : Gestionnaire d'événements Push ---
+self.addEventListener('push', (event) => {
+    console.log('SW: Événement push reçu.');
+    const data = event.data ? event.data.json() : {};
+    const title = data.title || 'MapMarket Notification';
+    const options = {
+        body: data.body || 'Vous avez une nouvelle notification.',
+        icon: data.icon || '/icon-192x192.png', // Icône par défaut
+        badge: '/icon-192x192.png', // Badge pour Android
+        image: data.image || undefined, // Image pour la notification riche
+        data: { // Données personnalisées à récupérer lors du clic
+            url: data.url || '/', // URL vers laquelle naviguer au clic
+            type: data.type || 'generic', // Type de notification (ex: 'new_message', 'new_ad_alert')
+            id: data.id || Date.now(), // ID unique de la notification
+            // ... autres données pertinentes (ex: adId, threadId)
+        },
+        vibrate: [200, 100, 200], // Vibration
+        tag: data.tag || 'mapmarket-notification-tag', // Permet de regrouper/remplacer les notifications
+        renotify: true, // Pour re-notifier si une notification avec le même tag est déjà affichée
+        requireInteraction: data.requireInteraction || false, // La notification reste jusqu'à l'interaction
+        actions: data.actions || [] // Boutons d'action (ex: 'Répondre', 'Voir')
+    };
+
+    event.waitUntil(
+        self.registration.showNotification(title, options)
+        .then(() => {
+            // Envoyer un message au client pour qu'il mette à jour son UI (ex: badge, liste de notifications)
+            self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+                clients.forEach(client => {
+                    client.postMessage({
+                        type: 'NEW_NOTIFICATION',
+                        notificationData: {
+                            id: options.data.id,
+                            title: title,
+                            body: options.body,
+                            icon: options.icon,
+                            timestamp: Date.now(),
+                            data: options.data,
+                            isRead: false
+                        }
+                    });
+                });
+            });
+        })
+        .catch(error => {
+            console.error('SW: Erreur lors de l\'affichage de la notification:', error);
+        })
+    );
+});
+
+// --- NOUVEAU : Gestionnaire d'événements notificationclick ---
+self.addEventListener('notificationclick', (event) => {
+    console.log('SW: Notification cliquée:', event.notification.tag);
+    event.notification.close(); // Ferme la notification après le clic
+
+    const targetUrl = event.notification.data && event.notification.data.url ? event.notification.data.url : '/';
+
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            const client = clientList.find((c) => c.url.includes(targetUrl) || c.url === self.location.origin + '/');
+            if (client) {
+                return client.focus(); // Si une fenêtre correspondante existe, la mettre au premier plan
+            } else {
+                return self.clients.openWindow(targetUrl); // Sinon, ouvrir une nouvelle fenêtre
+            }
+        })
+    );
+});
+
+// --- NOUVEAU : Gestionnaire d'événements notificationclose (optionnel) ---
+self.addEventListener('notificationclose', (event) => {
+    console.log('SW: Notification fermée:', event.notification.tag);
+    // Vous pouvez envoyer un message au client pour marquer la notification comme "vue" ou "fermée"
+    // sans qu'elle ait été cliquée.
 });
