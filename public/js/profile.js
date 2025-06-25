@@ -93,8 +93,10 @@ let editableFields = [];
  * Renvoie directement `response.data` quand disponible.
  */
 const apiRequest = async (url, options = {}) => {
+  // secureFetch lève déjà une erreur si la réponse HTTP n'est pas OK.
   const response = await secureFetch(url, options);
-  if (!response.ok) throw new Error(response.message || 'Erreur serveur');
+  // Les endpoints renvoient généralement { success: true, data: {...} }
+  // On renvoie directement la propriété `data` s'il elle existe.
   return response.data ?? response;
 };
 
