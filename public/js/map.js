@@ -606,19 +606,27 @@ function showAdPreviewCard(ad) {
     }
 
     if (favoriteBtn) {
-        const favIds = state.get('favorites') || [];
-        const adId = ad._id || ad.id;
-        const isFav = favIds.includes(adId);
-        favoriteBtn.classList.toggle('active', isFav);
-        favoriteBtn.setAttribute('aria-pressed', isFav.toString());
-        const icon = favoriteBtn.querySelector('i');
-        if (icon) icon.className = isFav ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
-        favoriteBtn.onclick = (e) => {
-            e.stopPropagation();
-            document.dispatchEvent(new CustomEvent('mapMarket:toggleFavorite', {
-                detail: { adId: adId, setFavorite: !isFav, sourceButton: favoriteBtn }
-            }));
-        };
+        const currentUser = state.getCurrentUser();
+        const ownerId = ad.userId?._id || ad.userId;
+        const isOwner = currentUser && ownerId && ownerId === currentUser._id;
+        favoriteBtn.classList.toggle('hidden', isOwner);
+        if (!isOwner) {
+            const favIds = state.get('favorites') || [];
+            const adId = ad._id || ad.id;
+            const isFav = favIds.includes(adId);
+            favoriteBtn.classList.toggle('active', isFav);
+            favoriteBtn.setAttribute('aria-pressed', isFav.toString());
+            const icon = favoriteBtn.querySelector('i');
+            if (icon) icon.className = isFav ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
+            favoriteBtn.onclick = (e) => {
+                e.stopPropagation();
+                document.dispatchEvent(new CustomEvent('mapMarket:toggleFavorite', {
+                    detail: { adId: adId, setFavorite: !isFav, sourceButton: favoriteBtn }
+                }));
+            };
+        } else {
+            favoriteBtn.onclick = null;
+        }
     }
 
     card.onclick = (e) => {
