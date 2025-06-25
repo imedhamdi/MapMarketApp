@@ -11,6 +11,8 @@ router.use(protect);
 router.route('/')
     .get(notificationController.getMyNotifications); // Récupérer toutes les notifications de l'utilisateur
 
+router.post('/mark-as-read', notificationController.markMultipleNotificationsAsRead);
+
 router.post('/read-all', notificationController.markAllNotificationsAsRead); // Marquer toutes comme lues
 
 router.route('/:id')

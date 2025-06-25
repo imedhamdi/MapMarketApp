@@ -81,6 +81,26 @@ exports.markNotificationAsRead = asyncHandler(async (req, res, next) => {
 });
 
 /**
+ * Marquer plusieurs notifications comme lues.
+ * POST /api/notifications/mark-as-read
+ */
+exports.markMultipleNotificationsAsRead = asyncHandler(async (req, res, next) => {
+    const { notificationIds } = req.body;
+    if (!Array.isArray(notificationIds) || notificationIds.length === 0) {
+        return next(new AppError('Liste d\'IDs requise.', 400));
+    }
+
+    await Notification.markMultipleAsRead(req.user.id, notificationIds);
+    const unreadCount = await Notification.countDocuments({ userId: req.user.id, isRead: false });
+
+    res.status(200).json({
+        success: true,
+        message: 'Notifications marquées comme lues.',
+        data: { unreadCount }
+    });
+});
+
+/**
  * Marquer toutes les notifications de l'utilisateur comme lues.
  * POST /api/notifications/read-all
  */
@@ -158,16 +178,18 @@ exports.createInternalNotification = async (notificationData) => {
         logger.info(`Notification interne créée pour l'utilisateur ${notificationData.userId}, type: ${notificationData.type}`);
         
         // Envoyer via Socket.IO à l'utilisateur concerné
-        const { io } = require('../server'); // Attention aux imports circulaires, peut nécessiter une meilleure gestion
+        const { io, userSockets } = require('../server');
         if (io && notificationData.userId) {
-            const userSocketRoom = `user_${notificationData.userId}`;
+            const socketId = userSockets[notificationData.userId];
             const unreadCount = await Notification.countDocuments({ userId: notificationData.userId, isRead: false });
-            
-            io.to(userSocketRoom).emit('newNotification', { 
-                notification,
-                unreadCount 
-            });
-            logger.info(`Notification émise via Socket.IO à la room ${userSocketRoom}`);
+
+            if (socketId) {
+                io.to(socketId).emit('new_notification', {
+                    notification,
+                    unreadCount
+                });
+                logger.info(`Notification émise via Socket.IO au socket ${socketId}`);
+            }
         }
 
     //    Envoyer un email si les préférences de l'utilisateur le permettent

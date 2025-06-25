@@ -90,6 +90,31 @@ exports.addFavorite = asyncHandler(async (req, res, next) => {
   // Optionnel: Incrémenter le compteur de favoris sur l'annonce
   await Ad.findByIdAndUpdate(adId, { $inc: { favoriteCount: 1 } });
 
+  // Créer une notification pour le propriétaire de l'annonce
+  if (adExists.userId && adExists.userId.toString() !== userId) {
+    const Notification = require('../models/notificationModel');
+    const { io, userSockets } = require('../server');
+    const notification = await Notification.create({
+      userId: adExists.userId,
+      senderId: userId,
+      title: 'Annonce ajoutée en favori',
+      body: `${req.user.name} a ajouté votre annonce "${adExists.title}" en favori.`,
+      type: 'new_favorite',
+      data: { adId, url: `/ads/${adId}`, type: 'new_favorite' }
+    });
+    const unreadCount = await Notification.countDocuments({ userId: adExists.userId, isRead: false });
+    const socketId = userSockets[adExists.userId];
+    if (io && socketId) {
+      io.to(socketId).emit('new_notification', {
+        id: notification._id,
+        message: `${req.user.name} a ajouté votre annonce ${adExists.title} en favori.`,
+        adId,
+        senderName: req.user.name,
+        unreadCount
+      });
+    }
+  }
+
   logger.info(`Annonce ${adId} ajoutée aux favoris de l'utilisateur ${userId}`);
   res.status(200).json({
     success: true,
