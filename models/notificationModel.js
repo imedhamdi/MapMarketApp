@@ -8,6 +8,10 @@ const notificationSchema = new mongoose.Schema({
         required: [true, 'Une notification doit être destinée à un utilisateur.'],
         index: true,
     },
+    senderId: { // L'utilisateur qui déclenche la notification
+        type: mongoose.Schema.ObjectId,
+        ref: 'User',
+    },
     title: {
         type: String,
         required: [true, 'Le titre de la notification est requis.'],
@@ -33,6 +37,7 @@ const notificationSchema = new mongoose.Schema({
             'welcome',
             'password_reset_success',
             'email_verified_success',
+            'new_favorite',
             // Ajoutez d'autres types selon les besoins
         ],
         required: [true, 'Le type de notification est requis.'],

@@ -203,6 +203,42 @@ app.use(globalErrorHandler);
 // --- SOCKET.IO ---
 const server = http.createServer(app);
 const io = require('socket.io')(server, { cors: corsOptions });
+const userSockets = {};
+
+io.use(async (socket, next) => {
+    const token = socket.handshake.auth && socket.handshake.auth.token;
+    if (!token) {
+        logger.warn(`Socket.IO: Tentative de connexion sans token pour ${socket.id}.`);
+        return next(new Error('Authentication error: Token manquant.'));
+    }
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const currentUser = await User.findById(decoded.id).select('+isActive');
+        if (!currentUser) {
+            return next(new Error('Authentication error: L\'utilisateur n\'existe plus.'));
+        }
+        if (currentUser.changedPasswordAfter(decoded.iat)) {
+            return next(new Error('Authentication error: Mot de passe récemment changé.'));
+        }
+        if (!currentUser.isActive) {
+            return next(new Error('Authentication error: Compte désactivé.'));
+        }
+        socket.user = currentUser;
+        userSockets[currentUser.id] = socket.id;
+        next();
+    } catch (err) {
+        logger.warn(`Socket.IO: Échec de l'authentification du token pour ${socket.id}: ${err.message}`);
+        return next(new Error('Authentication error: Token invalide ou expiré.'));
+    }
+});
+
+io.on('connection', (socket) => {
+    logger.info(`Socket.IO: Connexion root établie: ${socket.id}, UserID: ${socket.user.id}`);
+    socket.on('disconnect', () => {
+        delete userSockets[socket.user.id];
+        logger.info(`Socket.IO: Déconnexion root: ${socket.id}`);
+    });
+});
 
 // Utiliser un middleware d'authentification pour le namespace /chat
 io.of(SOCKET_NAMESPACE).use(async (socket, next) => {
@@ -302,4 +338,4 @@ process.on('uncaughtException', (err) => {
   server.close(() => process.exit(1));
 });
 
-module.exports = { io };
+module.exports = { io, userSockets };
