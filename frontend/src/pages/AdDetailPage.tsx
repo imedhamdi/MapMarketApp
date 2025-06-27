@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import apiClient from '../lib/apiClient';
+import { getAdById } from '../services/apiClient';
+import type { Ad } from '../types';
 
 export default function AdDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [ad, setAd] = useState<any>(null);
+  const [ad, setAd] = useState<Ad | null>(null);
 
   useEffect(() => {
     if (id) {
-      apiClient.get(`/ads/${id}`).then(res => setAd(res.data));
+      getAdById(id).then(setAd);
     }
   }, [id]);
 

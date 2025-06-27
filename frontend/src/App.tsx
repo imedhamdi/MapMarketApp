@@ -6,7 +6,6 @@ import MessagesPage from './pages/MessagesPage';
 import LoginPage from './pages/LoginPage';
 import Navbar from './components/Layout/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
-import './styles/global.css';
 
 export default function App() {
   return (

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import Button from '../components/ui/Button';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -19,7 +20,7 @@ export default function LoginPage() {
       <h1>Login</h1>
       <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" />
       <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" />
-      <button type="submit">Login</button>
+      <Button type="submit">Login</Button>
     </form>
   );
 }

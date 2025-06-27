@@ -1,11 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import apiClient from '../lib/apiClient';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
+import { fetchCurrentUser, loginUser } from '../services/apiClient';
+import type { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
@@ -26,8 +21,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const storedToken = localStorage.getItem('token');
     if (storedToken) {
       setToken(storedToken);
-      apiClient.get('/auth/me').then((res) => {
-        setUser(res.data);
+      fetchCurrentUser().then((userData) => {
+        setUser(userData);
         setIsLoading(false);
       }).catch(() => {
         setIsLoading(false);
@@ -38,10 +33,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const res = await apiClient.post('/auth/login', { email, password });
-    setToken(res.data.token);
-    localStorage.setItem('token', res.data.token);
-    setUser(res.data.user);
+    const data = await loginUser(email, password);
+    setToken(data.token);
+    localStorage.setItem('token', data.token);
+    setUser(data.user);
   };
 
   const logout = () => {

@@ -1,0 +1,15 @@
+.card {
+  border: 1px solid #ccc;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+.image {
+  width: 100%;
+  height: auto;
+}
+.title {
+  font-size: 1.1rem;
+}
+.price {
+  color: #666;
+}

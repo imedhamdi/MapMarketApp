@@ -1,26 +1,25 @@
 import { useEffect, useState } from 'react';
-import apiClient from '../lib/apiClient';
-
-interface Ad {
-  id: string;
-  title: string;
-}
+import { getAds } from '../services/apiClient';
+import Map from '../components/Map';
+import AdList from '../components/AdList';
+import Filters from '../components/Filters';
+import type { Ad } from '../types';
 
 export default function HomePage() {
   const [ads, setAds] = useState<Ad[]>([]);
 
+  const [filters, setFilters] = useState<Record<string, unknown>>({});
+
   useEffect(() => {
-    apiClient.get('/ads').then(res => setAds(res.data)).catch(console.error);
-  }, []);
+    getAds(filters).then(setAds).catch(console.error);
+  }, [filters]);
 
   return (
     <div>
       <h1>Home Page</h1>
-      <ul>
-        {ads.map(ad => (
-          <li key={ad.id}>{ad.title}</li>
-        ))}
-      </ul>
+      <Filters onChange={setFilters} />
+      <Map ads={ads} />
+      <AdList ads={ads} />
     </div>
   );
 }
