@@ -113,6 +113,28 @@ adSchema.methods.isOwner = function(userId) {
     return this.userId.toString() === userId.toString();
 };
 
+// Middleware (hook) pour nettoyer les favoris après la suppression d'une annonce
+adSchema.post('findOneAndDelete', async function(doc, next) {
+    // 'doc' est le document qui vient d'être supprimé.
+    if (doc) {
+        const adId = doc._id;
+        try {
+            // Mettre à jour tous les utilisateurs qui ont cette annonce en favori
+            // en utilisant l'opérateur $pull pour retirer l'ID de l'annonce de leur tableau 'favorites'.
+            const result = await User.updateMany(
+                { favorites: adId }, // Critère : trouver les utilisateurs ayant cet adId dans leurs favoris
+                { $pull: { favorites: adId } } // Action : retirer cet adId du tableau
+            );
+
+            if (result.modifiedCount > 0) {
+                console.log(`Annonce ${adId} retirée des favoris de ${result.modifiedCount} utilisateur(s).`);
+            }
+        } catch (error) {
+            console.error(`Erreur lors du nettoyage des favoris pour l'annonce supprimée ${adId}:`, error);
+        }
+    }
+    next();
+});
 
 const Ad = mongoose.model('Ad', adSchema);
 

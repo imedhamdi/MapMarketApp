@@ -49,10 +49,19 @@ exports.updateMySettings = asyncHandler(async (req, res, next) => {
                 // Si la valeur est null, cela signifie une désinscription
                 if (settings.pushSubscription === null) {
                     user.settings.notifications.pushSubscription = null;
+                    user.settings.notifications.pushEnabled = false; // Assurer la cohérence
                 } else if (typeof settings.pushSubscription === 'object') {
-                     // S'assurer que notifications existe
-                    if (!user.settings.notifications) user.settings.notifications = {};
-                    user.settings.notifications.pushSubscription = settings.pushSubscription;
+                    // --- VALIDATION DE L'ABONNEMENT PUSH ---
+                    const sub = settings.pushSubscription;
+                    if (sub && sub.endpoint && sub.keys && sub.keys.p256dh && sub.keys.auth) {
+                        // L'abonnement semble valide, on le sauvegarde.
+                        if (!user.settings.notifications) user.settings.notifications = {};
+                        user.settings.notifications.pushSubscription = sub;
+                        user.settings.notifications.pushEnabled = true; // Assurer la cohérence
+                    } else {
+                        logger.warn(`Tentative de sauvegarde d'un pushSubscription invalide pour l'utilisateur ${userId}. Données reçues: ${JSON.stringify(sub)}`);
+                        // On ne sauvegarde pas un objet invalide. On pourrait retourner une erreur 400.
+                    }
                 }
             } else {
                 // Pour les clés de premier niveau comme darkMode, language

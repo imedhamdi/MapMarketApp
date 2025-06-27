@@ -226,6 +226,7 @@ async function handlePushNotificationsToggle() {
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
                 });
+                console.log("Settings: Abonnement Push réussi:", subscription); // Ajout pour le débogage
                 showToast("Notifications push activées.", "success");
                 await saveUserSetting('pushSubscription', JSON.parse(JSON.stringify(subscription)));
                 localStorage.setItem('mapMarketPushPreference', 'true');
@@ -233,10 +234,20 @@ async function handlePushNotificationsToggle() {
                 showToast(`Permission pour les notifications ${permission === 'denied' ? 'refusée' : 'ignorée'}.`, permission === 'denied' ? "warning" : "info", 5000);
                 pushNotificationsToggle.checked = false; localStorage.setItem('mapMarketPushPreference', 'false');
             }
+            // Le bloc catch ci-dessous gérera les erreurs lors de l'abonnement
         } catch (error) {
-            console.error("Settings: Erreur d'abonnement Push:", error);
-            showToast("Erreur lors de l'activation des notifications push.", "error");
-            pushNotificationsToggle.checked = false; localStorage.setItem('mapMarketPushPreference', 'false');
+            console.error("Settings: Erreur détaillée d'abonnement Push:", error);
+            let errorMessage = "Erreur lors de l'activation des notifications push.";
+            if (error.name === 'InvalidStateError') {
+                errorMessage = "Erreur: Le Service Worker n'est pas actif. Veuillez rafraîchir la page.";
+            } else if (error.name === 'NotAllowedError') {
+                errorMessage = "Permission refusée. Veuillez l'autoriser dans les paramètres de votre navigateur.";
+            } else if (error.message && error.message.toLowerCase().includes('vapid')) {
+                errorMessage = "Erreur: La clé de notification (VAPID) est invalide. Le serveur est mal configuré.";
+            }
+            showToast(errorMessage, "error", 6000); // Durée plus longue pour les erreurs
+            pushNotificationsToggle.checked = false;
+            localStorage.setItem('mapMarketPushPreference', 'false');
         }
     } else { // Désactivation
         try {
@@ -245,6 +256,7 @@ async function handlePushNotificationsToggle() {
                 const unsubscribed = await subscription.unsubscribe();
                 if (unsubscribed) {
                     showToast("Notifications push désactivées.", "info");
+                    // La sauvegarde envoie null, le backend mettra aussi pushEnabled à false.
                     await saveUserSetting('pushSubscription', null);
                 } else {
                     showToast("Échec de la désactivation des notifications push.", "error");
@@ -259,9 +271,7 @@ async function handlePushNotificationsToggle() {
             pushNotificationsToggle.checked = true; // Remettre en cas d'erreur
         }
         localStorage.setItem('mapMarketPushPreference', 'false');
-    }
-    // Sauvegarder la préférence d'activation/désactivation (booléen) pour le backend
-    saveUserSetting('notifications.pushEnabled', pushNotificationsToggle.checked);
+    } // La sauvegarde de l'état 'pushEnabled' est gérée par le backend lors de la mise à jour de 'pushSubscription'.
 }
 
 /**
@@ -341,8 +351,8 @@ async function saveUserSetting(key, value) {
 
     } catch (error) {
         console.error(`Erreur lors de la sauvegarde de la préférence '${key}' sur le serveur:`, error);
-        showToast(`Échec de la sauvegarde de la préférence '${key}'.`, "error");
-        // Optionnel: annuler le changement UI si la sauvegarde échoue ?
+        // Le toast d'erreur est déjà géré par secureFetch.
+        // On pourrait ici implémenter une logique pour annuler le changement dans l'UI si la sauvegarde échoue.
         // Par exemple, pour un toggle: toggleElement.checked = !toggleElement.checked;
     }
 }

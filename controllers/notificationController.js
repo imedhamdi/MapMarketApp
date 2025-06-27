@@ -3,6 +3,7 @@ const Notification = require('../models/notificationModel');
 const { AppError } = require('../middlewares/errorHandler');
 const { logger } = require('../config/winston');
 const APIFeatures = require('../utils/apiFeatures');
+const User = require('../models/userModel');
 
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);

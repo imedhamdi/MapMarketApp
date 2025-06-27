@@ -100,8 +100,10 @@ async function loadUserFavorites() {
         // **CORRECTION :** On vérifie la structure de la réponse de l'API.
         // La liste des favoris est dans `response.data.favorites`.
         if (response && response.success && Array.isArray(response.data.favorites)) {
-            const favoriteAdsData = response.data.favorites;
-            const favoriteIds = favoriteAdsData.map(ad => ad._id); // Utiliser _id pour la cohérence
+            // CORRECTION : On filtre les favoris qui pourraient être 'null' si l'annonce
+            // correspondante a été supprimée de la base de données.
+            const favoriteAdsData = response.data.favorites.filter(ad => ad);
+            const favoriteIds = favoriteAdsData.map(ad => ad._id);
             updateFavoritesState(favoriteIds, favoriteAdsData);
         } else {
             // Si la réponse est invalide ou vide, on initialise un état vide.
@@ -129,24 +131,52 @@ async function handleToggleFavoriteEvent(event) {
     }
 
     const previousFavorites = state.get('favorites') || [];
-    let optimisticFavorites;
+    const optimisticFavorites = setFavorite
+        ? [...new Set([...previousFavorites, adId])]
+        : previousFavorites.filter(id => id !== adId);
 
-    if (setFavorite) {
-        optimisticFavorites = previousFavorites.includes(adId) ? previousFavorites : [...previousFavorites, adId];
-    } else {
-        optimisticFavorites = previousFavorites.filter(id => id !== adId);
+    // --- Mise à jour optimiste ---
+    if (sourceButton) {
+        sourceButton.disabled = true;
+
+        // 1. Mettre à jour l'UI du bouton cliqué IMMÉDIATEMENT
+        sourceButton.classList.toggle('active', setFavorite);
+        sourceButton.setAttribute('aria-pressed', String(setFavorite));
+        const icon = sourceButton.querySelector('i');
+        if (icon) {
+            icon.className = setFavorite ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
+        }
+
+        // 2. Appliquer l'animation de "pop"
+        sourceButton.classList.add('favorite-btn-pop');
+        sourceButton.querySelector('i')?.addEventListener('animationend', () => {
+            sourceButton.classList.remove('favorite-btn-pop');
+        }, { once: true });
     }
 
-    // Mise à jour optimiste de l'UI
-    state.set('favorites', optimisticFavorites); // Utiliser state.set pour notifier les autres composants (badge, etc.)
-    if (sourceButton) animateFavoriteButton(sourceButton, setFavorite);
+    // 3. Mettre à jour l'état global. Ceci déclenchera `favoritesChanged`
+    // et mettra à jour TOUS les autres boutons favoris sur la page.
+    state.set('favorites', optimisticFavorites);
 
-    // Appel API et restauration de l'état en cas d'échec
-    const success = setFavorite ? await addFavorite(adId) : await removeFavorite(adId);
-    if (!success) {
+    // --- Appel API en arrière-plan ---
+    try {
+        const success = setFavorite ? await addFavorite(adId) : await removeFavorite(adId);
+        if (!success) {
+            // Si l'API échoue, on lève une erreur pour être attrapé par le bloc catch.
+            throw new Error("La mise à jour du favori a échoué côté serveur.");
+        }
+        // Le toast de succès est déjà dans addFavorite/removeFavorite.
+    } catch (error) {
+        console.error("Échec de la mise à jour du favori, restauration de l'état:", error);
         showToast("L'opération a échoué, restauration de l'état précédent.", "error");
+        // Annuler la mise à jour optimiste en restaurant l'état précédent.
+        // `favoritesChanged` sera à nouveau déclenché, corrigeant l'UI partout.
         state.set('favorites', previousFavorites);
-        if (sourceButton) animateFavoriteButton(sourceButton, !setFavorite);
+    } finally {
+        // Réactiver le bouton dans tous les cas.
+        if (sourceButton) {
+            sourceButton.disabled = false;
+        }
     }
 }
 
@@ -316,21 +346,6 @@ function updateFavoriteButtonsState(favoriteAdIds) {
             }
         }
     });
-}
-
-/**
- * Anime un bouton favori lors d'un clic.
- * @param {HTMLElement} button - Le bouton à animer.
- * @param {boolean} isAdding - True si on ajoute un favori, false si on retire.
- */
-function animateFavoriteButton(button, isAdding) {
-    if (button) {
-        button.classList.add('favorite-animation');
-        button.setAttribute('aria-pressed', isAdding.toString());
-        setTimeout(() => {
-            button.classList.remove('favorite-animation');
-        }, 500);
-    }
 }
 
 /**

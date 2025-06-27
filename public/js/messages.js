@@ -500,7 +500,7 @@ function renderThreadList(threadsData) {
     // Calculer ici la somme des messages non lus par thread pour le badge global serait incorrect.
     // updateGlobalUnreadCount(state.get('messages.unreadGlobalCount') || 0); // S'assurer que le badge est à jour avec l'état actuel
 
-    threadsData.forEach(thread => {
+    threadsData.forEach((thread, index) => {
         // La logique pour trouver le 'recipient' et 'currentUser' reste la même
         const recipient = thread.participants.find(p => p._id !== currentUser._id);
         if (!recipient) return;
@@ -556,6 +556,9 @@ function renderThreadList(threadsData) {
             unreadBadge.textContent = unreadCountForThread;
             unreadBadge.classList.toggle('hidden', unreadCountForThread === 0);
         }
+
+        // Appliquer un délai d'animation pour un effet de cascade
+        li.style.animationDelay = `${index * 60}ms`;
 
         // L'écouteur d'événement reste le même
         li.addEventListener('click', () => openChatView(thread._id, recipient, thread));

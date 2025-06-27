@@ -1442,25 +1442,35 @@ function handleDeleteAdFromDetail() {
 }
 
 async function handleToggleFavoriteFromDetail(event) {
-    const adId = adDetailModal?.dataset.adId;
-    if (!adId) return;
     const favoriteButton = event.currentTarget;
-    const isCurrentlyFavorite = favoriteButton.classList.contains('active');
+    const adId = adDetailModal?.dataset.adId;
+    const currentUser = state.getCurrentUser();
 
-    const newState = !isCurrentlyFavorite;
-    favoriteButton.classList.toggle('active', newState);
-    favoriteButton.setAttribute('aria-pressed', newState.toString());
-    const icon = favoriteButton.querySelector('i');
-    if (icon) icon.className = newState ? 'fa-solid fa-heart text-danger' : 'fa-regular fa-heart';
+    if (!adId || favoriteButton.disabled) return;
 
+    // Si l'utilisateur n'est pas connecté, le rediriger vers la connexion.
+    if (!currentUser) {
+        showToast("Veuillez vous connecter pour gérer vos favoris.", "warning");
+        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' } }));
+        return;
+    }
+
+    // Get the current favorite state from the global store at the time of click
+    const isCurrentlyFavorite = state.isFavorite(adId);
+    const setFavorite = !isCurrentlyFavorite;
+
+    // --- 1. Mise à jour optimiste (UI & État global) ---
+    // Dispatch the event so favorites.js can handle the state update, API call, and UI refresh
     document.dispatchEvent(new CustomEvent('mapMarket:toggleFavorite', {
-        detail: {
-            adId: adId,
-            setFavorite: newState,
-            sourceButton: favoriteButton
-        }
+        detail: { adId: adId, setFavorite: setFavorite, sourceButton: favoriteButton }
     }));
-}
+
+    // The button will be disabled/re-enabled by favorites.js
+    // The toast messages will be shown by favorites.js
+    // The state update will be handled by favorites.js
+    // The API call will be handled by favorites.js
+    // The error handling and state reversion will be handled by favorites.js
+    }
 
 
 async function handleContactSellerFromDetail() {

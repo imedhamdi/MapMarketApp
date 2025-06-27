@@ -288,8 +288,8 @@ async function handleLogin(event) {
     } catch (error) {
         toggleGlobalLoader(false); // Masquer le loader en cas d'erreur
         console.error('Erreur détaillée lors de la connexion (capturée dans handleLogin):', error);
-        // error.message devrait contenir le message d'erreur du serveur si secureFetch le propage.
-        showToast(error.message || 'Une erreur de connexion est survenue.', 'error');
+        // Le toast d'erreur est déjà géré par secureFetch.
+        // On se contente de logger l'erreur ici.
     }
 }
 
@@ -352,7 +352,8 @@ async function handleSignup(event) {
     } catch (error) {
         toggleGlobalLoader(false);
         console.error('Erreur détaillée lors de l\'inscription (capturée dans handleSignup):', error);
-        showToast(error.message || 'Une erreur de communication est survenue durant l\'inscription.', 'error');
+        // Le toast d'erreur est déjà géré par secureFetch.
+        // On se contente de logger l'erreur ici.
     }
 }
 
@@ -597,10 +598,8 @@ async function checkInitialAuthState() {
 
             // Afficher un toast seulement si l'erreur n'est pas une erreur d'authentification standard (401/403)
             // pour lesquelles secureFetch ou d'autres parties pourraient déjà afficher un message.
-            // Une 404 sur /api/auth/me est une erreur serveur critique, mais le client doit se déconnecter.
-            if (!(error.message.includes('401') || error.message.includes('403'))) {
-                showToast("Votre session n'a pas pu être vérifiée. Veuillez vous reconnecter.", "error");
-            }
+            // Le toast d'erreur est déjà géré par secureFetch, qui affiche un message pertinent
+            // (ex: "Votre session a expiré..."). Il n'est pas nécessaire d'en afficher un second ici.
         }
     } else {
         updateUIAfterLogout(); // Pas de token, s'assurer que l'UI est en mode déconnecté.
