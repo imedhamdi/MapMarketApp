@@ -118,6 +118,7 @@ app.use(
 );
 // Statics : public et uploads
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'frontend', 'dist')));
 // CETTE LIGNE UNIQUE GÈRE TOUS LES UPLOADS CORRECTEMENT
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/avatars', express.static(path.join(__dirname, 'uploads/avatars')));
@@ -186,7 +187,7 @@ app.get('*', (req, res, next) => {
   if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
     return next();
   }
-  res.sendFile(path.resolve(__dirname, 'public', 'index.html'));
+  res.sendFile(path.resolve(__dirname, 'frontend', 'dist', 'index.html'));
 });
 
 // 404 pour les routes API (après le SPA catch-all)
