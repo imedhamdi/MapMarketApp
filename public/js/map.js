@@ -611,25 +611,24 @@ function showAdPreviewCard(ad) {
         const isOwner = currentUser && ownerId && ownerId === currentUser._id;
         favoriteBtn.classList.toggle('hidden', isOwner);
         if (!isOwner) {
-            const adId = ad._id || ad.id; // Ensure adId is correctly retrieved
+            const adId = ad._id || ad.id;
+            let isFav = state.isFavorite(adId); // Utiliser la fonction helper de l'état
 
             // Définir l'état initial de l'interface
-            // The state of the button will be updated by updateFavoriteButtonsState when favoritesChanged
-            // For initial display, we can set it based on current state.
-            const initialIsFav = state.isFavorite(adId);
-            favoriteBtn.classList.toggle('active', initialIsFav);
-            favoriteBtn.setAttribute('aria-pressed', initialIsFav.toString());
+            favoriteBtn.classList.toggle('active', isFav);
+            favoriteBtn.setAttribute('aria-pressed', isFav.toString());
             const icon = favoriteBtn.querySelector('i');
-            if (icon) icon.className = initialIsFav ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
+            if (icon) icon.className = isFav ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
 
+            // Mise à jour optimiste au clic
             favoriteBtn.onclick = (e) => {
                 e.stopPropagation();
-                // Get the current favorite state from the global store at the time of click
-                const currentFavoriteState = state.isFavorite(adId);
-                const desiredFavoriteState = !currentFavoriteState; // Desired new state
+
+                // 1. Mettre à jour l'UI immédiatement
+                isFav = !isFav; // Inverser l'état
                 // 2. Envoyer l'événement pour le traitement en arrière-plan
                 document.dispatchEvent(new CustomEvent('mapMarket:toggleFavorite', {
-                    detail: { adId: adId, setFavorite: desiredFavoriteState, sourceButton: favoriteBtn }
+                    detail: { adId: adId, setFavorite: isFav, sourceButton: favoriteBtn }
                 }));
             };
         } else {

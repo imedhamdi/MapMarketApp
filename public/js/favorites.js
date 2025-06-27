@@ -100,10 +100,8 @@ async function loadUserFavorites() {
         // **CORRECTION :** On vérifie la structure de la réponse de l'API.
         // La liste des favoris est dans `response.data.favorites`.
         if (response && response.success && Array.isArray(response.data.favorites)) {
-            // CORRECTION : On filtre les favoris qui pourraient être 'null' si l'annonce
-            // correspondante a été supprimée de la base de données.
-            const favoriteAdsData = response.data.favorites.filter(ad => ad);
-            const favoriteIds = favoriteAdsData.map(ad => ad._id);
+            const favoriteAdsData = response.data.favorites;
+            const favoriteIds = favoriteAdsData.map(ad => ad._id); // Utiliser _id pour la cohérence
             updateFavoritesState(favoriteIds, favoriteAdsData);
         } else {
             // Si la réponse est invalide ou vide, on initialise un état vide.

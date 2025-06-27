@@ -1455,8 +1455,8 @@ async function handleToggleFavoriteFromDetail(event) {
         return;
     }
 
-    // Get the current favorite state from the global store at the time of click
-    const isCurrentlyFavorite = state.isFavorite(adId);
+    const originalUser = JSON.parse(JSON.stringify(currentUser)); // Copie pour pouvoir annuler en cas d'erreur
+    const isCurrentlyFavorite = originalUser.favorites?.includes(adId);
     const setFavorite = !isCurrentlyFavorite;
 
     // --- 1. Mise à jour optimiste (UI & État global) ---
@@ -1471,6 +1471,7 @@ async function handleToggleFavoriteFromDetail(event) {
     // The API call will be handled by favorites.js
     // The error handling and state reversion will be handled by favorites.js
     }
+
 
 
 async function handleContactSellerFromDetail() {

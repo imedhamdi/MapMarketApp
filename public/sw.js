@@ -7,16 +7,7 @@ const CACHE_NAME = 'mapmarket-cache-v1.3'; // Version incrémentée
 // Adaptez cette liste à votre structure de projet et à vos fichiers exacts.
 const APP_SHELL_URLS = [
     '/', // Alias pour index.html à la racine
-    '/index.html',
-    '/css/main.css',
-    '/css/profile.css',
-    '/css/messages.css',
-    '/css/map.css',
-    '/css/products.css',
-    '/css/transactions.css',
-    '/css/auth.css',
-    '/css/responsive.css',
-    '/css/utilities.css',
+    '/index.html', // Votre fichier HTML principal
     '/manifest.json', // Votre fichier manifest PWA
 
     // Modules JavaScript
