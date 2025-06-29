@@ -76,10 +76,11 @@ const sendErrorProd = (err, req, res) => {
 module.exports = (err, req, res, next) => {
   // Normaliser les erreurs Joi pour tous les environnements
   if (err.isJoi) {
-    const errors = err.details.map(detail => ({
-      field: detail.path.join('.'),
-      message: detail.message.replace(/["']/g, '')
-    }));
+    const errors = {};
+    err.details.forEach(detail => {
+      const field = detail.path.join('.');
+      errors[field] = detail.message.replace(/["']/g, '');
+    });
     err = new AppError('Données de requête invalides.', 400);
     err.errors = errors;
   }
