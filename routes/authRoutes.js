@@ -1,7 +1,7 @@
 // routes/authRoutes.js
 const express = require('express');
 const authController = require('../controllers/authController'); // Sera créé ensuite
-const { protect, isEmailVerified } = require('../middlewares/authMiddleware');
+const { protect } = require('../middlewares/authMiddleware');
 const { authRateLimiter } = require('../config/rateLimit'); // Limiteur de taux pour l'auth
 const { validateSignup, validateLogin, validateForgotPassword, validateResetPassword } = require('../middlewares/validationMiddleware'); // Sera créé ensuite
 
@@ -13,9 +13,6 @@ router.post('/login', authRateLimiter, validateLogin, authController.login);
 router.post('/forgot-password', authRateLimiter, validateForgotPassword, authController.forgotPassword);
 router.patch('/reset-password/:token', authRateLimiter, validateResetPassword, authController.resetPassword); // Utiliser PATCH car on modifie une ressource (le mot de passe)
 
-router.get('/validate-email/:token', authController.validateEmail);
-router.post('/resend-validation-email', protect, authController.resendValidationEmail); // L'utilisateur doit être connecté pour renvoyer son propre email de validation
-// Elle définit la route que votre frontend essaie d'appeler
 router.patch('/update-password', protect, authController.updatePassword);
 
 // Route pour vérifier le statut de connexion (optionnel, utile pour le frontend)

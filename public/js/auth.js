@@ -93,9 +93,6 @@ function initAuthUI() {
     if (resetPasswordForm) {
         resetPasswordForm.addEventListener('submit', handlePasswordResetRequest);
     }
-    if (resendValidationEmailBtn) {
-        resendValidationEmailBtn.addEventListener('click', handleResendValidationEmail);
-    }
 
     // Gestion des liens pour changer de vue dans la modale d'authentification
     authModal.querySelectorAll('[data-auth-view-target]').forEach(link => {
@@ -247,38 +244,17 @@ async function handleLogin(event) {
             // Cette fonction est cruciale pour refléter l'état connecté sans rechargement complet.
             updateUIAfterLogin(loggedInUser);
 
-            // 3. Gérer la suite en fonction de la vérification de l'e-mail
-            if (loggedInUser.emailVerified) {
-                // E-mail vérifié : Connexion standard
-                showToast('Connexion réussie ! Bienvenue.', 'success', 3000); // Toast de succès (3 secondes)
+            // 3. Message de succès et rafraîchissement de l'interface
+            showToast('Connexion réussie ! Bienvenue.', 'success', 3000);
 
-                // Fermer la modale d'authentification
-                document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'auth-modal' } }));
-                loginForm.reset(); // Vider les champs du formulaire
+            // Fermer la modale d'authentification
+            document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'auth-modal' } }));
+            loginForm.reset();
 
-                // UX APRÈS CONNEXION : Mettre à jour l'interface ou rediriger
-                // Option A : Rechargement de la page (simple et robuste pour assurer la cohérence)
-                // Un petit délai pour que l'utilisateur voie le toast et que la modale se ferme.
-                setTimeout(() => {
-                    window.location.reload();
-                }, 500); // Recharger après 0.5 seconde
-
-                // Option B (pour SPA plus avancée sans rechargement complet) :
-                // - Si vous étiez sur une page spécifique avant d'ouvrir la modale, y retourner.
-                //   Ex: const previousUrl = state.getRedirectUrl() || '/dashboard';
-                //       router.navigate(previousUrl); state.clearRedirectUrl();
-                // - Ou déclencher un événement pour que les composants se mettent à jour.
-                //   Ex: document.dispatchEvent(new CustomEvent('userContextUpdated', { detail: { user: loggedInUser } }));
-
-            } else {
-                // E-mail NON vérifié : Connexion réussie, mais guider l'utilisateur
-                showToast('Connexion réussie ! Veuillez vérifier votre e-mail pour activer toutes les fonctionnalités.', 'warning', 7000); // Toast d'avertissement plus long
-
-                // Maintenir la modale ouverte et afficher l'écran de validation d'e-mail
-                // L'utilisateur pourra y voir des instructions ou demander un renvoi de l'e-mail.
-                showEmailValidationScreen(loggedInUser.email);
-                // Ne pas fermer la modale ici.
-            }
+            // Mettre à jour l'interface ou recharger la page
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
 
         } else {
             // Cas où la connexion a échoué mais le serveur a renvoyé une réponse structurée (moins courant si secureFetch lève des erreurs pour les statuts non-2xx)
@@ -325,24 +301,14 @@ async function handleSignup(event) {
         toggleGlobalLoader(false);
 
         if (response && response.success && response.data && response.data.userId) {
-            // 1. Afficher le toast de succès (peut durer plus longtemps)
-            // Le message du serveur est: "Inscription réussie ! Un e-mail de validation a été envoyé..."
-            showToast(response.message, 'success', 7000); // Toast de 7 secondes
+            // 1. Afficher le toast de succès
+            showToast(response.message, 'success', 5000);
 
-            // 2. Afficher la vue de validation d'e-mail dans la modale
-            // Cette vue devrait contenir un message clair, par exemple :
-            // "Veuillez consulter votre boîte de réception à l'adresse [email] pour valider votre compte.
-            // Cette fenêtre se fermera automatiquement."
-            showEmailValidationScreen(email);
-
-            // 3. Attendre 1.5 secondes avant de fermer la modale et de réinitialiser le formulaire
+            // 2. Fermer la modale d'authentification après un court délai
             setTimeout(() => {
-                // Ferme la modale d'authentification
                 document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'auth-modal' } }));
-
-                // Réinitialise le formulaire d'inscription (bonne pratique)
                 signupForm.reset();
-            }, 1500); // Délai de 1500 millisecondes (1.5 secondes)
+            }, 1500);
 
         } else if (response && response.message) {
             showToast(response.message, 'error');
@@ -365,42 +331,7 @@ function showEmailValidationScreen(email) {
     if (validationEmailAddressEl) {
         validationEmailAddressEl.textContent = sanitizeHTML(email);
     }
-    // Stocker l'email pour la fonction de renvoi
-    if (resendValidationEmailBtn) {
-        resendValidationEmailBtn.dataset.email = email;
-    }
     switchAuthView('validate-email');
-}
-
-/**
- * Gère la demande de renvoi de l'e-mail de validation.
- */
-async function handleResendValidationEmail() {
-    const email = resendValidationEmailBtn?.dataset.email;
-    if (!email) {
-        showToast('Adresse e-mail non trouvée pour le renvoi.', 'error');
-        switchAuthView('login'); // Revenir à la connexion si l'email est perdu
-        return;
-    }
-
-    try {
-        toggleGlobalLoader(true, "Envoi de l'e-mail de validation...");
-        const response = await secureFetch(`${API_BASE_URL}/resend-validation-email`, {
-            method: 'POST',
-            body: { email }
-        });
-        toggleGlobalLoader(false);
-
-        if (response && response.message) {
-            showToast(response.message, 'success');
-        } else {
-            showToast('Erreur lors du renvoi de l\'e-mail de validation.', 'error');
-        }
-    } catch (error) {
-        toggleGlobalLoader(false);
-        console.error('Erreur lors du renvoi de l\'e-mail de validation:', error);
-        // secureFetch gère le toast
-    }
 }
 
 
@@ -570,18 +501,6 @@ async function checkInitialAuthState() {
                 }
                 console.log('Utilisateur authentifié via token existant:', userData.name);
 
-                if (!userData.emailVerified) {
-                    const authModalIsOpen = authModal && authModal.getAttribute('aria-hidden') === 'false';
-                    const currentAuthView = authModal?.dataset.currentView;
-                    if (!(authModalIsOpen && currentAuthView === 'validate-email')) {
-                        console.info(`L'utilisateur ${userData._id} est connecté mais son e-mail n'est pas vérifié.`);
-                        // Gérer l'affichage de l'écran de validation d'e-mail ou un bandeau
-                        // Exemple (si vous voulez toujours la modale pour ça) :
-                        // document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' } }));
-                        // showEmailValidationScreen(userData.email);
-                        // showToast("Veuillez valider votre adresse e-mail.", "warning", 7000);
-                    }
-                }
             } else {
                 // Le serveur a répondu, mais la structure n'est pas {success: true, data: {user: ...}}
                 console.warn(`Token JWT présent, mais la récupération des données utilisateur depuis ${targetUrl} a échoué (structure de réponse incorrecte).`, response);
