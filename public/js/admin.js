@@ -18,6 +18,7 @@ const routes = {
     '#dashboard': renderDashboard,
     '#users': renderUsers,
     '#ads': renderAds,
+    '#bulk-ads': renderBulkAdsUI,
     '#categories': () => { mainContent.innerHTML = '<h1>Catégories</h1><p>Section en construction.</p>'; },
     '#settings': () => { mainContent.innerHTML = '<h1>Paramètres</h1><p>Section en construction.</p>'; }
 };
@@ -293,3 +294,104 @@ mainContent.addEventListener('click', async (e) => {
         }
     }
 });
+
+// ------------------- Gestion de l'ajout en masse d'annonces -----------------
+
+function renderBulkAdsUI() {
+    filterContainer.innerHTML = '';
+    mainContent.innerHTML = `
+        <h1 class="content-header">Ajout d'Annonces en Masse</h1>
+        <div id="bulk-ads-container"></div>
+        <div class="bulk-actions-footer">
+            <button id="add-ad-row-btn" class="btn btn-primary">+ Ajouter une ligne</button>
+            <button id="submit-bulk-ads-btn" class="btn btn-success">Créer toutes les annonces</button>
+        </div>
+    `;
+
+    document.getElementById('add-ad-row-btn').addEventListener('click', addAdRow);
+    document.getElementById('bulk-ads-container').addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-remove-row') || e.target.closest('.btn-remove-row')) {
+            const btn = e.target.classList.contains('btn-remove-row') ? e.target : e.target.closest('.btn-remove-row');
+            const row = btn.closest('.ad-form-row');
+            if (row) row.remove();
+        }
+    });
+    document.getElementById('submit-bulk-ads-btn').addEventListener('click', submitBulkAds);
+    addAdRow();
+}
+
+function addAdRow() {
+    const container = document.getElementById('bulk-ads-container');
+    if (!container) return;
+    const rowId = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    const div = document.createElement('div');
+    div.className = 'ad-form-row';
+    div.dataset.rowId = rowId;
+    div.innerHTML = `
+        <input type="text" class="form-control ad-title-input" placeholder="Titre" required>
+        <textarea class="form-control ad-description-input" placeholder="Description"></textarea>
+        <input type="number" class="form-control ad-price-input" placeholder="Prix" required>
+        <input type="text" class="form-control ad-category-input" placeholder="Catégorie">
+        <button type="button" class="btn-remove-row" aria-label="Supprimer"><i class="fa-solid fa-trash"></i></button>
+    `;
+    container.appendChild(div);
+}
+
+async function submitBulkAds() {
+    const rows = document.querySelectorAll('#bulk-ads-container .ad-form-row');
+    const adsToCreate = [];
+    let hasError = false;
+
+    rows.forEach(row => {
+        const title = row.querySelector('.ad-title-input');
+        const desc = row.querySelector('.ad-description-input');
+        const price = row.querySelector('.ad-price-input');
+        const category = row.querySelector('.ad-category-input');
+
+        [title, price].forEach(input => input.classList.remove('input-error'));
+
+        if (!title.value.trim() || !price.value.trim()) {
+            if (!title.value.trim()) title.classList.add('input-error');
+            if (!price.value.trim()) price.classList.add('input-error');
+            hasError = true;
+            return;
+        }
+
+        adsToCreate.push({
+            title: title.value.trim(),
+            description: desc.value.trim(),
+            price: parseFloat(price.value),
+            category: category.value.trim()
+        });
+    });
+
+    if (hasError) {
+        showToast('Veuillez remplir les champs requis', 'error');
+        return;
+    }
+
+    if (!adsToCreate.length) {
+        showToast('Aucune annonce à créer', 'error');
+        return;
+    }
+
+    const submitBtn = document.getElementById('submit-bulk-ads-btn');
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner"></span>';
+
+    try {
+        await secureFetch('/api/v1/ads', {
+            method: 'POST',
+            body: { ads: adsToCreate }
+        });
+        showToast(`${adsToCreate.length} annonces ont été créées avec succès !`, 'success');
+        document.getElementById('bulk-ads-container').innerHTML = '';
+        addAdRow();
+    } catch (e) {
+        // secureFetch affiche déjà un toast en cas d'erreur
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+    }
+}
