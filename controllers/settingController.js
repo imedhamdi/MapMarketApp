@@ -80,8 +80,6 @@ exports.updateMySettings = asyncHandler(async (req, res, next) => {
     delete userResponse.passwordChangedAt;
     delete userResponse.passwordResetToken;
     delete userResponse.passwordResetExpires;
-    delete userResponse.emailVerificationToken;
-    delete userResponse.emailVerificationExpires;
 
 
     logger.info(`Paramètres mis à jour pour l'utilisateur ${userId}: ${JSON.stringify(settings)}`);

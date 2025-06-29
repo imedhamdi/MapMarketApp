@@ -80,21 +80,6 @@ exports.protect = async (req, res, next) => {
   }
 };
 
-/**
- * Middleware pour vérifier si l'email de l'utilisateur est validé.
- * À utiliser sur les routes qui nécessitent une validation d'email.
- */
-exports.isEmailVerified = (req, res, next) => {
-    if (!req.user) { // Doit être utilisé après le middleware `protect`
-        return next(new AppError('Utilisateur non authentifié.', 401));
-    }
-    if (!req.user.emailVerified) {
-        return next(
-            new AppError('Veuillez vérifier votre adresse e-mail pour accéder à cette fonctionnalité.', 403) // 403 Forbidden
-        );
-    }
-    next();
-};
 
 
 /**

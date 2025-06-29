@@ -346,8 +346,6 @@ exports.deactivateMyAccount = asyncHandler(async (req, res, next) => {
   // Invalider les tokens de réinitialisation et de vérification pour un compte désactivé
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
-  user.emailVerificationToken = undefined;
-  user.emailVerificationExpires = undefined;
   // Optionnel: changer l'email pour libérer l'email actuel si nécessaire pour une réinscription future
   // user.email = `deactivated-${Date.now()}-${user.email}`; 
   // Attention: ceci rendrait la réactivation plus complexe si l'email original n'est pas stocké ailleurs.

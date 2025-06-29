@@ -97,57 +97,14 @@ exports.signup = asyncHandler(async (req, res, next) => {
     // Les autres champs (role, etc.) prendront leurs valeurs par défaut définies dans le schéma.
   });
 
-  // Générer le token de vérification d'e-mail
-  const verificationToken = newUser.createEmailVerificationToken();
-  // Sauvegarder l'utilisateur avec le token de vérification généré (sans re-valider tout)
-  // Il est important que createEmailVerificationToken ne fasse pas de save lui-même pour éviter les doubles saves.
-  await newUser.save({ validateBeforeSave: false });
-
-  // Construction de l'URL de vérification pour l'e-mail
-  // Idéalement, l'URL de base du frontend est dans les variables d'environnement.
-  const verificationURL = `${process.env.APP_URL}/verify-email?token=${verificationToken}`;
-
-  try {
-    // TODO: Implémenter la logique d'envoi d'e-mail (décommenter et adapter sendEmail)
-    /*
-    await sendEmail({
-      to: newUser.email,
-      subject: 'Validez votre adresse e-mail pour [Nom de votre Application]',
-      template: 'emailVerification', // Utiliser un template d'e-mail
-      context: { // Données à passer au template
-        name: newUser.name,
-        verificationURL,
-      },
-    });
-    */
-    logger.info(`E-mail de validation (simulation) envoyé à ${newUser.email}. URL: ${verificationURL}`);
-
-    // Réponse au client après succès de l'inscription et envoi (simulé) de l'e-mail.
-    res.status(201).json({
-      success: true,
-      message: `Inscription réussie ! Un e-mail de validation a été envoyé à ${newUser.email}. Veuillez vérifier votre boîte de réception.`,
-      // Il est généralement préférable de ne pas connecter l'utilisateur automatiquement
-      // avant la validation de l'e-mail, mais d'envoyer un ID peut être utile.
-      data: {
-        userId: newUser._id,
-      }
-    });
-
-  } catch (emailError) {
-    logger.error(`Échec de l'envoi de l'e-mail de validation à ${newUser.email}: ${emailError.message}`, { error: emailError, stack: emailError.stack });
-
-    // Si l'envoi d'e-mail échoue, l'utilisateur est déjà créé.
-    // Il est crucial de ne pas annuler la création de l'utilisateur, mais de permettre une nouvelle tentative d'envoi.
-    // Nettoyer les tokens de vérification n'est pas forcément la meilleure approche ici,
-    // car l'utilisateur pourrait vouloir demander un renvoi.
-    // Une meilleure stratégie serait de logguer l'erreur et d'informer l'utilisateur
-    // qu'il peut demander un renvoi de l'e-mail de validation depuis son profil ou une page dédiée.
-
-    // Pour l'instant, on renvoie une erreur mais l'utilisateur reste créé.
-    return next(
-      new AppError('Inscription réussie, mais l\'envoi de l\'e-mail de validation a échoué. Veuillez essayer de vous connecter et de demander un nouveau lien de validation.', 502) // 502 Bad Gateway (ou un code personnalisé)
-    );
-  }
+  // Réponse simple de succès sans envoi d'e-mail de vérification
+  res.status(201).json({
+    success: true,
+    message: 'Inscription réussie. Vous pouvez maintenant vous connecter.',
+    data: {
+      userId: newUser._id,
+    }
+  });
 });
 
 /**
@@ -161,7 +118,7 @@ exports.login = asyncHandler(async (req, res, next) => {
     return next(new AppError('Veuillez fournir une adresse e-mail et un mot de passe.', 400));
   }
 
-  const user = await User.findOne({ email }).select('+password +isActive +emailVerified');
+  const user = await User.findOne({ email }).select('+password +isActive');
 
   if (!user || !(await user.correctPassword(password, user.password))) {
     logger.warn(`Tentative de connexion échouée pour l'email: ${email} (identifiants incorrects ou utilisateur inexistant)`);
@@ -173,14 +130,6 @@ exports.login = asyncHandler(async (req, res, next) => {
     return next(new AppError('Votre compte a été désactivé. Veuillez contacter le support.', 403));
   }
 
-  // Gestion de la vérification d'e-mail
-  if (!user.emailVerified && process.env.REQUIRE_EMAIL_VERIFICATION_FOR_LOGIN === 'true') {
-    logger.info(`Connexion bloquée pour ${user._id} - ${email}: e-mail non vérifié.`);
-    return next(new AppError('Veuillez d\'abord vérifier votre adresse e-mail. Vous pouvez demander un nouveau lien de validation.', 403));
-  } else if (!user.emailVerified) {
-    logger.info(`Connexion réussie pour ${user._id} - ${email}, mais l'e-mail n'est pas encore vérifié.`);
-    // Le client peut être informé via un champ spécial dans la réponse utilisateur pour afficher un bandeau.
-  }
 
   // Envoi du token et des informations utilisateur (sans le mot de passe)
   // createSendToken est la version corrigée qui n'altère pas l'instance `user` pour le save suivant.
@@ -309,90 +258,6 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
  * GET /api/auth/validate-email/:token  (Note: Le frontend redirigera vers cette URL)
  * Alternativement: POST /api/auth/validate-email avec le token dans le body
  */
-exports.validateEmail = asyncHandler(async (req, res, next) => {
-  const { token } = req.params; // Ou req.body.token si c'est un POST
-
-  if (!token) {
-      return next(new AppError('Token de validation manquant.', 400));
-  }
-
-  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-
-  const user = await User.findOne({
-    emailVerificationToken: hashedToken,
-    emailVerificationExpires: { $gt: Date.now() },
-  });
-
-  if (!user) {
-    return next(new AppError('Token de validation invalide, expiré, ou déjà utilisé. Veuillez demander un nouveau lien si nécessaire.', 400));
-  }
-
-  user.emailVerified = true;
-  user.emailVerificationToken = undefined; // Invalider le token après utilisation.
-  user.emailVerificationExpires = undefined;
-  await user.save({ validateBeforeSave: false });
-
-  logger.info(`E-mail validé avec succès pour l'utilisateur: ${user._id}`);
-
-  // Optionnel : Connecter l'utilisateur directement ou rediriger.
-  // createSendToken(user, 200, res);
-  // Ou rediriger vers une page de succès/connexion du frontend :
-  // res.redirect(`${process.env.APP_URL}/login?emailVerified=true`);
-
-  res.status(200).json({
-    success: true,
-    message: 'Votre adresse e-mail a été validée avec succès ! Vous pouvez maintenant vous connecter.',
-  });
-});
-
-/**
- * Renvoie un nouvel e-mail de validation.
- * Doit être une route protégée, accessible uniquement par un utilisateur connecté non vérifié.
- * POST /api/auth/resend-validation-email
- */
-exports.resendValidationEmail = asyncHandler(async (req, res, next) => {
-  const user = await User.findById(req.user.id); // req.user est défini par un middleware d'authentification (protect)
-
-  if (!user) { // Sécurité : ne devrait pas arriver si protect est bien en place.
-      return next(new AppError('Utilisateur non trouvé.', 404));
-  }
-
-  if (user.emailVerified) {
-    return next(new AppError('Votre adresse e-mail est déjà vérifiée.', 400));
-  }
-
-  // Vérifier si un token a été envoyé récemment pour éviter le spam
-  // Exemple: ne pas autoriser plus d'un renvoi toutes les 5 minutes.
-  // if (user.emailVerificationExpires && user.emailVerificationExpires > Date.now() - (4 * 60 * 1000)) { // Moins de 4min avant expiration du précédent
-  //    return next(new AppError('Un e-mail de validation a déjà été envoyé récemment. Veuillez vérifier votre boîte de réception ou attendre quelques minutes.', 429));
-  // }
-
-
-  const verificationToken = user.createEmailVerificationToken();
-  await user.save({ validateBeforeSave: false });
-
-  const verificationURL = `${process.env.APP_URL}/verify-email?token=${verificationToken}`;
-  try {
-    // TODO: Implémenter la logique d'envoi d'e-mail
-    /*
-    await sendEmail({
-      to: user.email,
-      subject: 'Validez à nouveau votre adresse e-mail pour [Nom de votre Application]',
-      template: 'emailVerification',
-      context: { name: user.name, verificationURL },
-    });
-    */
-    logger.info(`Nouvel e-mail de validation (simulation) envoyé à ${user.email}. URL: ${verificationURL}`);
-    res.status(200).json({
-      success: true,
-      message: 'Un nouveau lien de validation a été envoyé à votre adresse e-mail.',
-    });
-  } catch (emailError) {
-    logger.error(`Échec du renvoi de l'e-mail de validation à ${user.email}: ${emailError.message}`, { error: emailError, stack: emailError.stack });
-    // Ne pas invalider le token ici, l'erreur est dans l'envoi.
-    return next(new AppError('Erreur lors du renvoi de l\'e-mail de validation. Veuillez réessayer plus tard.', 502));
-  }
-});
 
 
 // Ajoutez la nouvelle fonction updatePassword à la fin du fichier, avant "module.exports"
