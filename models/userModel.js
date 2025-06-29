@@ -57,6 +57,18 @@ const userSchema = new mongoose.Schema({
         select: false,
     },
 
+    // Nouveau champ pour bannir un utilisateur via l'administration
+    isBanned: {
+        type: Boolean,
+        default: false,
+    },
+
+    // Champ indiquant si l'adresse email a été vérifiée
+    isVerified: {
+        type: Boolean,
+        default: false,
+    },
+
     passwordChangedAt: Date,
     passwordResetToken: String,
     passwordResetExpires: Date,
