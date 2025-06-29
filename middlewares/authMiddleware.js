@@ -83,6 +83,16 @@ exports.protect = async (req, res, next) => {
 
 
 /**
+ * Vérifie que l'utilisateur authentifié possède le rôle administrateur.
+ */
+exports.isAdmin = (req, res, next) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return next(new AppError('Accès refusé. Droits administrateur requis.', 403));
+  }
+  next();
+};
+
+/**
  * Restreint l'accès à certains rôles (si vous implémentez des rôles).
  * Exemple: exports.restrictTo = (...roles) => { ... }
  * Pour l'instant, on n'a pas de système de rôles complexe.

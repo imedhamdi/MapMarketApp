@@ -27,6 +27,7 @@ const alertRoutes = require('./routes/alertRoutes');
 const favoriteRoutes = require('./routes/favoriteRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const settingRoutes = require('./routes/settingRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 const messageCtrl = require('./controllers/messageController');
 
 const app = express();
@@ -175,6 +176,7 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/settings', settingRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Favicon (évite une erreur inutile dans les logs)
 app.get('/favicon.ico', (req, res) => {

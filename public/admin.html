@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MapMarket - Panneau d'Administration</title>
+    <link rel="stylesheet" href="/css/admin.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="admin-container">
+        <nav class="admin-sidebar">
+            <h1 class="sidebar-title">MapMarket</h1>
+            <ul class="sidebar-nav">
+                <li><a href="#dashboard" class="nav-link active">Dashboard</a></li>
+                <li><a href="#users" class="nav-link">Utilisateurs</a></li>
+                <li><a href="#ads" class="nav-link">Annonces</a></li>
+                <li><a href="#categories" class="nav-link">Catégories</a></li>
+                <li><a href="#settings" class="nav-link">Paramètres</a></li>
+            </ul>
+            <div class="sidebar-footer">
+                <button id="logout-btn" class="logout-button">Déconnexion</button>
+            </div>
+        </nav>
+        <main class="admin-content" id="admin-main-content">
+            <p>Chargement...</p>
+        </main>
+    </div>
+
+    <div id="confirmation-modal" class="modal-hidden">
+        <div class="modal-content">
+            <h2>Confirmation requise</h2>
+            <p id="modal-text">Êtes-vous sûr de vouloir effectuer cette action ?</p>
+            <div class="modal-actions">
+                <button id="confirm-action-btn" class="btn-danger">Confirmer</button>
+                <button id="cancel-action-btn" class="btn-secondary">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/js/admin.js"></script>
+</body>
+</html>
