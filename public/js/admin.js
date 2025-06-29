@@ -1,397 +1,171 @@
-import { secureFetch, debounce, showToast } from './utils.js';
+import { secureFetch, showToast } from './utils.js';
 
-const token = localStorage.getItem('mapmarket_auth_token');
-if (!token) {
-    window.location.replace('/index.html');
+const mainContent = document.getElementById('mainContent');
+const navLinks = document.querySelectorAll('#navLinks .nav-link');
+let currentPage = '';
+
+navLinks.forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    loadPage(link.dataset.page);
+  });
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('mapmarket_auth_token');
+  window.location.replace('/index.html');
+});
+
+async function loadPage(page) {
+  if (currentPage === page) return;
+  currentPage = page;
+  navLinks.forEach(l => l.classList.toggle('active', l.dataset.page === page));
+  mainContent.innerHTML = '<div class="text-center py-5"><div class="spinner-border" role="status"></div></div>';
+  if (page === 'dashboard') await loadDashboard();
+  if (page === 'users') await loadUsers();
+  if (page === 'ads') await loadAds();
 }
 
-const mainContent = document.getElementById('admin-main-content');
-const filterContainer = document.getElementById('admin-filters');
-const navLinks = document.querySelectorAll('.nav-link');
-
-const filterState = {
-    users: { search: '', role: '' },
-    ads: { search: '', category: '' }
-};
-
-const routes = {
-    '#dashboard': renderDashboard,
-    '#users': renderUsers,
-    '#ads': renderAds,
-    '#bulk-ads': renderBulkAdsUI,
-    '#categories': () => { mainContent.innerHTML = '<h1>Catégories</h1><p>Section en construction.</p>'; },
-    '#settings': () => { mainContent.innerHTML = '<h1>Paramètres</h1><p>Section en construction.</p>'; }
-};
-
-async function router() {
-    const hash = window.location.hash || '#dashboard';
-    const handler = routes[hash];
-
-    navLinks.forEach(link => {
-        if (link.getAttribute('href') === hash) {
-            link.classList.add('active');
-        } else {
-            link.classList.remove('active');
-        }
-    });
-
-    if (handler) {
-        try {
-            mainContent.innerHTML = '<div class="spinner"></div>';
-            await handler();
-        } catch (err) {
-            console.error(err);
-            if (err.status === 403) {
-                mainContent.innerHTML = '<h1>Accès refusé</h1>';
-            } else {
-                mainContent.innerHTML = '<h1>Erreur</h1>';
-            }
-        }
-    }
+async function loadDashboard() {
+  const res = await secureFetch('/api/admin/stats');
+  mainContent.innerHTML = `
+    <h3 class="mb-4">Dashboard</h3>
+    <div class="d-flex flex-wrap gap-3 mb-4" id="statsCards"></div>
+    <canvas id="usersChart" height="120"></canvas>
+  `;
+  const c = document.getElementById('statsCards');
+  c.innerHTML = `
+    <div class="card card-stat p-3"><div>Total Utilisateurs</div><h4>${res.data.totalUsers}</h4></div>
+    <div class="card card-stat p-3"><div>Total Annonces</div><h4>${res.data.totalAds}</h4></div>
+    <div class="card card-stat p-3"><div>Annonces actives</div><h4>${res.data.activeAds}</h4></div>
+    <div class="card card-stat p-3"><div>Nouv. utilisateurs 30j</div><h4>${res.data.newUsersLast30Days}</h4></div>
+    <div class="card card-stat p-3"><div>Nouv. annonces 30j</div><h4>${res.data.newAdsLast30Days}</h4></div>
+  `;
+  const trend = await secureFetch('/api/admin/stats/new-users');
+  const labels = trend.data.map(d => d.month);
+  const counts = trend.data.map(d => d.count);
+  new Chart(document.getElementById('usersChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Nouveaux utilisateurs', data: counts, backgroundColor: '#0d6efd' }] },
+    options: { responsive: true }
+  });
 }
 
-async function renderDashboard() {
-    const res = await secureFetch('/api/admin/stats');
-    const { totalUsers, totalAds, recentUsers, recentAds } = res.data;
-
-    mainContent.innerHTML = `
-        <h1 class="content-header">Dashboard</h1>
-        <div class="dashboard-grid">
-            <div class="widget">
-                <h2 class="widget-title">Utilisateurs</h2>
-                <p class="widget-value">${totalUsers}</p>
-            </div>
-            <div class="widget">
-                <h2 class="widget-title">Annonces</h2>
-                <p class="widget-value">${totalAds}</p>
-            </div>
-        </div>
-        <div class="dashboard-grid" style="margin-top: 2rem;">
-            <div class="table-container">
-                <h2>Derniers Utilisateurs</h2>
-                <ul style="list-style: none; padding: 0;">
-                    ${recentUsers.map(u => `<li>${u.name} - ${u.email}</li>`).join('')}
-                </ul>
-            </div>
-            <div class="table-container">
-                <h2>Dernières Annonces</h2>
-                <ul style="list-style: none; padding: 0;">
-                    ${recentAds.map(a => `<li>${a.title} (par ${a.userId ? a.userId.name : 'N/A'})</li>`).join('')}
-                </ul>
-            </div>
-        </div>
-    `;
-}
-
-async function renderUsers() {
-    filterContainer.innerHTML = `
-        <div class="filter-bar">
-            <div class="search-wrapper">
-                <i class="fa-solid fa-search search-input-icon"></i>
-                <input type="text" id="user-search" placeholder="Recherche nom/email" value="${filterState.users.search}">
-            </div>
-            <select id="role-filter">
-                <option value="">Tous les rôles</option>
-                <option value="admin">Admin</option>
-                <option value="user">User</option>
-            </select>
-        </div>`;
-    document.getElementById('role-filter').value = filterState.users.role;
-
-    mainContent.innerHTML = `
-        <h1 class="content-header">Gestion des Utilisateurs</h1>
-        <div class="table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Nom</th>
-                        <th>Email</th>
-                        <th>Rôle</th>
-                        <th>Actif</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="users-tbody">
-                    <tr><td colspan="5"><div class="spinner"></div></td></tr>
-                </tbody>
-            </table>
-        </div>`;
-
-    await updateUsers();
-    setupEventListeners('users');
-}
-
-async function renderAds() {
-    filterContainer.innerHTML = `
-        <div class="filter-bar">
-            <div class="search-wrapper">
-                <i class="fa-solid fa-search search-input-icon"></i>
-                <input type="text" id="ad-search" placeholder="Recherche titre" value="${filterState.ads.search}">
-            </div>
-            <select id="category-filter">
-                <option value="">Toutes catégories</option>
-                <option value="Auto">Auto</option>
-                <option value="Immobilier">Immobilier</option>
-                <option value="Services">Services</option>
-                <option value="Informatique">Informatique</option>
-            </select>
-        </div>`;
-    document.getElementById('category-filter').value = filterState.ads.category;
-
-    mainContent.innerHTML = `
-        <h1 class="content-header">Gestion des Annonces</h1>
-        <div class="table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Titre</th>
-                        <th>Utilisateur</th>
-                        <th>Prix</th>
-                        <th>Catégorie</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="ads-tbody">
-                    <tr><td colspan="5"><div class="spinner"></div></td></tr>
-                </tbody>
-            </table>
-        </div>`;
-
-    await updateAds();
-    setupEventListeners('ads');
+async function loadUsers() {
+  mainContent.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3>Utilisateurs</h3>
+      <input type="search" id="userSearch" class="form-control w-auto" placeholder="Recherche">
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Créé le</th><th>Actions</th></tr></thead>
+        <tbody id="usersBody"></tbody>
+      </table>
+    </div>`;
+  document.getElementById('userSearch').addEventListener('input', debounce(updateUsers, 400));
+  await updateUsers();
 }
 
 async function updateUsers() {
-    const { search, role } = filterState.users;
-    const params = [];
-    if (search) {
-        params.push(`name[regex]=${encodeURIComponent(search)}`);
-        params.push(`email[regex]=${encodeURIComponent(search)}`);
-    }
-    if (role) params.push(`role=${encodeURIComponent(role)}`);
-    const query = params.length ? `?${params.join('&')}` : '';
-    const tbody = document.getElementById('users-tbody');
-    tbody.innerHTML = `<tr><td colspan="5"><div class="spinner"></div></td></tr>`;
-    const res = await secureFetch(`/api/admin/users${query}`, {}, false);
-    const users = res.data.users;
-    tbody.innerHTML = users.map(u => `
-        <tr data-id="${u._id}">
-            <td>${u.name}</td>
-            <td>${u.email}</td>
-            <td><span class="badge ${u.role}">${u.role}</span></td>
-            <td>${u.isActive ? 'Oui' : 'Non'}</td>
-            <td class="table-actions">
-                <button class="icon-btn btn-delete" title="Supprimer" aria-label="Supprimer"><i class="fa-solid fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('');
+  const term = document.getElementById('userSearch').value.trim();
+  const res = await secureFetch(`/api/admin/users?search=${encodeURIComponent(term)}`, {}, false);
+  const body = document.getElementById('usersBody');
+  body.innerHTML = res.data.users.map(u => `
+    <tr data-id="${u._id}">
+      <td>${u.name}</td>
+      <td>${u.email}</td>
+      <td>${u.role}</td>
+      <td>${new Date(u.createdAt).toLocaleDateString()}</td>
+      <td>
+        <button class="btn btn-sm btn-danger btn-delete-user">Supprimer</button>
+        <button class="btn btn-sm ${u.isBanned ? 'btn-success btn-unban-user' : 'btn-warning btn-ban-user'}">${u.isBanned ? 'Débannir' : 'Bannir'}</button>
+      </td>
+    </tr>`).join('');
+}
+
+mainContent.addEventListener('click', async e => {
+  const row = e.target.closest('tr');
+  if (!row) return;
+  const id = row.dataset.id;
+  if (e.target.classList.contains('btn-delete-user')) {
+    confirmAction('Supprimer cet utilisateur ?', async () => {
+      await secureFetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+      showToast('Utilisateur supprimé', 'success');
+      updateUsers();
+    });
+  }
+  if (e.target.classList.contains('btn-ban-user')) {
+    await secureFetch(`/api/admin/users/${id}/ban`, { method: 'POST' });
+    showToast('Utilisateur banni', 'success');
+    updateUsers();
+  }
+  if (e.target.classList.contains('btn-unban-user')) {
+    await secureFetch(`/api/admin/users/${id}/unban`, { method: 'POST' });
+    showToast('Utilisateur débanni', 'success');
+    updateUsers();
+  }
+});
+
+async function loadAds() {
+  mainContent.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3>Annonces</h3>
+      <input type="search" id="adSearch" class="form-control w-auto" placeholder="Recherche">
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Titre</th><th>Auteur</th><th>Catégorie</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="adsBody"></tbody>
+      </table>
+    </div>`;
+  document.getElementById('adSearch').addEventListener('input', debounce(updateAds, 400));
+  await updateAds();
 }
 
 async function updateAds() {
-    const { search, category } = filterState.ads;
-    const params = [];
-    if (search) params.push(`title[regex]=${encodeURIComponent(search)}`);
-    if (category) params.push(`category=${encodeURIComponent(category)}`);
-    const query = params.length ? `?${params.join('&')}` : '';
-    const tbody = document.getElementById('ads-tbody');
-    tbody.innerHTML = `<tr><td colspan="5"><div class="spinner"></div></td></tr>`;
-    const res = await secureFetch(`/api/admin/ads${query}`, {}, false);
-    const ads = res.data.ads;
-    tbody.innerHTML = ads.map(ad => `
-        <tr data-id="${ad._id}">
-            <td>${ad.title}</td>
-            <td>${ad.userId ? ad.userId.name : 'N/A'}</td>
-            <td>${ad.price} €</td>
-            <td>${ad.category}</td>
-            <td class="table-actions">
-                <button class="icon-btn btn-delete" title="Supprimer" aria-label="Supprimer"><i class="fa-solid fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('');
+  const term = document.getElementById('adSearch').value.trim();
+  const res = await secureFetch(`/api/admin/ads?title[regex]=${encodeURIComponent(term)}`, {}, false);
+  const body = document.getElementById('adsBody');
+  body.innerHTML = res.data.ads.map(ad => `
+    <tr data-id="${ad._id}">
+      <td>${ad.title}</td>
+      <td>${ad.userId ? ad.userId.name : ''}</td>
+      <td>${ad.category}</td>
+      <td>${ad.status}</td>
+      <td><button class="btn btn-sm btn-danger btn-delete-ad">Supprimer</button></td>
+    </tr>`).join('');
 }
 
-function setupEventListeners(type) {
-    if (type === 'users') {
-        const debounced = debounce((e) => {
-            filterState.users.search = e.target.value.trim();
-            updateUsers();
-        }, 400);
-        document.getElementById('user-search').addEventListener('input', debounced);
-        document.getElementById('role-filter').addEventListener('change', (e) => {
-            filterState.users.role = e.target.value;
-            updateUsers();
-        });
-    } else if (type === 'ads') {
-        const debounced = debounce((e) => {
-            filterState.ads.search = e.target.value.trim();
-            updateAds();
-        }, 400);
-        document.getElementById('ad-search').addEventListener('input', debounced);
-        document.getElementById('category-filter').addEventListener('change', (e) => {
-            filterState.ads.category = e.target.value;
-            updateAds();
-        });
-    }
-}
-
-window.addEventListener('hashchange', router);
-window.addEventListener('load', router);
-
-document.getElementById('reset-filters-btn').addEventListener('click', () => {
-    const route = window.location.hash;
-    if (route === '#users') {
-        filterState.users = { search: '', role: '' };
-        renderUsers();
-    } else if (route === '#ads') {
-        filterState.ads = { search: '', category: '' };
-        renderAds();
-    }
-});
-
-document.getElementById('logout-btn').addEventListener('click', () => {
-    localStorage.removeItem('mapmarket_auth_token');
-    window.location.replace('/index.html');
-});
-
-const modal = document.getElementById('confirmation-modal');
-const confirmBtn = document.getElementById('confirm-action-btn');
-const cancelBtn = document.getElementById('cancel-action-btn');
-let actionToConfirm = null;
-
-function showConfirmationModal(text, onConfirm) {
-    document.getElementById('modal-text').textContent = text;
-    modal.classList.replace('modal-hidden', 'modal-visible');
-    actionToConfirm = onConfirm;
-}
-
-confirmBtn.addEventListener('click', () => {
-    if (actionToConfirm) actionToConfirm();
-    modal.classList.replace('modal-visible', 'modal-hidden');
-});
-
-cancelBtn.addEventListener('click', () => {
-    modal.classList.replace('modal-visible', 'modal-hidden');
-});
-
-mainContent.addEventListener('click', async (e) => {
-    if (e.target.classList.contains('btn-delete')) {
-        const row = e.target.closest('tr');
-        const id = row.dataset.id;
-        const route = window.location.hash;
-
-        if (route === '#users') {
-            showConfirmationModal('Supprimer cet utilisateur ?', async () => {
-                await secureFetch(`/api/admin/users/${id}`, { method: 'DELETE' });
-                showToast('Utilisateur supprimé', 'success');
-                renderUsers();
-            });
-        } else if (route === '#ads') {
-            showConfirmationModal('Supprimer cette annonce ?', async () => {
-                await secureFetch(`/api/admin/ads/${id}`, { method: 'DELETE' });
-                showToast('Annonce supprimée', 'success');
-                renderAds();
-            });
-        }
-    }
-});
-
-// ------------------- Gestion de l'ajout en masse d'annonces -----------------
-
-function renderBulkAdsUI() {
-    filterContainer.innerHTML = '';
-    mainContent.innerHTML = `
-        <h1 class="content-header">Ajout d'Annonces en Masse</h1>
-        <div id="bulk-ads-container"></div>
-        <div class="bulk-actions-footer">
-            <button id="add-ad-row-btn" class="btn btn-primary">+ Ajouter une ligne</button>
-            <button id="submit-bulk-ads-btn" class="btn btn-success">Créer toutes les annonces</button>
-        </div>
-    `;
-
-    document.getElementById('add-ad-row-btn').addEventListener('click', addAdRow);
-    document.getElementById('bulk-ads-container').addEventListener('click', (e) => {
-        if (e.target.classList.contains('btn-remove-row') || e.target.closest('.btn-remove-row')) {
-            const btn = e.target.classList.contains('btn-remove-row') ? e.target : e.target.closest('.btn-remove-row');
-            const row = btn.closest('.ad-form-row');
-            if (row) row.remove();
-        }
+mainContent.addEventListener('click', async e => {
+  const row = e.target.closest('tr');
+  if (!row) return;
+  const id = row.dataset.id;
+  if (e.target.classList.contains('btn-delete-ad')) {
+    confirmAction('Supprimer cette annonce ?', async () => {
+      await secureFetch(`/api/admin/ads/${id}`, { method: 'DELETE' });
+      showToast('Annonce supprimée', 'success');
+      updateAds();
     });
-    document.getElementById('submit-bulk-ads-btn').addEventListener('click', submitBulkAds);
-    addAdRow();
+  }
+});
+
+function confirmAction(text, action) {
+  const modalEl = document.getElementById('confirmModal');
+  document.getElementById('confirmText').textContent = text;
+  const modal = new bootstrap.Modal(modalEl);
+  const btn = document.getElementById('confirmBtn');
+  const handler = async () => {
+    modal.hide();
+    btn.removeEventListener('click', handler);
+    await action();
+  };
+  btn.addEventListener('click', handler);
+  modal.show();
 }
 
-function addAdRow() {
-    const container = document.getElementById('bulk-ads-container');
-    if (!container) return;
-    const rowId = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-    const div = document.createElement('div');
-    div.className = 'ad-form-row';
-    div.dataset.rowId = rowId;
-    div.innerHTML = `
-        <input type="text" class="form-control ad-title-input" placeholder="Titre" required>
-        <textarea class="form-control ad-description-input" placeholder="Description"></textarea>
-        <input type="number" class="form-control ad-price-input" placeholder="Prix" required>
-        <input type="text" class="form-control ad-category-input" placeholder="Catégorie">
-        <button type="button" class="btn-remove-row" aria-label="Supprimer"><i class="fa-solid fa-trash"></i></button>
-    `;
-    container.appendChild(div);
+function debounce(fn, delay) {
+  let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
 }
 
-async function submitBulkAds() {
-    const rows = document.querySelectorAll('#bulk-ads-container .ad-form-row');
-    const adsToCreate = [];
-    let hasError = false;
-
-    rows.forEach(row => {
-        const title = row.querySelector('.ad-title-input');
-        const desc = row.querySelector('.ad-description-input');
-        const price = row.querySelector('.ad-price-input');
-        const category = row.querySelector('.ad-category-input');
-
-        [title, price].forEach(input => input.classList.remove('input-error'));
-
-        if (!title.value.trim() || !price.value.trim()) {
-            if (!title.value.trim()) title.classList.add('input-error');
-            if (!price.value.trim()) price.classList.add('input-error');
-            hasError = true;
-            return;
-        }
-
-        adsToCreate.push({
-            title: title.value.trim(),
-            description: desc.value.trim(),
-            price: parseFloat(price.value),
-            category: category.value.trim()
-        });
-    });
-
-    if (hasError) {
-        showToast('Veuillez remplir les champs requis', 'error');
-        return;
-    }
-
-    if (!adsToCreate.length) {
-        showToast('Aucune annonce à créer', 'error');
-        return;
-    }
-
-    const submitBtn = document.getElementById('submit-bulk-ads-btn');
-    const originalText = submitBtn.textContent;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner"></span>';
-
-    try {
-        await secureFetch('/api/v1/ads', {
-            method: 'POST',
-            body: { ads: adsToCreate }
-        });
-        showToast(`${adsToCreate.length} annonces ont été créées avec succès !`, 'success');
-        document.getElementById('bulk-ads-container').innerHTML = '';
-        addAdRow();
-    } catch (e) {
-        // secureFetch affiche déjà un toast en cas d'erreur
-    } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
-    }
-}
+loadPage('dashboard');

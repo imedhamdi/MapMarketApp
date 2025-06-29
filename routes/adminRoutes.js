@@ -9,6 +9,7 @@ router.use(protect);
 router.use(isAdmin);
 
 router.get('/stats', adminController.getDashboardStats);
+router.get('/stats/new-users', adminController.getNewUsersPerMonth);
 
 router.route('/users')
     .get(adminController.getAllUsers);
@@ -17,11 +18,14 @@ router.route('/users/:id')
     .patch(adminController.updateUser)
     .delete(adminController.deleteUser);
 
+router.post('/users/:id/ban', adminController.banUser);
+router.post('/users/:id/unban', adminController.unbanUser);
+
 router.route('/ads')
     .get(adminController.getAllAds);
 
 router.route('/ads/:id')
     .patch(adminController.updateAd)
-    .delete(adminController.deleteAd);
+    .delete(adminController.deleteAdAsAdmin);
 
 module.exports = router;
