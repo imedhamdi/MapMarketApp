@@ -481,7 +481,14 @@ export async function secureFetch(url, options = {}, showGlobalLoader = true) {
     
     // Message plus spécifique pour les erreurs de validation
     if (error.status === 400 && error.data?.errors) {
-        const validationErrors = Object.values(error.data.errors).join(', ');
+        let validationErrors;
+        if (Array.isArray(error.data.errors)) {
+            validationErrors = error.data.errors.map(err => err.message).join(', ');
+        } else if (typeof error.data.errors === 'object') {
+            validationErrors = Object.values(error.data.errors).join(', ');
+        } else {
+            validationErrors = error.message;
+        }
         showToast(`Erreur de validation : ${validationErrors}`, 'error');
     } else {
         showToast(error.message || 'Une erreur de communication est survenue. Veuillez réessayer.', 'error');
