@@ -1,4 +1,4 @@
-import { secureFetch } from './utils.js';
+import { secureFetch, debounce } from './utils.js';
 
 const token = localStorage.getItem('mapmarket_auth_token');
 if (!token) {
@@ -6,6 +6,7 @@ if (!token) {
 }
 
 const mainContent = document.getElementById('admin-main-content');
+const filterContainer = document.getElementById('admin-filters');
 const navLinks = document.querySelectorAll('.nav-link');
 
 const routes = {
@@ -77,8 +78,18 @@ async function renderDashboard() {
 }
 
 async function renderUsers() {
-    const res = await secureFetch('/api/admin/users');
-    const users = res.data.users;
+    filterContainer.innerHTML = `
+        <div class="filter-bar">
+            <div class="search-wrapper">
+                <i class="fa-solid fa-search search-input-icon"></i>
+                <input type="text" id="user-search" placeholder="Recherche nom/email">
+            </div>
+            <select id="role-filter">
+                <option value="">Tous les rôles</option>
+                <option value="admin">Admin</option>
+                <option value="user">User</option>
+            </select>
+        </div>`;
 
     mainContent.innerHTML = `
         <h1 class="content-header">Gestion des Utilisateurs</h1>
@@ -93,27 +104,31 @@ async function renderUsers() {
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody>
-                    ${users.map(u => `
-                        <tr data-id="${u._id}">
-                            <td>${u.name}</td>
-                            <td>${u.email}</td>
-                            <td>${u.role}</td>
-                            <td>${u.isActive ? 'Oui' : 'Non'}</td>
-                            <td class="table-actions">
-                                <button class="btn-delete">Supprimer</button>
-                            </td>
-                        </tr>
-                    `).join('')}
+                <tbody id="users-tbody">
+                    <tr><td colspan="5"><div class="spinner"></div></td></tr>
                 </tbody>
             </table>
-        </div>
-    `;
+        </div>`;
+
+    await updateUsers();
+    setupEventListeners('users');
 }
 
 async function renderAds() {
-    const res = await secureFetch('/api/admin/ads');
-    const ads = res.data.ads;
+    filterContainer.innerHTML = `
+        <div class="filter-bar">
+            <div class="search-wrapper">
+                <i class="fa-solid fa-search search-input-icon"></i>
+                <input type="text" id="ad-search" placeholder="Recherche titre">
+            </div>
+            <select id="category-filter">
+                <option value="">Toutes catégories</option>
+                <option value="Auto">Auto</option>
+                <option value="Immobilier">Immobilier</option>
+                <option value="Services">Services</option>
+                <option value="Informatique">Informatique</option>
+            </select>
+        </div>`;
 
     mainContent.innerHTML = `
         <h1 class="content-header">Gestion des Annonces</h1>
@@ -128,22 +143,77 @@ async function renderAds() {
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody>
-                    ${ads.map(ad => `
-                        <tr data-id="${ad._id}">
-                            <td>${ad.title}</td>
-                            <td>${ad.userId ? ad.userId.name : 'N/A'}</td>
-                            <td>${ad.price} €</td>
-                            <td>${ad.category}</td>
-                            <td class="table-actions">
-                                <button class="btn-delete">Supprimer</button>
-                            </td>
-                        </tr>
-                    `).join('')}
+                <tbody id="ads-tbody">
+                    <tr><td colspan="5"><div class="spinner"></div></td></tr>
                 </tbody>
             </table>
-        </div>
-    `;
+        </div>`;
+
+    await updateAds();
+    setupEventListeners('ads');
+}
+
+async function updateUsers() {
+    const search = document.getElementById('user-search').value.trim();
+    const role = document.getElementById('role-filter').value;
+    const params = [];
+    if (search) {
+        params.push(`name[regex]=${encodeURIComponent(search)}`);
+        params.push(`email[regex]=${encodeURIComponent(search)}`);
+    }
+    if (role) params.push(`role=${encodeURIComponent(role)}`);
+    const query = params.length ? `?${params.join('&')}` : '';
+    const tbody = document.getElementById('users-tbody');
+    tbody.innerHTML = `<tr><td colspan="5"><div class="spinner"></div></td></tr>`;
+    const res = await secureFetch(`/api/admin/users${query}`, {}, false);
+    const users = res.data.users;
+    tbody.innerHTML = users.map(u => `
+        <tr data-id="${u._id}">
+            <td>${u.name}</td>
+            <td>${u.email}</td>
+            <td>${u.role}</td>
+            <td>${u.isActive ? 'Oui' : 'Non'}</td>
+            <td class="table-actions">
+                <button class="btn-delete"><i class="fa-solid fa-trash"></i> Supprimer</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function updateAds() {
+    const search = document.getElementById('ad-search').value.trim();
+    const category = document.getElementById('category-filter').value;
+    const params = [];
+    if (search) params.push(`title[regex]=${encodeURIComponent(search)}`);
+    if (category) params.push(`category=${encodeURIComponent(category)}`);
+    const query = params.length ? `?${params.join('&')}` : '';
+    const tbody = document.getElementById('ads-tbody');
+    tbody.innerHTML = `<tr><td colspan="5"><div class="spinner"></div></td></tr>`;
+    const res = await secureFetch(`/api/admin/ads${query}`, {}, false);
+    const ads = res.data.ads;
+    tbody.innerHTML = ads.map(ad => `
+        <tr data-id="${ad._id}">
+            <td>${ad.title}</td>
+            <td>${ad.userId ? ad.userId.name : 'N/A'}</td>
+            <td>${ad.price} €</td>
+            <td>${ad.category}</td>
+            <td class="table-actions">
+                <button class="btn-delete"><i class="fa-solid fa-trash"></i> Supprimer</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function setupEventListeners(type) {
+    if (type === 'users') {
+        const debounced = debounce(updateUsers, 350);
+        document.getElementById('user-search').addEventListener('input', debounced);
+        document.getElementById('role-filter').addEventListener('change', updateUsers);
+    } else if (type === 'ads') {
+        const debounced = debounce(updateAds, 350);
+        document.getElementById('ad-search').addEventListener('input', debounced);
+        document.getElementById('category-filter').addEventListener('change', updateAds);
+    }
 }
 
 window.addEventListener('hashchange', router);
