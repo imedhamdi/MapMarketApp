@@ -27,11 +27,14 @@
             </div>
         </nav>
         <main class="admin-content">
-            <!-- Barre de filtres dynamique -->
-            <div id="admin-filters"></div>
+            <!-- Conteneur des filtres et actions -->
+            <div id="filters-wrapper" class="filters-wrapper">
+                <div id="admin-filters"></div>
+                <button id="reset-filters-btn" class="btn-reset" type="button">Réinitialiser</button>
+            </div>
             <!-- Zone principale où seront injectés les tableaux -->
             <div id="admin-main-content">
-                <p>Chargement...</p>
+                <div class="spinner" id="initial-loader"></div>
             </div>
         </main>
     </div>

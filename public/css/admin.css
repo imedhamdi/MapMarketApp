@@ -1,9 +1,10 @@
 :root {
     --bg-color: #f8f9fa;
-    --sidebar-bg: #1e293b;
-    --accent-color: #4f46e5;
-    --text-color: #334155;
-    --border-color: #e2e8f0;
+    --sidebar-bg: #111827;
+    --accent-color: #4338ca;
+    --text-color: #1f2937;
+    --text-secondary: #6b7280;
+    --border-color: #e5e7eb;
     --medium-gray: #94a3b8;
     --white: #ffffff;
     --danger-color: #e74c3c;
@@ -62,9 +63,9 @@ body {
 }
 
 .sidebar-nav .nav-link.active {
-    background-color: rgba(79, 70, 229, 0.15);
+    background-color: rgba(67, 56, 202, 0.1);
     border-left: 4px solid var(--accent-color);
-    color: var(--white);
+    color: var(--accent-color);
 }
 
 .sidebar-footer {
@@ -168,26 +169,29 @@ body {
 }
 
 .data-table tbody tr:hover {
-    background-color: rgba(79, 70, 229, 0.05);
+    background-color: rgba(67, 56, 202, 0.05);
 }
 
-.table-actions button {
-    margin-right: 0.5rem;
-    padding: 0.4rem 0.8rem;
+.table-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.icon-btn {
+    width: 32px;
+    height: 32px;
     border: none;
-    border-radius: 4px;
-    cursor: pointer;
+    border-radius: 50%;
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--white);
 }
 
-.btn-edit { background-color: #f39c12; color: white; }
-.btn-delete { background-color: var(--danger-color); color: white; }
-.btn-edit i,
-.btn-delete i {
-    pointer-events: none;
-}
+.btn-edit { background-color: #f59e0b; }
+.btn-delete { background-color: var(--danger-color); }
+.icon-btn i { pointer-events: none; }
 
 .modal-hidden { display: none; }
 .modal-visible {
@@ -207,7 +211,17 @@ body {
     padding: 2rem;
     border-radius: 8px;
     width: 90%;
-    max-width: 400px;
+    max-width: 420px;
+    text-align: center;
+}
+
+.modal-content h2 {
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: var(--danger-color);
 }
 
 .modal-actions {
@@ -228,7 +242,7 @@ body {
     border-top-color: var(--accent-color);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
-    margin: 0 auto;
+    margin: 2rem auto;
 }
 
 @keyframes spin {
@@ -260,6 +274,10 @@ body {
     transform: translateX(100%);
     transition: opacity 0.3s, transform 0.3s;
 }
+
+.toast-notification.success { background-color: var(--success-color); }
+.toast-notification.error { background-color: var(--danger-color); }
+.toast-notification.info { background-color: var(--accent-color); }
 
 .toast-notification.toast-visible {
     opacity: 1;
@@ -300,8 +318,17 @@ body {
 }
 
 /* Barre de filtres */
+.filters-wrapper {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
 .filter-bar {
-    margin-bottom: 1rem;
+    flex: 1;
     display: flex;
     gap: 1rem;
     align-items: center;
@@ -335,9 +362,33 @@ body {
     background-color: var(--white);
 }
 
+.btn-reset {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    background-color: var(--white);
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-color);
+}
+.btn-reset:hover {
+    background-color: var(--bg-color);
+}
+
 .filter-bar input[type="text"]:focus,
 .filter-bar select:focus {
     outline: none;
     border-color: var(--accent-color);
     box-shadow: 0 0 0 2px rgba(79,70,229,0.2);
 }
+
+/* Badges de statut */
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--white);
+}
+.badge.admin { background-color: var(--accent-color); }
+.badge.user { background-color: var(--medium-gray); }

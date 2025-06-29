@@ -1,4 +1,4 @@
-import { secureFetch, debounce } from './utils.js';
+import { secureFetch, debounce, showToast } from './utils.js';
 
 const token = localStorage.getItem('mapmarket_auth_token');
 if (!token) {
@@ -8,6 +8,11 @@ if (!token) {
 const mainContent = document.getElementById('admin-main-content');
 const filterContainer = document.getElementById('admin-filters');
 const navLinks = document.querySelectorAll('.nav-link');
+
+const filterState = {
+    users: { search: '', role: '' },
+    ads: { search: '', category: '' }
+};
 
 const routes = {
     '#dashboard': renderDashboard,
@@ -31,7 +36,7 @@ async function router() {
 
     if (handler) {
         try {
-            mainContent.innerHTML = '<p>Chargement...</p>';
+            mainContent.innerHTML = '<div class="spinner"></div>';
             await handler();
         } catch (err) {
             console.error(err);
@@ -82,7 +87,7 @@ async function renderUsers() {
         <div class="filter-bar">
             <div class="search-wrapper">
                 <i class="fa-solid fa-search search-input-icon"></i>
-                <input type="text" id="user-search" placeholder="Recherche nom/email">
+                <input type="text" id="user-search" placeholder="Recherche nom/email" value="${filterState.users.search}">
             </div>
             <select id="role-filter">
                 <option value="">Tous les rôles</option>
@@ -90,6 +95,7 @@ async function renderUsers() {
                 <option value="user">User</option>
             </select>
         </div>`;
+    document.getElementById('role-filter').value = filterState.users.role;
 
     mainContent.innerHTML = `
         <h1 class="content-header">Gestion des Utilisateurs</h1>
@@ -119,7 +125,7 @@ async function renderAds() {
         <div class="filter-bar">
             <div class="search-wrapper">
                 <i class="fa-solid fa-search search-input-icon"></i>
-                <input type="text" id="ad-search" placeholder="Recherche titre">
+                <input type="text" id="ad-search" placeholder="Recherche titre" value="${filterState.ads.search}">
             </div>
             <select id="category-filter">
                 <option value="">Toutes catégories</option>
@@ -129,6 +135,7 @@ async function renderAds() {
                 <option value="Informatique">Informatique</option>
             </select>
         </div>`;
+    document.getElementById('category-filter').value = filterState.ads.category;
 
     mainContent.innerHTML = `
         <h1 class="content-header">Gestion des Annonces</h1>
@@ -154,8 +161,7 @@ async function renderAds() {
 }
 
 async function updateUsers() {
-    const search = document.getElementById('user-search').value.trim();
-    const role = document.getElementById('role-filter').value;
+    const { search, role } = filterState.users;
     const params = [];
     if (search) {
         params.push(`name[regex]=${encodeURIComponent(search)}`);
@@ -171,18 +177,17 @@ async function updateUsers() {
         <tr data-id="${u._id}">
             <td>${u.name}</td>
             <td>${u.email}</td>
-            <td>${u.role}</td>
+            <td><span class="badge ${u.role}">${u.role}</span></td>
             <td>${u.isActive ? 'Oui' : 'Non'}</td>
             <td class="table-actions">
-                <button class="btn-delete"><i class="fa-solid fa-trash"></i> Supprimer</button>
+                <button class="icon-btn btn-delete" title="Supprimer" aria-label="Supprimer"><i class="fa-solid fa-trash"></i></button>
             </td>
         </tr>
     `).join('');
 }
 
 async function updateAds() {
-    const search = document.getElementById('ad-search').value.trim();
-    const category = document.getElementById('category-filter').value;
+    const { search, category } = filterState.ads;
     const params = [];
     if (search) params.push(`title[regex]=${encodeURIComponent(search)}`);
     if (category) params.push(`category=${encodeURIComponent(category)}`);
@@ -198,7 +203,7 @@ async function updateAds() {
             <td>${ad.price} €</td>
             <td>${ad.category}</td>
             <td class="table-actions">
-                <button class="btn-delete"><i class="fa-solid fa-trash"></i> Supprimer</button>
+                <button class="icon-btn btn-delete" title="Supprimer" aria-label="Supprimer"><i class="fa-solid fa-trash"></i></button>
             </td>
         </tr>
     `).join('');
@@ -206,18 +211,41 @@ async function updateAds() {
 
 function setupEventListeners(type) {
     if (type === 'users') {
-        const debounced = debounce(updateUsers, 350);
+        const debounced = debounce((e) => {
+            filterState.users.search = e.target.value.trim();
+            updateUsers();
+        }, 400);
         document.getElementById('user-search').addEventListener('input', debounced);
-        document.getElementById('role-filter').addEventListener('change', updateUsers);
+        document.getElementById('role-filter').addEventListener('change', (e) => {
+            filterState.users.role = e.target.value;
+            updateUsers();
+        });
     } else if (type === 'ads') {
-        const debounced = debounce(updateAds, 350);
+        const debounced = debounce((e) => {
+            filterState.ads.search = e.target.value.trim();
+            updateAds();
+        }, 400);
         document.getElementById('ad-search').addEventListener('input', debounced);
-        document.getElementById('category-filter').addEventListener('change', updateAds);
+        document.getElementById('category-filter').addEventListener('change', (e) => {
+            filterState.ads.category = e.target.value;
+            updateAds();
+        });
     }
 }
 
 window.addEventListener('hashchange', router);
 window.addEventListener('load', router);
+
+document.getElementById('reset-filters-btn').addEventListener('click', () => {
+    const route = window.location.hash;
+    if (route === '#users') {
+        filterState.users = { search: '', role: '' };
+        renderUsers();
+    } else if (route === '#ads') {
+        filterState.ads = { search: '', category: '' };
+        renderAds();
+    }
+});
 
 document.getElementById('logout-btn').addEventListener('click', () => {
     localStorage.removeItem('mapmarket_auth_token');
@@ -253,11 +281,13 @@ mainContent.addEventListener('click', async (e) => {
         if (route === '#users') {
             showConfirmationModal('Supprimer cet utilisateur ?', async () => {
                 await secureFetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+                showToast('Utilisateur supprimé', 'success');
                 renderUsers();
             });
         } else if (route === '#ads') {
             showConfirmationModal('Supprimer cette annonce ?', async () => {
                 await secureFetch(`/api/admin/ads/${id}`, { method: 'DELETE' });
+                showToast('Annonce supprimée', 'success');
                 renderAds();
             });
         }
