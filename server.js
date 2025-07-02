@@ -244,7 +244,8 @@ io.on('connection', (socket) => {
 
         try {
             const thread = await Thread.findById(threadId);
-            if (!thread || !thread.participants.includes(socket.user._id)) {
+            const isParticipant = thread && thread.participants.some(p => p.user.toString() === socket.user._id.toString());
+            if (!thread || !isParticipant) {
                 return socket.emit('messageError', { message: 'Accès non autorisé à cette conversation.' });
             }
 
