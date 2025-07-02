@@ -891,18 +891,24 @@ function handleNewMessageReceived({ message, thread, unreadThreadCount }) {
 }
 
 function sendTypingEvent() {
-    if (socket?.connected && activeThreadId) {
-        if (!typingTimer) socket.emit('typing', { threadId: activeThreadId, isTyping: true });
+    if (window.socket?.connected && activeThreadId) {
+        if (!typingTimer) window.socket.emit('typing', {
+            threadId: activeThreadId,
+            isTyping: true
+        });
         clearTimeout(typingTimer);
         typingTimer = setTimeout(stopTypingEvent, TYPING_TIMEOUT);
     }
 }
 
 function stopTypingEvent() {
-    if (socket?.connected && activeThreadId) {
+    if (window.socket?.connected && activeThreadId) {
         clearTimeout(typingTimer);
         typingTimer = null;
-        socket.emit('typing', { threadId: activeThreadId, isTyping: false });
+        window.socket.emit('typing', {
+            threadId: activeThreadId,
+            isTyping: false
+        });
     }
 }
 
