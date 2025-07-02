@@ -253,6 +253,74 @@ exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
     });
 });
 
+/**
+ * Crée un message texte et le renvoie.
+ * POST /api/messages
+ */
+exports.createMessage = asyncHandler(async (req, res, next) => {
+    const { threadId, content } = req.body;
+    const senderId = req.user.id;
+
+    if (!threadId || !content) {
+        return next(new AppError('threadId et content sont requis.', 400));
+    }
+
+    const thread = await Thread.findById(threadId).populate('participants.user', 'name avatarUrl isOnline lastSeen');
+    if (!thread || !thread.participants.some(p => p.user._id.toString() === senderId)) {
+        return next(new AppError('Thread non trouvé ou accès non autorisé.', 404));
+    }
+
+    let newMessage = await Message.create({
+        threadId,
+        senderId,
+        text: content,
+        status: 'sent'
+    });
+
+    thread.lastMessage = {
+        text: newMessage.text,
+        sender: senderId,
+        createdAt: newMessage.createdAt
+    };
+    thread.updatedAt = newMessage.createdAt;
+    thread.participants.forEach(p => {
+        const participantId = p.user._id.toString();
+        if (participantId === senderId) {
+            p.unreadCount = 0;
+        } else {
+            p.unreadCount = (p.unreadCount || 0) + 1;
+        }
+        if (p.locallyDeletedAt) p.locallyDeletedAt = undefined;
+    });
+    await thread.save({ validateBeforeSave: false });
+
+    await newMessage.populate('senderId', 'name avatarUrl');
+    const messageObj = mapMessageImageUrls(req, newMessage.toObject());
+
+    if (ioInstance) {
+        for (const participant of thread.participants) {
+            const participantId = participant.user._id;
+            const room = `user_${participantId}`;
+            const totalUnreadCountForParticipant = await Thread.countDocuments({
+                'participants.user': participantId,
+                'participants.unreadCount': { $gt: 0 }
+            });
+            ioInstance.of('/chat').to(room).emit('newMessage', {
+                message: messageObj,
+                thread: thread.toObject(),
+                unreadThreadCount: totalUnreadCountForParticipant
+            });
+        }
+    }
+
+    res.status(201).json({
+        status: 'success',
+        data: {
+            message: messageObj
+        }
+    });
+});
+
 
 /**
  * Marquer les messages d'un thread comme lus par l'utilisateur connecté.
