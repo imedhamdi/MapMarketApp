@@ -29,6 +29,7 @@ function connectSocket() {
     const token = localStorage.getItem('mapmarket_auth_token');
     if (!token) return;
     socket = io({ auth: { token } });
+    window.socket = socket;
     socket.on('unreadCountUpdated', (newCount) => {
         const badge = document.getElementById('messages-nav-badge');
         if (badge) {
@@ -42,6 +43,7 @@ function disconnectSocket() {
     if (socket) {
         socket.disconnect();
         socket = null;
+        delete window.socket;
     }
 }
 
