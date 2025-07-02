@@ -11,7 +11,6 @@ const jwt = require('jsonwebtoken');
 const User = require('./models/userModel');
 const Message = require('./models/messageModel');
 const Thread = require('./models/threadModel');
-const SOCKET_NAMESPACE = '/chat';
 
 
 const connectDB = require('./config/db');
@@ -208,167 +207,72 @@ app.use(globalErrorHandler);
 const server = http.createServer(app);
 const { Server } = require('socket.io');
 const io = new Server(server, { cors: corsOptions });
-let connectedUsers = {};
 
 io.use(async (socket, next) => {
-    const token = socket.handshake.auth && socket.handshake.auth.token;
-    if (!token) {
-        logger.warn(`Socket.IO: Tentative de connexion sans token pour ${socket.id}.`);
-        return next(new Error('Authentication error: Token manquant.'));
-    }
     try {
+        const token = socket.handshake.auth.token;
+        if (!token) {
+            return next(new Error('Authentication error: Token not provided'));
+        }
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const currentUser = await User.findById(decoded.id).select('+isActive');
-        if (!currentUser) {
-            return next(new Error('Authentication error: L\'utilisateur n\'existe plus.'));
+        const user = await User.findById(decoded.id).select('+active');
+        if (!user) {
+            return next(new Error('Authentication error: User not found'));
         }
-        if (currentUser.changedPasswordAfter(decoded.iat)) {
-            return next(new Error('Authentication error: Mot de passe récemment changé.'));
-        }
-        if (!currentUser.isActive) {
-            return next(new Error('Authentication error: Compte désactivé.'));
-        }
-        socket.user = currentUser;
-        connectedUsers[currentUser.id] = socket.id;
+        socket.user = user;
         next();
     } catch (err) {
-        logger.warn(`Socket.IO: Échec de l'authentification du token pour ${socket.id}: ${err.message}`);
-        return next(new Error('Authentication error: Token invalide ou expiré.'));
+        next(new Error('Authentication error: Invalid token'));
     }
 });
 
+
 io.on('connection', (socket) => {
-    logger.info(`Socket.IO: Connexion root établie: ${socket.id}, UserID: ${socket.user.id}`);
-    socket.on('joinThread', (threadId) => {
-        if (threadId) socket.join(threadId);
+    console.log(`User connected: ${socket.user.pseudo} (${socket.id})`);
+
+    socket.on('join thread', (threadId) => {
+        socket.join(threadId);
+        console.log(`User ${socket.user.pseudo} joined thread ${threadId}`);
     });
 
-    socket.on('leaveThread', (threadId) => {
-        if (threadId) socket.leave(threadId);
-    });
+    socket.on('sendMessage', async (data) => {
+        const { threadId, content } = data;
 
-    socket.on('sendMessage', async ({ threadId, content }) => {
-        if (!threadId || !content) return;
-        const message = await Message.create({
-            threadId,
-            senderId: socket.user.id,
-            text: content,
-            type: 'text',
-        });
+        if (!threadId || !content || content.trim() === '') {
+            return socket.emit('messageError', { message: 'Contenu du message ou ID de conversation manquant.' });
+        }
 
-        await Thread.findByIdAndUpdate(threadId, {
-            lastMessage: { text: content, sender: socket.user.id, createdAt: message.createdAt },
-            updatedAt: message.createdAt,
-            $inc: { 'participants.$[elem].unreadCount': 1 },
-            $set: { 'participants.$[me].unreadCount': 0 }
-        }, { arrayFilters: [{ 'elem.user': { $ne: socket.user.id } }, { 'me.user': socket.user.id }] });
-
-        const populated = await message.populate('senderId', 'name avatarUrl');
-        io.to(threadId).emit('newMessage', populated);
-
-        const thread = await Thread.findById(threadId);
-        for (const p of thread.participants) {
-            const id = p.user.toString();
-            if (connectedUsers[id] && !io.sockets.sockets.get(connectedUsers[id]).rooms.has(threadId)) {
-                const count = await Thread.countDocuments({ 'participants.user': id, 'participants.unreadCount': { $gt: 0 } });
-                io.to(connectedUsers[id]).emit('unreadCountUpdated', count);
+        try {
+            const thread = await Thread.findById(threadId);
+            if (!thread || !thread.participants.includes(socket.user._id)) {
+                return socket.emit('messageError', { message: 'Accès non autorisé à cette conversation.' });
             }
-        }
-    });
 
-    socket.on('markThreadAsRead', async (threadId) => {
-        const thread = await Thread.findById(threadId);
-        if (!thread) return;
-        const participant = thread.participants.find(p => p.user.toString() === socket.user.id);
-        if (participant && participant.unreadCount > 0) {
-            participant.unreadCount = 0;
-            await thread.save({ validateBeforeSave: false });
+            let newMessage = new Message({
+                thread: threadId,
+                sender: socket.user._id,
+                content: content.trim()
+            });
+            await newMessage.save();
+
+            thread.lastMessage = newMessage._id;
+            await thread.save();
+
+            newMessage = await newMessage.populate({
+                path: 'sender',
+                select: 'pseudo profilePicture'
+            });
+
+            io.to(threadId).emit('newMessage', newMessage);
+
+        } catch (error) {
+            console.error('Socket sendMessage error:', error);
+            socket.emit('messageError', { message: 'Erreur serveur lors de l\'envoi du message.' });
         }
-        await Message.updateMany({ threadId, senderId: { $ne: socket.user.id }, status: { $ne: 'read' } }, { status: 'read' });
-        const totalUnread = await Thread.countDocuments({ 'participants.user': socket.user.id, 'participants.unreadCount': { $gt: 0 } });
-        io.to(socket.id).emit('unreadCountUpdated', totalUnread);
     });
 
     socket.on('disconnect', () => {
-        delete connectedUsers[socket.user.id];
-        logger.info(`Socket.IO: Déconnexion root: ${socket.id}`);
-    });
-});
-
-// Utiliser un middleware d'authentification pour le namespace /chat
-io.of(SOCKET_NAMESPACE).use(async (socket, next) => {
-    const token = socket.handshake.auth.token;
-    if (!token) {
-        logger.warn(`Socket.IO: Tentative de connexion sans token pour ${socket.id}.`);
-        return next(new Error('Authentication error: Token manquant.'));
-    }
-    try {
-        // 1. Vérification du token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        
-        // 2. Vérifier si l'utilisateur existe toujours
-        const currentUser = await User.findById(decoded.id).select('+isActive');
-        if (!currentUser) {
-            return next(new Error('Authentication error: L\'utilisateur n\'existe plus.'));
-        }
-
-        // 3. Vérifier si le mot de passe a changé après l'émission du token
-        if (currentUser.changedPasswordAfter(decoded.iat)) {
-            return next(new Error('Authentication error: Mot de passe récemment changé.'));
-        }
-
-        // 4. Vérifier si le compte est actif
-        if (!currentUser.isActive) {
-            return next(new Error('Authentication error: Compte désactivé.'));
-        }
-
-        // Si tout est bon, on attache l'utilisateur au socket pour un usage ultérieur
-        socket.user = currentUser;
-        next();
-
-    } catch (err) {
-        logger.warn(`Socket.IO: Échec de l'authentification du token pour ${socket.id}: ${err.message}`);
-        return next(new Error('Authentication error: Token invalide ou expiré.'));
-    }
-});
-
-
-io.of(SOCKET_NAMESPACE).on('connection', (socket) => {
-    // À ce stade, le socket est déjà authentifié grâce au middleware .use() ci-dessus.
-    // L'objet `socket.user` est disponible.
-    logger.info(`Socket.IO: Utilisateur authentifié connecté au namespace /chat: ${socket.id}, UserID: ${socket.user.id}`);
-    
-    socket.join(`user_${socket.user.id}`);
-    logger.info(`Socket.IO: Socket ${socket.id} a rejoint la room user_${socket.user.id}`);
-    User.findByIdAndUpdate(socket.user.id, { isOnline: true }, { new: false }).exec();
-    io.of(SOCKET_NAMESPACE).to(`user_${socket.user.id}`).emit('userStatusUpdate', { userId: socket.user.id, statusText: 'en ligne' });
-
-    // Gérer les autres événements Socket.IO
-    socket.on('joinThreadRoom', ({ threadId }) => {
-        if (threadId) {
-            socket.join(`thread_${threadId}`);
-            logger.info(`Socket.IO: Socket ${socket.id} a rejoint la room thread_${threadId}`);
-        }
-    });
-
-    socket.on('leaveThreadRoom', ({ threadId }) => {
-        if (threadId) {
-            socket.leave(`thread_${threadId}`);
-            logger.info(`Socket.IO: Socket ${socket.id} a quitté la room thread_${threadId}`);
-        }
-    });
-
-    socket.on('typing', ({ threadId, isTyping }) => {
-        if (threadId) {
-            const room = `thread_${threadId}`;
-            socket.to(room).emit('typing', { threadId, userName: socket.user.name, isTyping });
-        }
-    });
-
-    socket.on('disconnect', async (reason) => {
-        logger.info(`Socket.IO: Utilisateur déconnecté du namespace /chat: ${socket.id}. Raison: ${reason}`);
-        await User.findByIdAndUpdate(socket.user.id, { isOnline: false, lastSeen: new Date() });
-        io.of(SOCKET_NAMESPACE).to(`user_${socket.user.id}`).emit('userStatusUpdate', { userId: socket.user.id, statusText: '' });
+        console.log(`User disconnected: ${socket.user.pseudo} (${socket.id})`);
     });
 });
 
@@ -393,4 +297,4 @@ process.on('uncaughtException', (err) => {
   server.close(() => process.exit(1));
 });
 
-module.exports = { io, connectedUsers };
+module.exports = { io };
