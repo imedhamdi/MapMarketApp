@@ -729,13 +729,25 @@ function handleThreadsTabClick(e) {
  */
 async function sendMessage() {
     const text = chatMessageInput.value.trim();
-    if (!text || !window.socket) {
+    if (!text) {
         return;
     }
 
-    window.socket.emit('sendMessage', { threadId: activeThreadId, content: text });
-    chatMessageInput.value = '';
-    updateSendButtonState();
+    try {
+        const res = await secureFetch(`${API_MESSAGES_URL}`, {
+            method: 'POST',
+            body: { threadId: activeThreadId, content: text }
+        }, false);
+
+        if (res?.data?.message) {
+            renderMessages([res.data.message], 'append');
+            chatMessageInput.value = '';
+            updateSendButtonState();
+        }
+    } catch (error) {
+        console.error('Erreur envoi message:', error);
+        showToast(error.message || "Erreur lors de l'envoi du message", 'error');
+    }
 }
 
 async function sendOfferMessage(amount) {

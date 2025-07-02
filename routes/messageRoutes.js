@@ -2,7 +2,7 @@
 const express = require('express');
 const messageController = require('../controllers/messageController');
 const { protect } = require('../middlewares/authMiddleware');
-const { validateInitiateThread } = require('../middlewares/validationMiddleware');
+const { validateInitiateThread, validateCreateMessage } = require('../middlewares/validationMiddleware');
 
 const router = express.Router();
 
@@ -18,6 +18,7 @@ router.post('/threads/:threadId/read', messageController.markThreadAsRead);
 router.patch('/threads/:threadId/local', messageController.deleteThreadLocally); // Suppression locale
 
 // Routes pour les Messages
+router.post('/messages', validateCreateMessage, messageController.createMessage);
 router.post('/messages/:messageId/offer/accept', messageController.acceptOffer);
 router.post('/messages/:messageId/offer/decline', messageController.declineOffer);
 
