@@ -1123,6 +1123,9 @@ function handleUserStatusUpdate({ userId, statusText }) {
  * @param {string} threadId - L'ID du thread.
  */
 async function markThreadAsRead(threadId) {
+    const threadItem = document.querySelector(`.thread-item[data-thread-id="${threadId}"]`);
+    const wasUnread = threadItem && threadItem.classList.contains('unread');
+
     if (socket) {
         socket.emit('markThreadRead', { threadId });
     }
@@ -1130,6 +1133,12 @@ async function markThreadAsRead(threadId) {
         const response = await secureFetch(`/api/messages/threads/${threadId}/read`, { method: 'POST' }, false);
         if (response && response.success && typeof response.data.unreadThreadCount === 'number') {
             state.set('messages.unreadGlobalCount', response.data.unreadThreadCount);
+        }
+        if (threadItem) {
+            threadItem.classList.remove('unread');
+        }
+        if (wasUnread && typeof updateUnreadMessagesBadge === 'function') {
+            updateUnreadMessagesBadge();
         }
         loadThreads(currentTabRole);
     } catch (e) {
