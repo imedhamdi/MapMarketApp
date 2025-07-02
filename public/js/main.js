@@ -23,6 +23,28 @@ import * as History from './history.js';
 import * as Settings from './settings.js';
 import * as NotificationsDisplay from './notifications.js';
 
+let socket; // Socket.IO global
+
+function connectSocket() {
+    const token = localStorage.getItem('mapmarket_auth_token');
+    if (!token) return;
+    socket = io({ auth: { token } });
+    socket.on('unreadCountUpdated', (newCount) => {
+        const badge = document.getElementById('messages-nav-badge');
+        if (badge) {
+            badge.textContent = newCount > 0 ? newCount : '';
+            badge.classList.toggle('hidden', newCount <= 0);
+        }
+    });
+}
+
+function disconnectSocket() {
+    if (socket) {
+        socket.disconnect();
+        socket = null;
+    }
+}
+
 class App {
     constructor() {
         this.isInitialized = false;
@@ -216,6 +238,13 @@ class App {
                     }, 50);
                 }
             });
+        }
+
+        document.addEventListener('mapMarket:userLoggedIn', connectSocket);
+        document.addEventListener('mapMarket:userLoggedOut', disconnectSocket);
+
+        if (State.getCurrentUser()) {
+            connectSocket();
         }
     }
 
