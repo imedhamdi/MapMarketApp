@@ -37,7 +37,6 @@ let messagesNavBadge, navMessagesBtn;
 let newMessagesSound;
 
 // --- État du module ---
-let socket = null;
 let activeThreadId = null;
 let currentRecipient = null;
 let newChatContext = null; // Contexte pour une nouvelle discussion (non liée à un thread existant)
@@ -150,7 +149,6 @@ function initializeUI() {
  * Met en place les écouteurs d'événements principaux pour le module de messagerie.
  */
 function setupEventListeners() {
-    state.subscribe('currentUserChanged', handleUserChangeForSocket);
     document.addEventListener('mapMarket:initiateChat', handleInitiateChatEvent);
 
     navMessagesBtn.addEventListener('click', openThreadListView);
@@ -258,73 +256,7 @@ function setupEventListeners() {
  * Gère le changement d'utilisateur pour connecter ou déconnecter le socket.
  * @param {object|null} user - L'objet utilisateur actuel ou null.
  */
-function handleUserChangeForSocket(user) {
-    if (user) {
-        connectSocket();
-    } else {
-        disconnectSocket();
-        clearMessagesUI();
-    }
-}
 
-/**
- * Établit la connexion Socket.IO si elle n'est pas déjà active.
- */
-function connectSocket() {
-    const token = localStorage.getItem('mapmarket_auth_token');
-    if (!token) return;
-    if (socket && socket.connected) return;
-    if (socket) socket.disconnect();
-
-    socket = io(SOCKET_NAMESPACE, { auth: { token } });
-
-    socket.on('connect', () => {
-        console.log('Socket.IO connecté au namespace /chat:', socket.id);
-        const currentUser = state.getCurrentUser();
-        if (currentUser) {
-            socket.emit('joinUserRoom', { userId: currentUser._id });
-        }
-    });
-
-    socket.on('disconnect', (reason) => console.log('Socket.IO déconnecté:', reason));
-    socket.on('connect_error', (err) => showToast(`Erreur de messagerie: ${err.message}`, 'error'));
-
-    // Écoute des événements serveur
-    socket.on('newMessage', handleNewMessageReceived);
-    socket.on('unreadCountUpdated', ({ unreadThreadCount }) => {
-        if (typeof unreadThreadCount === 'number') {
-            state.set('messages.unreadGlobalCount', unreadThreadCount, false); // silent:false pour déclencher l'event
-            updateGlobalUnreadCount(unreadThreadCount); // Mise à jour immédiate
-        }
-    });
-    socket.on('typing', handleTypingEventReceived);
-    socket.on('newThread', (newThreadData) => {
-        console.log('Nouveau thread reçu !', newThreadData);
-        loadThreads(currentTabRole);
-    });
-    socket.on('messagesRead', ({ threadId, readerId }) => {
-        if (activeThreadId === threadId && readerId !== state.getCurrentUser()._id) {
-            document.querySelectorAll('.chat-message[data-sender-id="me"] .message-status-icons').forEach(statusEl => {
-                const icon = statusEl.querySelector('i');
-                if (icon && icon.style.color !== 'rgb(79, 195, 247)') {
-                    statusEl.innerHTML = '<i class="fa-solid fa-check-double" title="Lu" style="color: #4fc3f7;"></i>';
-                }
-            });
-        }
-    });
-    socket.on('userStatusUpdate', handleUserStatusUpdate);
-}
-
-/**
- * Déconnecte le socket de messagerie.
- */
-function disconnectSocket() {
-    if (socket) {
-        socket.disconnect();
-        socket = null;
-        console.log('Socket.IO déconnecté.');
-    }
-}
 
 // --- GESTION DE L'INTERFACE ET DES FLUX ---
 
@@ -338,7 +270,6 @@ function openThreadListView() {
         document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' } }));
         return;
     }
-    connectSocket(); // S'assurer que le socket est connecté
     showThreadList(); // Afficher la liste des conversations
     document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'messages-modal' } }));
 }
@@ -347,6 +278,9 @@ function openThreadListView() {
  * Affiche la vue de la liste des conversations et charge les données.
  */
 function showThreadList() {
+    if (window.socket && activeThreadId) {
+        window.socket.emit('leaveThread', activeThreadId);
+    }
     activeThreadId = null;
     currentRecipient = null;
     chatView.classList.remove('active-view');
@@ -362,6 +296,7 @@ function showThreadList() {
  * @param {object} [threadData] - Données optionnelles du thread (pour les nouvelles discussions).
  */
 async function openChatView(threadId, recipient, threadData = null) {
+    const previousThread = activeThreadId;
     activeThreadId = threadId;
     currentRecipient = recipient;
     allMessagesLoaded = false;
@@ -434,6 +369,11 @@ async function openChatView(threadId, recipient, threadData = null) {
     adjustTextareaHeight();
     removeImagePreview();
     updateSendButtonState();
+
+    if (window.socket) {
+        if (previousThread) window.socket.emit('leaveThread', previousThread);
+        if (threadId) window.socket.emit('joinThread', threadId);
+    }
 
     if (threadId) {
         await loadMessageHistory(threadId, true);
@@ -782,75 +722,6 @@ function handleThreadsTabClick(e) {
     loadThreads(currentTabRole);
 }
 
-// --- ENVOI INTERNE ---
-async function _sendPayload(payload, imageFile = null) {
-    const hasImage = Boolean(imageFile);
-    const tempId = generateUUID();
-    payload.tempId = tempId;
-
-    const tempMessage = {
-        tempId,
-        threadId: payload.threadId || activeThreadId,
-        text: payload.text,
-        type: payload.type || (hasImage ? 'image' : 'text'),
-        imageUrl: hasImage ? URL.createObjectURL(imageFile) : undefined,
-        senderId: { _id: state.getCurrentUser()._id },
-        status: 'sending',
-        createdAt: new Date().toISOString()
-    };
-    renderMessages([tempMessage], 'append');
-
-    const endpoint = hasImage ? `${API_MESSAGES_URL}/messages/image` : `${API_MESSAGES_URL}/messages`;
-    const requestOptions = { method: 'POST' };
-
-    if (hasImage) {
-        const formData = new FormData();
-        formData.append('image', imageFile);
-        for (const key in payload) {
-            if (payload[key] !== undefined && payload[key] !== null) {
-                formData.append(key, payload[key]);
-            }
-        }
-        requestOptions.body = formData;
-    } else {
-        requestOptions.body = payload;
-    }
-
-    const messageInputBeforeSend = chatMessageInput.value;
-    const imageFileBeforeSend = tempImageFile;
-
-    chatMessageInput.value = '';
-    removeImagePreview();
-    stopTypingEvent();
-    updateSendButtonState();
-
-    try {
-        const response = await secureFetch(endpoint, requestOptions, false);
-        if (!response || !response.success) {
-            throw new Error(response?.message || "Erreur d'envoi.");
-        }
-        if (!activeThreadId && response.data?.threadId) {
-            activeThreadId = response.data.threadId;
-            newChatContext = null;
-            loadThreads(currentTabRole);
-        }
-    } catch (error) {
-        console.error("Erreur d'envoi du message:", error);
-        chatMessageInput.value = messageInputBeforeSend;
-        if (imageFileBeforeSend) {
-            tempImageFile = imageFileBeforeSend;
-            displayImagePreview(imageFileBeforeSend);
-        }
-        const failedEl = chatMessagesContainer.querySelector(`.chat-message[data-temp-id="${tempId}"]`);
-        if (failedEl) {
-            failedEl.classList.add('message-failed');
-            const statusContainer = failedEl.querySelector('.message-status-icons');
-            if (statusContainer) {
-                statusContainer.innerHTML = '<i class="fa-solid fa-circle-exclamation text-danger" title="Échec de l\'envoi"></i>';
-            }
-        }
-    }
-}
 
 /**
  * Fonction principale pour l'envoi de messages.
@@ -858,85 +729,36 @@ async function _sendPayload(payload, imageFile = null) {
  */
 async function sendMessage() {
     const text = chatMessageInput.value.trim();
-    const imageFile = tempImageFile;
-
-    if (!text && !imageFile) {
+    if (!text || !window.socket) {
         return;
     }
 
-    const payload = {
-        text: text,
-        // Le type sera déterminé dans _sendPayload
-    };
-
-    if (activeThreadId) {
-        payload.threadId = activeThreadId;
-    } else if (newChatContext) {
-        payload.recipientId = newChatContext.recipientId;
-        payload.adId = newChatContext.adId;
-    } else {
-        showToast('Contexte de discussion manquant.', 'error');
-        return;
-    }
-
-    await _sendPayload(payload, imageFile);
+    window.socket.emit('sendMessage', { threadId: activeThreadId, content: text });
+    chatMessageInput.value = '';
+    updateSendButtonState();
 }
 
 async function sendOfferMessage(amount) {
     const val = parseFloat(amount);
-    if (!val) { showToast('Montant invalide', 'warning'); return; }
-    const payload = {
-        type: 'offer',
-        text: `Offre: ${formatCurrency(val, 'EUR')}`,
-        metadata: { amount: val, currency: 'EUR', status: 'pending' }
-    };
-    if (activeThreadId) {
-        payload.threadId = activeThreadId;
-    } else if (newChatContext) {
-        payload.recipientId = newChatContext.recipientId;
-        payload.adId = newChatContext.adId;
-    } else {
-        showToast('Contexte de discussion manquant.', 'error');
-        return;
-    }
-    await _sendPayload(payload, null);
+    if (!val || !window.socket) { showToast('Montant invalide', 'warning'); return; }
+    window.socket.emit('sendMessage', { threadId: activeThreadId, content: `Offre: ${val}` });
     document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'offer-modal' } }));
 }
 
 async function sendLocationMessage(coords) {
-    if (!coords || typeof coords.latitude !== 'number' || typeof coords.longitude !== 'number') {
+    if (!coords || typeof coords.latitude !== 'number' || typeof coords.longitude !== 'number' || !window.socket) {
         showToast('Coordonnées invalides', 'warning');
         return;
     }
-    const payload = { type: 'location', text: 'Localisation', metadata: coords };
-    if (activeThreadId) {
-        payload.threadId = activeThreadId;
-    } else if (newChatContext) {
-        payload.recipientId = newChatContext.recipientId;
-        payload.adId = newChatContext.adId;
-    } else {
-        showToast('Contexte de discussion manquant.', 'error');
-        return;
-    }
-    await _sendPayload(payload, null);
+    window.socket.emit('sendMessage', { threadId: activeThreadId, content: `[Location: ${coords.latitude},${coords.longitude}]` });
 }
 
 async function sendAppointmentMessage(appointmentData) {
-    if (!appointmentData?.date || !appointmentData?.location) {
+    if (!appointmentData?.date || !appointmentData?.location || !window.socket) {
         showToast('Informations RDV manquantes', 'warning');
         return;
     }
-    const payload = { type: 'appointment', text: 'Rendez-vous', metadata: appointmentData };
-    if (activeThreadId) {
-        payload.threadId = activeThreadId;
-    } else if (newChatContext) {
-        payload.recipientId = newChatContext.recipientId;
-        payload.adId = newChatContext.adId;
-    } else {
-        showToast('Contexte de discussion manquant.', 'error');
-        return;
-    }
-    await _sendPayload(payload, null);
+    window.socket.emit('sendMessage', { threadId: activeThreadId, content: `RDV: ${appointmentData.date} @ ${appointmentData.location}` });
     document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'appointment-modal' } }));
 }
 
@@ -1126,23 +948,11 @@ async function markThreadAsRead(threadId) {
     const threadItem = document.querySelector(`.thread-item[data-thread-id="${threadId}"]`);
     const wasUnread = threadItem && threadItem.classList.contains('unread');
 
-    if (socket) {
-        socket.emit('markThreadRead', { threadId });
+    if (window.socket) {
+        window.socket.emit('markThreadAsRead', threadId);
     }
-    try {
-        const response = await secureFetch(`/api/messages/threads/${threadId}/read`, { method: 'POST' }, false);
-        if (response && response.success && typeof response.data.unreadThreadCount === 'number') {
-            state.set('messages.unreadGlobalCount', response.data.unreadThreadCount);
-        }
-        if (threadItem) {
-            threadItem.classList.remove('unread');
-        }
-        if (wasUnread && typeof updateUnreadMessagesBadge === 'function') {
-            updateUnreadMessagesBadge();
-        }
-        loadThreads(currentTabRole);
-    } catch (e) {
-        console.error('Erreur mise à jour lecture thread:', e);
+    if (threadItem) {
+        threadItem.classList.remove('unread');
     }
 }
 

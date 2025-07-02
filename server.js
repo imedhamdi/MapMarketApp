@@ -9,6 +9,8 @@ const mongoSanitize = require('express-mongo-sanitize');
 const sanitizationMiddleware = require('./middlewares/sanitizationMiddleware'); // NOUVEL IMPORT
 const jwt = require('jsonwebtoken');
 const User = require('./models/userModel');
+const Message = require('./models/messageModel');
+const Thread = require('./models/threadModel');
 const SOCKET_NAMESPACE = '/chat';
 
 
@@ -204,8 +206,9 @@ app.use(globalErrorHandler);
 
 // --- SOCKET.IO ---
 const server = http.createServer(app);
-const io = require('socket.io')(server, { cors: corsOptions });
-const userSockets = {};
+const { Server } = require('socket.io');
+const io = new Server(server, { cors: corsOptions });
+let connectedUsers = {};
 
 io.use(async (socket, next) => {
     const token = socket.handshake.auth && socket.handshake.auth.token;
@@ -226,7 +229,7 @@ io.use(async (socket, next) => {
             return next(new Error('Authentication error: Compte désactivé.'));
         }
         socket.user = currentUser;
-        userSockets[currentUser.id] = socket.id;
+        connectedUsers[currentUser.id] = socket.id;
         next();
     } catch (err) {
         logger.warn(`Socket.IO: Échec de l'authentification du token pour ${socket.id}: ${err.message}`);
@@ -236,8 +239,58 @@ io.use(async (socket, next) => {
 
 io.on('connection', (socket) => {
     logger.info(`Socket.IO: Connexion root établie: ${socket.id}, UserID: ${socket.user.id}`);
+    socket.on('joinThread', (threadId) => {
+        if (threadId) socket.join(threadId);
+    });
+
+    socket.on('leaveThread', (threadId) => {
+        if (threadId) socket.leave(threadId);
+    });
+
+    socket.on('sendMessage', async ({ threadId, content }) => {
+        if (!threadId || !content) return;
+        const message = await Message.create({
+            threadId,
+            senderId: socket.user.id,
+            text: content,
+            type: 'text',
+        });
+
+        await Thread.findByIdAndUpdate(threadId, {
+            lastMessage: { text: content, sender: socket.user.id, createdAt: message.createdAt },
+            updatedAt: message.createdAt,
+            $inc: { 'participants.$[elem].unreadCount': 1 },
+            $set: { 'participants.$[me].unreadCount': 0 }
+        }, { arrayFilters: [{ 'elem.user': { $ne: socket.user.id } }, { 'me.user': socket.user.id }] });
+
+        const populated = await message.populate('senderId', 'name avatarUrl');
+        io.to(threadId).emit('newMessage', populated);
+
+        const thread = await Thread.findById(threadId);
+        for (const p of thread.participants) {
+            const id = p.user.toString();
+            if (connectedUsers[id] && !io.sockets.sockets.get(connectedUsers[id]).rooms.has(threadId)) {
+                const count = await Thread.countDocuments({ 'participants.user': id, 'participants.unreadCount': { $gt: 0 } });
+                io.to(connectedUsers[id]).emit('unreadCountUpdated', count);
+            }
+        }
+    });
+
+    socket.on('markThreadAsRead', async (threadId) => {
+        const thread = await Thread.findById(threadId);
+        if (!thread) return;
+        const participant = thread.participants.find(p => p.user.toString() === socket.user.id);
+        if (participant && participant.unreadCount > 0) {
+            participant.unreadCount = 0;
+            await thread.save({ validateBeforeSave: false });
+        }
+        await Message.updateMany({ threadId, senderId: { $ne: socket.user.id }, status: { $ne: 'read' } }, { status: 'read' });
+        const totalUnread = await Thread.countDocuments({ 'participants.user': socket.user.id, 'participants.unreadCount': { $gt: 0 } });
+        io.to(socket.id).emit('unreadCountUpdated', totalUnread);
+    });
+
     socket.on('disconnect', () => {
-        delete userSockets[socket.user.id];
+        delete connectedUsers[socket.user.id];
         logger.info(`Socket.IO: Déconnexion root: ${socket.id}`);
     });
 });
@@ -340,4 +393,4 @@ process.on('uncaughtException', (err) => {
   server.close(() => process.exit(1));
 });
 
-module.exports = { io, userSockets };
+module.exports = { io, connectedUsers };
