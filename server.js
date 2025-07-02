@@ -228,11 +228,11 @@ io.use(async (socket, next) => {
 
 
 io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.user.pseudo} (${socket.id})`);
+    console.log(`User connected: ${socket.user.name} (${socket.id})`);
 
     socket.on('join thread', (threadId) => {
         socket.join(threadId);
-        console.log(`User ${socket.user.pseudo} joined thread ${threadId}`);
+        console.log(`User ${socket.user.name} joined thread ${threadId}`);
     });
 
     socket.on('sendMessage', async (data) => {
@@ -250,21 +250,31 @@ io.on('connection', (socket) => {
             }
 
             let newMessage = new Message({
-                thread: threadId,
-                sender: socket.user._id,
-                content: content.trim()
+                threadId,
+                senderId: socket.user._id,
+                text: content.trim()
             });
             await newMessage.save();
 
-            thread.lastMessage = newMessage._id;
+            thread.lastMessage = {
+                text: newMessage.text,
+                sender: newMessage.senderId,
+                createdAt: newMessage.createdAt
+            };
             await thread.save();
 
             newMessage = await newMessage.populate({
-                path: 'sender',
-                select: 'pseudo profilePicture'
+                path: 'senderId',
+                select: 'name avatarUrl'
             });
 
-            io.to(threadId).emit('newMessage', newMessage);
+            const populatedThread = await Thread.findById(threadId)
+                .populate('participants.user', 'name avatarUrl isOnline lastSeen');
+
+            io.to(threadId).emit('newMessage', {
+                message: newMessage.toObject(),
+                thread: populatedThread.toObject()
+            });
 
         } catch (error) {
             console.error('Socket sendMessage error:', error);
@@ -273,7 +283,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log(`User disconnected: ${socket.user.pseudo} (${socket.id})`);
+        console.log(`User disconnected: ${socket.user.name} (${socket.id})`);
     });
 });
 
