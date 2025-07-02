@@ -846,7 +846,7 @@ function updateMessageGrouping() {
 
 // --- GESTION DES ÉVÉNEMENTS SOCKET REÇUS ---
 
-function handleNewMessageReceived({ message, thread, unreadThreadCount }) {
+export function handleNewMessageReceived({ message, thread, unreadThreadCount }) {
     const currentUser = state.getCurrentUser();
     const isMyMessage = (message.senderId?._id || message.senderId) === currentUser?._id;
 
@@ -942,6 +942,15 @@ function handleUserStatusUpdate({ userId, statusText }) {
     if (currentRecipient && currentRecipient._id === userId && chatRecipientStatus) {
         chatRecipientStatus.textContent = statusText;
     }
+}
+
+export function setupSocket(socket) {
+    if (!socket) return;
+    socket.on('newMessage', handleNewMessageReceived);
+    socket.on('messageError', function(error) {
+        console.error('Failed to send message:', error);
+        alert("Erreur: Votre message n'a pas pu être envoyé.");
+    });
 }
 
 // --- FONCTIONS AUXILIAIRES ---

@@ -2,9 +2,7 @@
 const express = require('express');
 const messageController = require('../controllers/messageController');
 const { protect } = require('../middlewares/authMiddleware');
-const { handleMulterUpload, uploadMessageImage } = require('../middlewares/uploadMiddleware');
-// Importer les validateurs spécifiques (à créer dans validationMiddleware.js)
-const { validateCreateMessage, validateInitiateThread, validateSendMessageWithImage } = require('../middlewares/validationMiddleware');
+const { validateInitiateThread } = require('../middlewares/validationMiddleware');
 
 const router = express.Router();
 
@@ -20,13 +18,6 @@ router.post('/threads/:threadId/read', messageController.markThreadAsRead);
 router.patch('/threads/:threadId/local', messageController.deleteThreadLocally); // Suppression locale
 
 // Routes pour les Messages
-router.post('/messages', validateCreateMessage, messageController.sendMessage); // Pour les messages texte
-router.post(
-    '/messages/image',
-    handleMulterUpload(uploadMessageImage),  // 1. Multer gère le fichier
-    validateSendMessageWithImage,            // 2. Joi valide le corps (threadId/recipientId/texte optionnel)
-    messageController.sendMessage            // 3. Le contrôleur traite la requête
-);
 router.post('/messages/:messageId/offer/accept', messageController.acceptOffer);
 router.post('/messages/:messageId/offer/decline', messageController.declineOffer);
 

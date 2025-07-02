@@ -37,6 +37,7 @@ function connectSocket() {
             badge.classList.toggle('hidden', newCount <= 0);
         }
     });
+    Messages.setupSocket(socket);
 }
 
 function disconnectSocket() {
