@@ -1448,10 +1448,11 @@ async function handleToggleFavoriteFromDetail(event) {
 
     if (!adId || favoriteButton.disabled) return;
 
-    // Si l'utilisateur n'est pas connecté, le rediriger vers la connexion.
+    // Si l'utilisateur n'est pas connecté, mémoriser l'action et ouvrir la connexion
     if (!currentUser) {
+        state.set('pendingAction', { action: 'favorite', adId });
         showToast("Veuillez vous connecter pour gérer vos favoris.", "warning");
-        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' } }));
+        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal', view: 'login' } }));
         return;
     }
 
@@ -1486,8 +1487,9 @@ async function handleContactSellerFromDetail() {
     const currentUser = state.getCurrentUser();
 
     if (!currentUser) {
+        state.set('pendingAction', { action: 'contact', adId, sellerId });
         showToast("Veuillez vous connecter pour contacter le vendeur.", "warning");
-        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal' } }));
+        document.dispatchEvent(new CustomEvent('mapmarket:openModal', { detail: { modalId: 'auth-modal', view: 'login' } }));
         return;
     }
 

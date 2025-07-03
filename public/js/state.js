@@ -66,6 +66,8 @@ const initialState = {
     },
     onboardingCompleted: false,
     onlineUsers: {},
+    // Stocke une action nécessitant une authentification à exécuter après connexion
+    pendingAction: null,
     categories: [], // Sera initialisé avec HARDCODED_CATEGORIES
     appSettings: {
         pushNotificationsEnabled: true,
