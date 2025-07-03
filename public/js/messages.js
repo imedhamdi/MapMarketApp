@@ -736,7 +736,7 @@ async function sendMessage() {
     try {
         const res = await secureFetch(`${API_MESSAGES_URL}/messages`, {
             method: 'POST',
-            body: { threadId: activeThreadId, content: text }
+            body: { threadId: activeThreadId, text }
         }, false);
 
         if (res?.data?.message) {

@@ -258,11 +258,13 @@ exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
  * POST /api/messages
  */
 exports.createMessage = asyncHandler(async (req, res, next) => {
-    const { threadId, content } = req.body;
+    const { threadId, text, content } = req.body;
     const senderId = req.user.id;
 
-    if (!threadId || !content) {
-        return next(new AppError('threadId et content sont requis.', 400));
+    const messageText = text || content;
+
+    if (!threadId || !messageText) {
+        return next(new AppError('threadId et contenu du message sont requis.', 400));
     }
 
     const thread = await Thread.findById(threadId).populate('participants.user', 'name avatarUrl isOnline lastSeen');
@@ -273,7 +275,7 @@ exports.createMessage = asyncHandler(async (req, res, next) => {
     let newMessage = await Message.create({
         threadId,
         senderId,
-        text: content,
+        text: messageText,
         status: 'sent'
     });
 
