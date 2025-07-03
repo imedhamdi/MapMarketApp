@@ -247,6 +247,9 @@ async function handleLogin(event) {
             // 3. Message de succès et rafraîchissement de l'interface
             showToast('Connexion réussie ! Bienvenue.', 'success', 3000);
 
+            // Exécuter une éventuelle action différée avant de fermer la modale
+            await handlePendingAction();
+
             // Fermer la modale d'authentification
             document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'auth-modal' } }));
             loginForm.reset();
@@ -304,8 +307,9 @@ async function handleSignup(event) {
             // 1. Afficher le toast de succès
             showToast(response.message, 'success', 5000);
 
-            // 2. Fermer la modale d'authentification après un court délai
-            setTimeout(() => {
+            // 2. Traiter une éventuelle action différée puis fermer la modale
+            setTimeout(async () => {
+                await handlePendingAction();
                 document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'auth-modal' } }));
                 signupForm.reset();
             }, 1500);
@@ -473,6 +477,36 @@ function updateUIAfterLogout() {
 
     // Dispatch un événement
     document.dispatchEvent(new CustomEvent('mapMarket:userLoggedOut'));
+}
+
+/**
+ * Exécute l'action protégée mémorisée après la connexion.
+ */
+async function handlePendingAction() {
+    const pending = state.get('pendingAction');
+    if (!pending) return;
+
+    const { action, adId, sellerId } = pending;
+    console.log(`Action en attente détectée : ${action} pour l'annonce ${adId}`);
+
+    try {
+        switch (action) {
+            case 'contact':
+                if (sellerId && adId) {
+                    document.dispatchEvent(new CustomEvent('mapmarket:closeModal', { detail: { modalId: 'ad-detail-modal' } }));
+                    document.dispatchEvent(new CustomEvent('mapMarket:initiateChat', { detail: { recipientId: sellerId, adId } }));
+                }
+                break;
+            case 'favorite':
+                document.dispatchEvent(new CustomEvent('mapMarket:toggleFavorite', { detail: { adId, setFavorite: true } }));
+                break;
+        }
+    } catch (error) {
+        console.error('Erreur lors de l\'exécution de l\'action en attente:', error);
+        showToast('Une erreur est survenue.', 'error');
+    } finally {
+        state.set('pendingAction', null);
+    }
 }
 
 /**
