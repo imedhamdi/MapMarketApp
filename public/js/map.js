@@ -240,6 +240,9 @@ export function init() {
     });
     state.subscribe('alertsChanged', (alerts) => displayAlertsOnMap(alerts));
 
+    // Centrage automatique sur la position utilisateur si possible
+    centerMapOnUserLocation();
+
     console.log('Module Map initialisé.');
 }
 
@@ -369,6 +372,37 @@ function updateUserMarker(lat, lng, accuracy, centerMap = true) {
     }
     if (centerMap) {
         mapInstance.flyTo(userLatLng, Math.max(mapInstance.getZoom() || 13, 15)); // Assurer un zoom minimum de 13
+    }
+}
+
+/**
+ * Centre la carte sur la position de l'utilisateur si possible.
+ * Utilise l'API navigator.geolocation et applique un fallback sur Lyon en cas
+ * de refus ou d'indisponibilité. Un petit marqueur est placé sur la position
+ * obtenue pour plus de clarté.
+ */
+export async function centerMapOnUserLocation() {
+    if (!mapInstance) return;
+
+    if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                mapInstance.setView([latitude, longitude], 13);
+                if (!userMarker) {
+                    userMarker = L.marker([latitude, longitude]).addTo(mapInstance);
+                } else {
+                    userMarker.setLatLng([latitude, longitude]);
+                }
+            },
+            (error) => {
+                console.warn('Géolocalisation refusée par l\'utilisateur ou indisponible.', error.message);
+                mapInstance.setView([45.7640, 4.8357], 12);
+            }
+        );
+    } else {
+        console.log('La géolocalisation n\'est pas supportée par ce navigateur.');
+        mapInstance.setView([45.7640, 4.8357], 12);
     }
 }
 
