@@ -89,7 +89,7 @@ function initializeUI() {
         chatMessagesContainer: 'chat-messages-container',
         chatMessageTemplate: 'chat-message-template',
         chatHistoryLoader: 'chat-history-loader',
-        chatTypingIndicator: 'typing-indicator',
+        typingIndicator: 'typing-indicator',
         chatInputArea: 'chat-input-area',
         chatMessageInput: 'chat-message-input',
         sendChatMessageBtn: 'send-chat-message-btn',
