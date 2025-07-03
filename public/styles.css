@@ -1963,6 +1963,19 @@ h4 {
     animation-delay: 0.4s;
 }
 
+.status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #bbb;
+    margin-left: 4px;
+}
+
+.status-dot.online {
+    background-color: #2ecc71;
+}
+
 .chat-image-preview-thumb {
     max-width: 80px;
     max-height: 80px;

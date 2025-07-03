@@ -30,6 +30,7 @@ function connectSocket() {
     if (!token) return;
     socket = io({ auth: { token } });
     window.socket = socket;
+    const currentUser = State.getCurrentUser();
     socket.on('unreadCountUpdated', (newCount) => {
         const badge = document.getElementById('messages-nav-badge');
         if (badge) {
@@ -37,6 +38,21 @@ function connectSocket() {
             badge.classList.toggle('hidden', newCount <= 0);
         }
     });
+    socket.on('userStatusUpdate', ({ userId, isOnline }) => {
+        const online = State.get('onlineUsers') || {};
+        online[userId] = isOnline;
+        State.set('onlineUsers', online);
+        Messages.updatePresenceIndicators();
+    });
+    socket.on('onlineUsers', (list) => {
+        const map = {};
+        list.forEach(id => { map[id] = true; });
+        State.set('onlineUsers', map);
+        Messages.updatePresenceIndicators();
+    });
+    if (currentUser) {
+        socket.emit('goOnline', { userId: currentUser._id || currentUser.id });
+    }
     Messages.setupSocket(socket);
 }
 

@@ -29,7 +29,7 @@ const TYPING_TIMEOUT = 3000;
 // --- Éléments du DOM ---
 let messagesModal, threadListView, chatView, threadListUl, threadItemTemplate, noThreadsPlaceholder;
 let backToThreadsBtn, chatRecipientAvatar, chatRecipientName, chatRecipientStatus, chatOptionsBtn, chatOptionsMenu, blockUserChatBtn, deleteChatBtn;
-let chatMessagesContainer, chatMessageTemplate, chatHistoryLoader, chatTypingIndicator;
+let chatMessagesContainer, chatMessageTemplate, chatHistoryLoader, typingIndicator;
 let chatInputArea, chatMessageInput, sendChatMessageBtn, chatAttachImageBtn, chatImageUploadInput, chatImagePreviewContainer;
 let chatComposerBtn, chatComposerMenu, chatMakeOfferBtn, chatShareLocationBtn, chatMeetBtn, offerModal, submitOfferBtn, appointmentModal, submitAppointmentBtn;
 let threadsTabs;
@@ -43,6 +43,7 @@ let newChatContext = null; // Contexte pour une nouvelle discussion (non liée �
 let messageObserver = null;
 let isLoadingHistory = false;
 let allMessagesLoaded = false;
+let currentPage = 1;
 let typingTimer = null;
 let typingIndicatorTimer = null;
 let tempImageFile = null;
@@ -88,7 +89,7 @@ function initializeUI() {
         chatMessagesContainer: 'chat-messages-container',
         chatMessageTemplate: 'chat-message-template',
         chatHistoryLoader: 'chat-history-loader',
-        chatTypingIndicator: 'chat-typing-indicator',
+        chatTypingIndicator: 'typing-indicator',
         chatInputArea: 'chat-input-area',
         chatMessageInput: 'chat-message-input',
         sendChatMessageBtn: 'send-chat-message-btn',
@@ -113,7 +114,7 @@ function initializeUI() {
         messagesModal, threadListView, chatView, threadListUl, threadItemTemplate, noThreadsPlaceholder,
         backToThreadsBtn, chatRecipientAvatar, chatRecipientName, chatRecipientStatus, chatOptionsBtn, chatOptionsMenu,
         blockUserChatBtn, deleteChatBtn, chatMessagesContainer, chatMessageTemplate, chatHistoryLoader,
-        chatTypingIndicator, chatInputArea, chatMessageInput, sendChatMessageBtn, messagesNavBadge,
+        typingIndicator, chatInputArea, chatMessageInput, sendChatMessageBtn, messagesNavBadge,
         navMessagesBtn, chatComposerBtn, chatComposerMenu, chatAttachImageBtn, chatImageUploadInput, chatImagePreviewContainer,
         chatMakeOfferBtn, chatShareLocationBtn, chatMeetBtn, offerModal, submitOfferBtn,
         appointmentModal, submitAppointmentBtn, threadsTabs
@@ -301,6 +302,7 @@ async function openChatView(threadId, recipient, threadData = null) {
     currentRecipient = recipient;
     allMessagesLoaded = false;
     isLoadingHistory = false;
+    currentPage = 1;
 
     // Contexte pour une nouvelle discussion
     if (!threadId && threadData && threadData.ad) {
@@ -378,6 +380,11 @@ async function openChatView(threadId, recipient, threadData = null) {
     if (threadId) {
         await loadMessageHistory(threadId, true);
         await markMessagesAsRead(threadId);
+        const counts = state.get('messages.unreadCounts') || {};
+        counts[threadId] = 0;
+        state.set('messages.unreadCounts', counts);
+        updateUnreadBadges();
+        updatePresenceIndicators();
         setupInfiniteScroll();
     } else {
         chatHistoryLoader.innerHTML = `<p class="text-center text-muted">Envoyez le premier message !</p>`;
@@ -455,8 +462,10 @@ function renderThreadList(threadsData) {
         const messagePreviewEl = li.querySelector('.thread-item__message-preview');
         const timeEl = li.querySelector('.thread-time');
         const unreadBadge = li.querySelector('.unread-badge');
+        const statusDot = li.querySelector('.status-dot');
 
         li.dataset.threadId = thread._id;
+        li.dataset.recipientId = recipient._id;
 
         // Remplir avec les données de l'annonce
         if (thread.ad) {
@@ -487,6 +496,9 @@ function renderThreadList(threadsData) {
         // La logique pour l'heure et le badge non lu reste la même
         if (timeEl) timeEl.textContent = thread.lastMessage ? formatDate(thread.lastMessage.createdAt, { hour: '2-digit', minute: '2-digit' }) : '';
         const unreadCountForThread = thread.unreadCount || 0;
+        const counts = state.get('messages.unreadCounts') || {};
+        counts[thread._id] = unreadCountForThread;
+        state.set('messages.unreadCounts', counts, true);
 
         if (unreadCountForThread > 0) {
             li.classList.add('thread-unread');
@@ -496,6 +508,9 @@ function renderThreadList(threadsData) {
             unreadBadge.textContent = unreadCountForThread;
             unreadBadge.classList.toggle('hidden', unreadCountForThread === 0);
         }
+        if (statusDot) {
+            statusDot.classList.toggle('online', state.get('onlineUsers')?.[recipient._id]);
+        }
 
         // Appliquer un délai d'animation pour un effet de cascade
         li.style.animationDelay = `${index * 60}ms`;
@@ -504,6 +519,8 @@ function renderThreadList(threadsData) {
         li.addEventListener('click', () => openChatView(thread._id, recipient, thread));
         threadListUl.appendChild(clone);
     });
+    updateUnreadBadges();
+    updatePresenceIndicators();
 }
 
 /**
@@ -515,15 +532,12 @@ async function loadMessageHistory(threadId, isInitialLoad = false) {
     if (isLoadingHistory || allMessagesLoaded) return;
     isLoadingHistory = true;
     if (isInitialLoad) {
-        chatMessagesContainer.innerHTML = ''; // Nettoyer pour un nouveau chargement
+        chatMessagesContainer.innerHTML = '';
         chatHistoryLoader.classList.remove('hidden');
     }
 
-    const oldestMessage = chatMessagesContainer.querySelector('.chat-message:first-child');
-    const beforeTimestamp = !isInitialLoad && oldestMessage ? oldestMessage.dataset.messageTimestamp : '';
-
     try {
-        const url = `${API_MESSAGES_URL}/threads/${threadId}/messages?limit=20&before=${beforeTimestamp}`;
+        const url = `${API_MESSAGES_URL}/threads/${threadId}/messages?page=${currentPage}&limit=20`;
         const response = await secureFetch(url, {}, false);
         const messages = response?.data?.messages || [];
 
@@ -690,10 +704,8 @@ function renderMessageStatus(message) {
     const sentIcon = '<i class="fa-solid fa-check" title="Envoyé"></i>';
     const deliveredIcon = '<i class="fa-solid fa-check-double" title="Distribué"></i>';
     const readIcon = '<i class="fa-solid fa-check-double" title="Lu" style="color: #4fc3f7;"></i>';
-
+    if (message.readAt) return readIcon;
     switch (message.status) {
-        case 'read':
-            return readIcon;
         case 'delivered':
             return deliveredIcon;
         case 'sent':
@@ -862,12 +874,15 @@ export function handleNewMessageReceived({ message, thread, unreadThreadCount })
     const currentUser = state.getCurrentUser();
     const isMyMessage = (message.senderId?._id || message.senderId) === currentUser?._id;
 
-     // Ne pas incrémenter si c'est notre propre message
-    if (!isMyMessage && typeof unreadThreadCount === 'number') {
-        state.set('messages.unreadGlobalCount', unreadThreadCount);
-    }
     if (threadListView.classList.contains('active-view')) {
         loadThreads(currentTabRole);
+    }
+
+    if (!isMyMessage && activeThreadId !== message.threadId) {
+        const counts = state.get('messages.unreadCounts') || {};
+        counts[message.threadId] = (counts[message.threadId] || 0) + 1;
+        state.set('messages.unreadCounts', counts);
+        updateUnreadBadges();
     }
 
     
@@ -904,12 +919,9 @@ export function handleNewMessageReceived({ message, thread, unreadThreadCount })
 
 function sendTypingEvent() {
     if (window.socket?.connected && activeThreadId) {
-        if (!typingTimer) window.socket.emit('typing', {
-            threadId: activeThreadId,
-            isTyping: true
-        });
+        if (!typingTimer) window.socket.emit('startTyping', { threadId: activeThreadId });
         clearTimeout(typingTimer);
-        typingTimer = setTimeout(stopTypingEvent, TYPING_TIMEOUT);
+        typingTimer = setTimeout(stopTypingEvent, 1500);
     }
 }
 
@@ -917,10 +929,7 @@ function stopTypingEvent() {
     if (window.socket?.connected && activeThreadId) {
         clearTimeout(typingTimer);
         typingTimer = null;
-        window.socket.emit('typing', {
-            threadId: activeThreadId,
-            isTyping: false
-        });
+        window.socket.emit('stopTyping', { threadId: activeThreadId });
     }
 }
 
@@ -934,18 +943,15 @@ async function handleOfferAction(messageId, accept) {
     }
 }
 
-function handleTypingEventReceived({ threadId, userName, isTyping }) {
-    if (threadId === activeThreadId && userName !== state.getCurrentUser()?.name) {
-        if (isTyping) {
-            chatTypingIndicator.classList.remove('hidden');
-            chatTypingIndicator.querySelector('span').textContent = `${sanitizeHTML(userName)} est en train d'écrire`;
-            clearTimeout(typingIndicatorTimer);
-            typingIndicatorTimer = setTimeout(() => {
-                chatTypingIndicator.classList.add('hidden');
-            }, TYPING_TIMEOUT);
-        } else {
-            chatTypingIndicator.classList.add('hidden');
-        }
+function handleTypingEventReceived({ isTyping }) {
+    if (isTyping) {
+        typingIndicator.style.display = 'block';
+        clearTimeout(typingIndicatorTimer);
+        typingIndicatorTimer = setTimeout(() => {
+            typingIndicator.style.display = 'none';
+        }, TYPING_TIMEOUT);
+    } else {
+        typingIndicator.style.display = 'none';
     }
 }
 
@@ -959,6 +965,16 @@ function handleUserStatusUpdate({ userId, statusText }) {
 export function setupSocket(socket) {
     if (!socket) return;
     socket.on('newMessage', handleNewMessageReceived);
+    socket.on('userTyping', handleTypingEventReceived);
+    socket.on('messagesRead', ({ threadId }) => {
+        if (threadId === activeThreadId) {
+            const sentMessages = chatMessagesContainer.querySelectorAll('.chat-message[data-sender-id="me"]');
+            sentMessages.forEach(msg => {
+                const icons = msg.querySelector('.message-status-icons');
+                if (icons) icons.innerHTML = renderMessageStatus({ readAt: true });
+            });
+        }
+    });
     socket.on('messageError', function(error) {
         console.error('Failed to send message:', error);
         alert("Erreur: Votre message n'a pas pu être envoyé.");
@@ -985,7 +1001,7 @@ async function markThreadAsRead(threadId) {
 
 async function markMessagesAsRead(threadId) {
     try {
-        await secureFetch(`/api/messages/read/${threadId}`, { method: 'PUT' }, false);
+        await secureFetch(`/api/messages/${threadId}/mark-as-read`, { method: 'POST' }, false);
     } catch (error) {
         console.error('Erreur lors de la mise à jour du statut des messages:', error);
     }
@@ -1009,6 +1025,38 @@ function updateGlobalUnreadCount(count) {
         messagesNavBadge.setAttribute('title', `${newCount} messages non lus`);
     }
 }
+
+function updateUnreadBadges() {
+    const counts = state.get('messages.unreadCounts') || {};
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    updateGlobalUnreadCount(total);
+
+    document.querySelectorAll('.thread-item').forEach(item => {
+        const tid = item.dataset.threadId;
+        const badge = item.querySelector('.unread-badge');
+        const c = counts[tid] || 0;
+        if (badge) {
+            badge.textContent = c;
+            badge.classList.toggle('hidden', c === 0);
+        }
+        item.classList.toggle('thread-unread', c > 0);
+    });
+}
+
+export function updatePresenceIndicators() {
+    const online = state.get('onlineUsers') || {};
+    document.querySelectorAll('.thread-item').forEach(item => {
+        const dot = item.querySelector('.status-dot');
+        const uid = item.dataset.recipientId;
+        if (dot && uid) {
+            dot.classList.toggle('online', online[uid]);
+        }
+    });
+    const headerDot = document.getElementById('chat-recipient-status-dot');
+    if (headerDot && currentRecipient) {
+        headerDot.classList.toggle('online', online[currentRecipient._id]);
+    }
+}
 function scrollToBottom(container) {
     if (container) {
         container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
@@ -1016,14 +1064,15 @@ function scrollToBottom(container) {
 }
 
 function setupInfiniteScroll() {
-    if (messageObserver) messageObserver.disconnect();
-    messageObserver = new IntersectionObserver(entries => {
-        if (entries[0]?.isIntersecting && !isLoadingHistory && !allMessagesLoaded) {
-            loadMessageHistory(activeThreadId);
-        }
-    }, { root: chatMessagesContainer, threshold: 0.1 });
-    if (chatHistoryLoader) {
-        messageObserver.observe(chatHistoryLoader);
+    if (!chatMessagesContainer) return;
+    chatMessagesContainer.removeEventListener('scroll', handleScrollLoad);
+    chatMessagesContainer.addEventListener('scroll', handleScrollLoad);
+}
+
+function handleScrollLoad() {
+    if (chatMessagesContainer.scrollTop === 0 && !isLoadingHistory && !allMessagesLoaded) {
+        currentPage += 1;
+        loadMessageHistory(activeThreadId);
     }
 }
 
