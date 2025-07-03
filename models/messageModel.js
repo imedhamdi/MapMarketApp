@@ -62,6 +62,9 @@ const messageSchema = new mongoose.Schema({
         enum: ['sent', 'delivered', 'read'],
         default: 'sent'
     },
+    readAt: {
+        type: Date
+    },
     // Pour la suppression "pour moi"
     // Stocke les IDs des utilisateurs pour qui ce message est "supprimé"
     // Si un message est supprimé "pour tous", on pourrait le marquer différemment (ex: texte remplacé, statut 'deleted_for_all')

@@ -207,6 +207,7 @@ app.use(globalErrorHandler);
 const server = http.createServer(app);
 const { Server } = require('socket.io');
 const io = new Server(server, { cors: corsOptions });
+const onlineUsers = new Map();
 
 io.use(async (socket, next) => {
     try {
@@ -229,6 +230,21 @@ io.use(async (socket, next) => {
 
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.user.name} (${socket.id})`);
+
+    socket.on('goOnline', ({ userId }) => {
+        onlineUsers.set(userId, socket.id);
+        socket.join(userId);
+        socket.emit('onlineUsers', Array.from(onlineUsers.keys()));
+        socket.broadcast.emit('userStatusUpdate', { userId, isOnline: true });
+    });
+
+    socket.on('startTyping', ({ threadId }) => {
+        socket.to(threadId).emit('userTyping', { isTyping: true });
+    });
+
+    socket.on('stopTyping', ({ threadId }) => {
+        socket.to(threadId).emit('userTyping', { isTyping: false });
+    });
 
     socket.on('join thread', (threadId) => {
         socket.join(threadId);
@@ -285,6 +301,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
+        const entry = [...onlineUsers.entries()].find(([uid, sid]) => sid === socket.id);
+        if (entry) {
+            onlineUsers.delete(entry[0]);
+            socket.broadcast.emit('userStatusUpdate', { userId: entry[0], isOnline: false });
+        }
         console.log(`User disconnected: ${socket.user.name} (${socket.id})`);
     });
 });

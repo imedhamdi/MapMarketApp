@@ -35,6 +35,7 @@ const initialState = {
         threads: [],
         activeThreadId: null,
         unreadGlobalCount: 0,
+        unreadCounts: {},
     },
     notifications: {
         list: [],
@@ -64,6 +65,7 @@ const initialState = {
         isLoading: false,
     },
     onboardingCompleted: false,
+    onlineUsers: {},
     categories: [], // Sera initialisé avec HARDCODED_CATEGORIES
     appSettings: {
         pushNotificationsEnabled: true,

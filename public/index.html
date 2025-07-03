@@ -971,6 +971,7 @@
                                         <div class="thread-item__meta thread-meta">
                                             <time class="thread-time"></time>
                                             <span class="unread-badge hidden" aria-label="Messages non lus">0</span>
+                                            <span class="status-dot"></span>
                                         </div>
                                     </li>
                                 </template>
@@ -989,6 +990,7 @@
                                 <div class="chat-recipient-details">
                                     <h2 id="chat-recipient-name" class="modal-title chat-title"></h2>
                                     <span id="chat-recipient-status" class="chat-recipient-status"></span>
+                                    <span id="chat-recipient-status-dot" class="status-dot"></span>
                                 </div>
                             </div>
 
@@ -1060,7 +1062,7 @@
                                 <div class="system-message-text"></div>
                             </template>
                         </div>
-                        <div id="chat-typing-indicator" class="typing-indicator hidden" aria-live="polite">
+                        <div id="typing-indicator" class="typing-indicator" style="display: none; font-style: italic; color: #888; height: 20px;" aria-live="polite">
                             <span></span><span class="dots"><span>.</span><span>.</span><span>.</span></span>
                         </div>
 

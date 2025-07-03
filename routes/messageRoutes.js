@@ -25,6 +25,9 @@ router.post('/messages/:messageId/offer/decline', messageController.declineOffer
 // Marquer les messages d'un thread comme lus
 router.put('/read/:threadId', protect, messageController.markMessagesAsRead);
 
+// Nouvelle route pour marquer les messages comme lus
+router.post('/:threadId/mark-as-read', protect, messageController.markAsRead);
+
 
 // Route pour signaler un message
 router.post('/messages/:messageId/report', messageController.reportMessage);

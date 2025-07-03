@@ -427,6 +427,27 @@ exports.markMessagesAsRead = asyncHandler(async (req, res, next) => {
     });
 });
 
+// Nouvelle fonction pour marquer les messages comme lus et envoyer une notification temps réel
+exports.markAsRead = asyncHandler(async (req, res, next) => {
+    const { threadId } = req.params;
+    const userId = req.user.id;
+
+    await Message.updateMany(
+        { threadId, senderId: { $ne: userId }, readAt: { $exists: false } },
+        { $set: { readAt: Date.now() } }
+    );
+
+    const thread = await Thread.findById(threadId);
+    if (!thread) return next(new AppError('Thread non trouvé.', 404));
+    const other = thread.participants.find(p => p.user.toString() !== userId);
+
+    if (other && ioInstance) {
+        ioInstance.to(other.user.toString()).emit('messagesRead', { threadId });
+    }
+
+    res.status(200).json({ success: true });
+});
+
 /**
  * Masque une conversation pour l'utilisateur connecté (soft delete).
  * PATCH /api/messages/threads/:threadId/local
