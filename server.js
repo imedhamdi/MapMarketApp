@@ -236,9 +236,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('sendMessage', async (data) => {
-        const { threadId, content } = data;
+        const { threadId, text, content } = data;
 
-        if (!threadId || !content || content.trim() === '') {
+        const messageText = text || content;
+
+        if (!threadId || !messageText || messageText.trim() === '') {
             return socket.emit('messageError', { message: 'Contenu du message ou ID de conversation manquant.' });
         }
 
@@ -252,7 +254,7 @@ io.on('connection', (socket) => {
             let newMessage = new Message({
                 threadId,
                 senderId: socket.user._id,
-                text: content.trim()
+                text: messageText.trim()
             });
             await newMessage.save();
 

@@ -165,10 +165,11 @@ const updateAdSchema = Joi.object({
 const createMessageSchema = Joi.object({
     threadId: Joi.string().hex().length(24).required(),
     text: Joi.string().trim().allow('').max(2000).optional(),
+    content: Joi.string().trim().allow('').max(2000).optional(),
     type: Joi.string().optional(),
     metadata: Joi.any().optional(),
     tempId: Joi.string().optional()
-});
+}).or('text', 'content');
 
 // Schéma pour l'envoi de message avec image (où le texte est optionnel)
 const sendMessageWithImageSchema = Joi.object({
