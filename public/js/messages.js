@@ -8,6 +8,7 @@
  */
 
 import * as state from './state.js';
+import chat from './chat.js';
 import {
     showToast,
     secureFetch,
@@ -159,6 +160,9 @@ function setupEventListeners() {
     chatMessageInput.addEventListener('input', () => {
         sendTypingEvent();
         updateSendButtonState();
+    });
+    chatMessageInput.addEventListener('blur', () => {
+        chat.stopTyping(activeThreadId);
     });
     chatMessageInput.addEventListener('input', adjustTextareaHeight);
     chatOptionsBtn.addEventListener('click', toggleChatOptionsMenu);
@@ -372,14 +376,13 @@ async function openChatView(threadId, recipient, threadData = null) {
     removeImagePreview();
     updateSendButtonState();
 
-    if (window.socket) {
-        if (previousThread) window.socket.emit('leaveThread', previousThread);
-        if (threadId) window.socket.emit('joinThread', threadId);
+    if (threadId) {
+        chat.joinThread(threadId);
     }
 
     if (threadId) {
         await loadMessageHistory(threadId, true);
-        await markMessagesAsRead(threadId);
+        chat.markAsRead(threadId);
         const counts = state.get('messages.unreadCounts') || {};
         counts[threadId] = 0;
         state.set('messages.unreadCounts', counts);
@@ -741,25 +744,10 @@ function handleThreadsTabClick(e) {
  */
 async function sendMessage() {
     const text = chatMessageInput.value.trim();
-    if (!text) {
-        return;
-    }
-
-    try {
-        const res = await secureFetch(`${API_MESSAGES_URL}/messages`, {
-            method: 'POST',
-            body: { threadId: activeThreadId, text }
-        }, false);
-
-        if (res?.data?.message) {
-            renderMessages([res.data.message], 'append');
-            chatMessageInput.value = '';
-            updateSendButtonState();
-        }
-    } catch (error) {
-        console.error('Erreur envoi message:', error);
-        showToast(error.message || "Erreur lors de l'envoi du message", 'error');
-    }
+    if (!text) return;
+    chat.sendMessage(activeThreadId, text);
+    chatMessageInput.value = '';
+    updateSendButtonState();
 }
 
 async function sendOfferMessage(amount) {
@@ -905,8 +893,8 @@ export function handleNewMessageReceived({ message, thread, unreadThreadCount })
     }
 
     if (activeThreadId === message.threadId) {
-        renderMessages([message], 'append');
-        markMessagesAsRead(activeThreadId);
+        appendNewMessage(message);
+        chat.markAsRead(activeThreadId);
     } else {
         const sender = thread.participants.find(p => p.user._id === message.senderId);
         if (sender && sender.user._id !== currentUser._id) {
@@ -918,18 +906,18 @@ export function handleNewMessageReceived({ message, thread, unreadThreadCount })
 }
 
 function sendTypingEvent() {
-    if (window.socket?.connected && activeThreadId) {
-        if (!typingTimer) window.socket.emit('startTyping', { threadId: activeThreadId });
+    if (activeThreadId) {
+        if (!typingTimer) chat.startTyping(activeThreadId);
         clearTimeout(typingTimer);
         typingTimer = setTimeout(stopTypingEvent, 1500);
     }
 }
 
 function stopTypingEvent() {
-    if (window.socket?.connected && activeThreadId) {
+    if (activeThreadId) {
         clearTimeout(typingTimer);
         typingTimer = null;
-        window.socket.emit('stopTyping', { threadId: activeThreadId });
+        chat.stopTyping(activeThreadId);
     }
 }
 
@@ -945,13 +933,13 @@ async function handleOfferAction(messageId, accept) {
 
 function handleTypingEventReceived({ isTyping }) {
     if (isTyping) {
-        typingIndicator.style.display = 'block';
+        showTypingIndicator();
         clearTimeout(typingIndicatorTimer);
         typingIndicatorTimer = setTimeout(() => {
-            typingIndicator.style.display = 'none';
+            hideTypingIndicator();
         }, TYPING_TIMEOUT);
     } else {
-        typingIndicator.style.display = 'none';
+        hideTypingIndicator();
     }
 }
 
@@ -959,6 +947,29 @@ function handleTypingEventReceived({ isTyping }) {
 function handleUserStatusUpdate({ userId, statusText }) {
     if (currentRecipient && currentRecipient._id === userId && chatRecipientStatus) {
         chatRecipientStatus.textContent = statusText;
+    }
+}
+
+export function appendNewMessage(message) {
+    renderMessages([message], 'append');
+    scrollToBottom(chatMessagesContainer);
+}
+
+export function showTypingIndicator() {
+    if (typingIndicator) typingIndicator.style.display = 'block';
+}
+
+export function hideTypingIndicator() {
+    if (typingIndicator) typingIndicator.style.display = 'none';
+}
+
+export function updateUnreadBadge(threadId) {
+    const counts = state.get('messages.unreadCounts') || {};
+    const badge = document.querySelector(`.thread-item[data-thread-id="${threadId}"] .unread-badge`);
+    const c = counts[threadId] || 0;
+    if (badge) {
+        badge.textContent = c;
+        badge.classList.toggle('hidden', c === 0);
     }
 }
 
@@ -991,9 +1002,7 @@ async function markThreadAsRead(threadId) {
     const threadItem = document.querySelector(`.thread-item[data-thread-id="${threadId}"]`);
     const wasUnread = threadItem && threadItem.classList.contains('unread');
 
-    if (window.socket) {
-        window.socket.emit('markThreadAsRead', threadId);
-    }
+    chat.markAsRead(threadId);
     if (threadItem) {
         threadItem.classList.remove('unread');
     }

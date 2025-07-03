@@ -16,6 +16,7 @@ import {
     sanitizeHTML
 } from './utils.js';
 import * as state from './state.js';
+import chat from './chat.js';
 // import { openModal, closeModal, switchAuthView } from './modals.js'; // modals.js gérera ses propres ouvertures/fermetures
 
 const API_BASE_URL = '/api/auth'; // Ajustez selon votre configuration backend
@@ -457,6 +458,8 @@ function updateUIAfterLogin(userData) {
                 state.set('messages.unreadGlobalCount', countResponse.data.unreadCount);
             }
         });
+
+    chat.initialize();
 
     document.dispatchEvent(new CustomEvent('mapMarket:userLoggedIn', { detail: userData }));
 }

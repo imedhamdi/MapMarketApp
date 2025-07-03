@@ -560,3 +560,33 @@ exports.reportMessage = asyncHandler(async (req, res, next) => {
         message: 'Message signalé. Notre équipe examinera la situation.'
     });
 });
+
+// Fonction pour créer un message depuis un socket (sans req, res)
+exports.createMessageFromSocket = async (threadId, senderId, content) => {
+  try {
+    const newMessage = new Message({
+      thread: threadId,
+      user: senderId,
+      content: content,
+      isRead: false
+    });
+    let savedMessage = await newMessage.save();
+    savedMessage = await savedMessage.populate('user', 'name avatar');
+    return savedMessage;
+  } catch (error) {
+    console.error("Erreur lors de la création du message depuis le socket:", error);
+    return null;
+  }
+};
+
+// Fonction pour marquer un fil de discussion comme lu
+exports.markThreadAsRead = async (threadId, userId) => {
+  try {
+    await Message.updateMany(
+      { thread: threadId, user: { $ne: userId }, isRead: false },
+      { $set: { isRead: true } }
+    );
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour des messages comme lus:", error);
+  }
+};

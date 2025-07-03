@@ -66,6 +66,7 @@ const initialState = {
     },
     onboardingCompleted: false,
     onlineUsers: {},
+    currentThreadId: null,
     // Stocke une action nécessitant une authentification à exécuter après connexion
     pendingAction: null,
     categories: [], // Sera initialisé avec HARDCODED_CATEGORIES
@@ -254,6 +255,8 @@ export function init() {
 // Getters et Setters spécifiques (Exemples)
 export function getCurrentUser() { return get('currentUser'); }
 export function setCurrentUser(userData) { set('currentUser', userData); }
+export function getCurrentThreadId() { return get('currentThreadId'); }
+export function setCurrentThreadId(id) { set('currentThreadId', id); }
 export function getFilters() { return get('filters'); }
 export function updateFilter(filterKey, filterValue) { set(`filters.${filterKey}`, filterValue); }
 export function setAds(adsData) { set('ads', adsData); }
