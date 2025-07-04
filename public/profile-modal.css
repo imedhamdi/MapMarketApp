@@ -1,0 +1,141 @@
+/* Profile Modal Styles */
+
+.profile-avatar-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+    gap: var(--spacing-sm);
+}
+
+.avatar-preview {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid var(--primary-color-light);
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+}
+
+.profile-avatar-large {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-upload-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(var(--dark-color), 0.5);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    opacity: 0;
+    transition: opacity var(--transition-duration-short) var(--transition-timing-function);
+}
+
+.avatar-preview:hover .avatar-upload-overlay {
+    opacity: 1;
+}
+
+.profile-stats-section {
+    margin: var(--spacing-lg) 0;
+}
+
+.profile-stats {
+    display: flex;
+    justify-content: space-around;
+    text-align: center;
+    gap: var(--spacing-sm);
+}
+
+.stat-progress {
+    width: 60px;
+    height: 4px;
+    background-color: var(--gray-200);
+    border-radius: var(--border-radius-full);
+    margin: var(--spacing-xs) auto;
+    overflow: hidden;
+}
+
+.stat-progress .fill {
+    height: 100%;
+    background-color: var(--primary-color);
+    width: 0;
+}
+
+.stat-item .count {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.stat-item .label {
+    font-size: 0.8rem;
+    color: var(--gray-600);
+    text-transform: uppercase;
+}
+
+#profile-achievements-section {
+    margin: var(--spacing-lg) 0;
+}
+
+.achievements-grid {
+    display: flex;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.achievement-badge {
+    width: 80px;
+    padding: var(--spacing-sm);
+    text-align: center;
+    border-radius: var(--border-radius-md);
+    background-color: var(--gray-100);
+    color: var(--primary-color);
+    font-size: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.achievement-badge i {
+    font-size: 1.5rem;
+    margin-bottom: var(--spacing-xs);
+}
+
+.achievement-badge.locked {
+    background-color: var(--gray-200);
+    color: var(--gray-400);
+}
+
+.profile-danger-zone {
+    margin-top: var(--spacing-lg);
+    border-top: 1px solid var(--danger-color);
+    padding-top: var(--spacing-lg);
+}
+
+#delete-account-confirmation-section {
+    border: 1px solid var(--danger-color);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-md);
+    margin-top: var(--spacing-sm);
+    background-color: #fee2e2;
+}
+
+#delete-account-confirmation-section label {
+    display: block;
+    margin: var(--spacing-sm) 0;
+    font-size: 0.9rem;
+}
+
+#delete-account-confirmation-section .btn {
+    margin-top: var(--spacing-sm);
+}
