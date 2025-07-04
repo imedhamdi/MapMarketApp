@@ -724,44 +724,6 @@ h4 {
     flex-shrink: 0;
 }
 
-/* Auth Modal */
-.auth-modal-content {
-    max-width: 400px;
-}
-
-.auth-form .form-group {
-    margin-bottom: var(--spacing-md);
-}
-
-.auth-submit-btn {
-    margin-top: var(--spacing-md);
-}
-
-.auth-link {
-    margin-top: var(--spacing-md);
-    font-size: 0.9rem;
-}
-
-.auth-modal-footer {
-    justify-content: center;
-    background-color: transparent;
-    border-top: 1px solid var(--border-color-light);
-    padding-top: var(--spacing-md);
-}
-
-.auth-switch-link {
-    color: var(--primary-color);
-    font-weight: 500;
-}
-
-#email-validation-view p {
-    margin-bottom: var(--spacing-sm);
-}
-
-#email-validation-view button {
-    margin-bottom: var(--spacing-sm);
-}
-
 
 /* Settings Modal */
 .settings-section {
