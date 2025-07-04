@@ -382,17 +382,6 @@ h4 {
     display: none;
 }
 
-.nav-badge {
-    position: absolute;
-    top: var(--spacing-xs);
-    right: var(--spacing-xs);
-    padding: 0.1em 0.4em;
-    font-size: 0.7em;
-}
-
-.nav-badge[data-count="0"] {
-    display: none;
-}
 
 /* MAIN CONTENT & MAP */
 #main-content,
@@ -550,78 +539,6 @@ h4 {
     font-size: 1.2rem;
 }
 
-/* BOTTOM NAVIGATION */
-#bottom-navigation {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: var(--bottom-nav-height);
-    background-color: var(--component-bg);
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
-    display: flex;
-    justify-content: space-around;
-    align-items: stretch;
-    z-index: 1000;
-    border-top: 1px solid var(--border-color-light);
-}
-
-.nav-btn {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: var(--gray-500);
-    padding: var(--spacing-xs) 0;
-    font-size: 0.7rem;
-    position: relative;
-    height: 100%;
-    border-radius: 0;
-    gap: 2px;
-    /* Transition fluide pour la couleur et le fond */
-    transition: background-color var(--transition-duration-short) ease-in-out, color var(--transition-duration-short) ease-in-out;
-}
-
-.nav-btn i {
-    font-size: 1.4rem;
-    margin-bottom: 0;
-    /* Transition élastique pour l'icône pour un effet "pop" moderne */
-    transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.nav-btn:hover,
-.nav-btn.active {
-    color: var(--primary-color);
-    background-color: rgba(var(--primary-color-rgb), 0.05); /* Un fond léger pour un effet plus subtil */
-}
-
-.nav-btn.active {
-    font-weight: 600;
-}
-
-/* Animation de l'icône lorsque l'onglet est actif */
-.nav-btn.active i {
-    transform: translateY(-3px) scale(1.1);
-}
-
-.nav-btn.publish-btn {
-    color: var(--light-color);
-    background-color: var(--primary-color);
-}
-
-.nav-btn.publish-btn i {
-    font-size: 1.8rem;
-}
-
-.nav-btn.publish-btn .nav-text {
-    color: var(--light-color);
-}
-
-.nav-btn.publish-btn:hover {
-    background-color: var(--primary-color-dark);
-    color: var(--light-color);
-}
 
 /* Toggle view button and list view */
 #toggle-view-btn {
@@ -1585,17 +1502,6 @@ body,
 
 
 
-    .nav-btn .nav-text {
-        font-size: 0.6rem;
-    }
-
-    .nav-btn i {
-        font-size: 1.1rem;
-    }
-
-    .nav-btn.publish-btn i {
-        font-size: 1.5rem;
-    }
 
     .modal-body {
         padding: var(--spacing-md);
@@ -1649,10 +1555,6 @@ body.dark-mode .btn-secondary:hover:not(:disabled) {
     color: var(--btn-secondary-hover-color);
 }
 
-body.dark-mode .nav-btn:hover,
-body.dark-mode .nav-btn.active {
-    background-color: var(--gray-700);
-}
 
 body.dark-mode .map-info-bar {
     background-color: rgba(var(--dark-color), 0.9);
@@ -2053,26 +1955,4 @@ body.dark-mode select.form-control {
 /* ADD THIS UTILITY CLASS */
 .hidden {
   display: none !important;
-}
-
-.badge.nav-badge .badge.nav-badge{
-    position: absolute;
-    top: -5px;
-
-    min-width: 18px;
-    height: 18px;
-    border-radius: 9px;
-    font-size: 11px;
-    line-height: 18px;
-    text-align: center;
-    padding: 0 4px;
-    transition: opacity 0.2s;
-}
-
-.badge.nav-badge[data-count="0"] {
-    display: none;
-}
-
-.badge.nav-badge:not([data-count="0"]) {
-    display: inline-block;
 }
