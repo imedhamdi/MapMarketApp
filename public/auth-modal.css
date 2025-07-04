@@ -1,0 +1,75 @@
+/* ===============================
+   Auth Modal Styles
+   Extracted from styles.css
+   Classes moved from global:
+       .auth-modal-content
+       .auth-form .form-group
+       .auth-submit-btn
+       .auth-link
+       .auth-modal-footer
+       .auth-switch-link
+       #email-validation-view p
+       #email-validation-view button
+   Generic classes kept global:
+       .modal-overlay, .center-modal, .modal-content,
+       .modal-header, .modal-title, .modal-body, .modal-footer,
+       .form-control, .form-group, .form-error-message,
+       .btn, .btn-block, .btn-primary, .btn-secondary, .btn-link,
+       .text-center, .text-primary, .text-success
+   Recommendations: consider adding responsive adjustments
+   for small screens and subtle transitions.
+=============================== */
+
+/* ===============================
+   AUTH MODAL: CONTAINER & LAYOUT
+=============================== */
+.auth-modal-content {
+    max-width: 400px;
+}
+
+/* ===============================
+   HEADERS & TITLES
+=============================== */
+/* (Uses global .modal-header and .modal-title) */
+
+/* ===============================
+   FORMULAIRES : Login / Signup / Reset
+=============================== */
+.auth-form .form-group {
+    margin-bottom: var(--spacing-md);
+}
+
+.auth-submit-btn {
+    margin-top: var(--spacing-md);
+}
+
+.auth-link {
+    margin-top: var(--spacing-md);
+    font-size: 0.9rem;
+}
+
+/* ===============================
+   VALIDATION EMAIL VIEW
+=============================== */
+#email-validation-view p {
+    margin-bottom: var(--spacing-sm);
+}
+
+#email-validation-view button {
+    margin-bottom: var(--spacing-sm);
+}
+
+/* ===============================
+   BOUTONS & NAVIGATION
+=============================== */
+.auth-modal-footer {
+    justify-content: center;
+    background-color: transparent;
+    border-top: 1px solid var(--border-color-light);
+    padding-top: var(--spacing-md);
+}
+
+.auth-switch-link {
+    color: var(--primary-color);
+    font-weight: 500;
+}
