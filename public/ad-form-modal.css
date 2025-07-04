@@ -1,0 +1,65 @@
+/* Ad Form Modal Styles */
+
+/* Modal Container */
+#ad-form-modal .modal-content {
+    max-width: 600px;
+}
+
+/* Form Layout */
+#ad-form .form-group {
+    margin-bottom: var(--spacing-md);
+}
+
+/* Image Upload */
+.image-previews-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+}
+
+.preview-image-container {
+    position: relative;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+    aspect-ratio: 1 / 1;
+}
+
+.preview-image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.preview-image-delete-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background-color: rgba(var(--dark-color), 0.6);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+    transition: background-color var(--transition-duration-short) var(--transition-timing-function);
+}
+
+.preview-image-delete-btn:hover {
+    background-color: rgba(var(--danger-color), 0.8);
+}
+
+/* Map Preview */
+.map-preview-container {
+    height: 150px;
+    background-color: var(--gray-200);
+    margin-top: var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-color);
+}
