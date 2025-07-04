@@ -1,0 +1,44 @@
+/* More Options Modal Styles */
+
+/* Modal Container */
+#more-options-modal .modal-content {
+    max-width: 350px;
+}
+
+/* Options List */
+.more-options-list {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Option Buttons */
+.more-option-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    font-size: 1rem;
+    color: var(--text-color-base);
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    border-radius: var(--border-radius-sm);
+}
+
+.more-option-item:hover {
+    background-color: var(--gray-100);
+    color: var(--primary-color);
+}
+
+.more-option-item i {
+    width: 24px;
+    text-align: center;
+    color: var(--gray-500);
+    font-size: 1.1em;
+    transition: color var(--transition-duration-short) var(--transition-timing-function);
+}
+
+.more-option-item:hover i {
+    color: var(--primary-color);
+}
