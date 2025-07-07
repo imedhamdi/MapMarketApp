@@ -209,6 +209,16 @@ const { Server } = require('socket.io');
 const io = new Server(server, { cors: corsOptions });
 const onlineUsers = new Map();
 
+let users = [];
+function addUser(userId, socketId) {
+    if (!users.some(u => u.userId === userId)) {
+        users.push({ userId, socketId });
+    }
+}
+function removeUser(socketId) {
+    users = users.filter(u => u.socketId !== socketId);
+}
+
 io.use(async (socket, next) => {
     try {
         const token = socket.handshake.auth.token;
@@ -238,12 +248,24 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('userStatusUpdate', { userId, isOnline: true });
     });
 
-    socket.on('startTyping', ({ threadId }) => {
-        socket.to(threadId).emit('userTyping', { isTyping: true });
+    socket.on('addUser', (userId) => {
+        addUser(userId, socket.id);
+        socket.broadcast.emit('userOnline', { userId });
     });
 
-    socket.on('stopTyping', ({ threadId }) => {
-        socket.to(threadId).emit('userTyping', { isTyping: false });
+
+    socket.on('typing', ({ recipientId, threadId }) => {
+        const recipient = users.find(u => u.userId === recipientId);
+        if (recipient) {
+            io.to(recipient.socketId).emit('isTyping', { threadId });
+        }
+    });
+
+    socket.on('stopTyping', ({ recipientId, threadId }) => {
+        const recipient = users.find(u => u.userId === recipientId);
+        if (recipient) {
+            io.to(recipient.socketId).emit('hasStoppedTyping', { threadId });
+        }
     });
 
     socket.on('join thread', (threadId) => {
@@ -306,6 +328,11 @@ io.on('connection', (socket) => {
             onlineUsers.delete(entry[0]);
             socket.broadcast.emit('userStatusUpdate', { userId: entry[0], isOnline: false });
         }
+        const disconnectedUser = users.find(u => u.socketId === socket.id);
+        if (disconnectedUser) {
+            socket.broadcast.emit('userOffline', { userId: disconnectedUser.userId });
+        }
+        removeUser(socket.id);
         console.log(`User disconnected: ${socket.user.name} (${socket.id})`);
     });
 });

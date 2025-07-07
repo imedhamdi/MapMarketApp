@@ -26,6 +26,9 @@ const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 const VALID_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const TYPING_TIMEOUT = 3000;
 
+let typingTimeout;
+let onlineUsers = [];
+
 // --- Éléments du DOM ---
 let messagesModal, threadListView, chatView, threadListUl, threadItemTemplate, noThreadsPlaceholder;
 let backToThreadsBtn, chatRecipientAvatar, chatRecipientName, chatRecipientStatus, chatOptionsBtn, chatOptionsMenu, blockUserChatBtn, deleteChatBtn;
@@ -156,11 +159,12 @@ function setupEventListeners() {
     backToThreadsBtn.addEventListener('click', showThreadList);
     sendChatMessageBtn.addEventListener('click', sendMessage);
     chatMessageInput.addEventListener('keypress', handleInputKeypress);
+    chatMessageInput.addEventListener('keyup', sendTypingEvent);
     chatMessageInput.addEventListener('input', () => {
-        sendTypingEvent();
         updateSendButtonState();
+        adjustTextareaHeight();
     });
-    chatMessageInput.addEventListener('input', adjustTextareaHeight);
+    // input event already handles textarea height
     chatOptionsBtn.addEventListener('click', toggleChatOptionsMenu);
     document.addEventListener('click', closeOptionsMenuOnClickOutside, true);
     if (chatComposerBtn) chatComposerBtn.addEventListener('click', () => toggleComposerMenu());
@@ -437,6 +441,8 @@ function renderThreadList(threadsData) {
     }
 
     if (!threadsData || threadsData.length === 0) {
+        threadListUl.innerHTML = '';
+        noThreadsPlaceholder.textContent = "Vous n'avez aucune conversation.";
         noThreadsPlaceholder.classList.remove('hidden');
         return;
     }
@@ -509,7 +515,10 @@ function renderThreadList(threadsData) {
             unreadBadge.classList.toggle('hidden', unreadCountForThread === 0);
         }
         if (statusDot) {
-            statusDot.classList.toggle('online', state.get('onlineUsers')?.[recipient._id]);
+            statusDot.classList.toggle('online', onlineUsers.includes(recipient._id));
+        }
+        if (onlineUsers.includes(recipient._id)) {
+            li.classList.add('online');
         }
 
         // Appliquer un délai d'animation pour un effet de cascade
@@ -532,7 +541,7 @@ async function loadMessageHistory(threadId, isInitialLoad = false) {
     if (isLoadingHistory || allMessagesLoaded) return;
     isLoadingHistory = true;
     if (isInitialLoad) {
-        chatMessagesContainer.innerHTML = '';
+        chatMessagesContainer.innerHTML = '<div class="loader-container"><div class="spinner"></div></div>';
         chatHistoryLoader.classList.remove('hidden');
     }
 
@@ -552,6 +561,7 @@ async function loadMessageHistory(threadId, isInitialLoad = false) {
         renderMessages(messages, 'prepend');
     } catch (error) {
         showToast("Erreur de chargement de l'historique.", "error");
+        chatMessagesContainer.innerHTML = '<p class="empty-state-message">Erreur lors du chargement des messages.</p>';
     } finally {
         isLoadingHistory = false;
         if (isInitialLoad && !allMessagesLoaded) {
@@ -679,7 +689,13 @@ function renderMessages(messages, method) {
         timeEl.textContent = formatDate(msg.createdAt, { hour: '2-digit', minute: '2-digit' });
 
         if (isSentByMe && statusEl) {
-            statusEl.innerHTML = renderMessageStatus(msg);
+            statusEl.innerHTML = '';
+            if (msg.read || msg.readAt) {
+                const rr = document.createElement('span');
+                rr.className = 'read-receipt';
+                rr.textContent = '✓✓';
+                statusEl.appendChild(rr);
+            }
         } else if (statusEl) {
             statusEl.innerHTML = '';
         }
@@ -755,6 +771,10 @@ async function sendMessage() {
             renderMessages([res.data.message], 'append');
             chatMessageInput.value = '';
             updateSendButtonState();
+            adjustTextareaHeight();
+            if (window.socket && currentRecipient) {
+                window.socket.emit('stopTyping', { recipientId: currentRecipient._id || currentRecipient.id, threadId: activeThreadId });
+            }
         }
     } catch (error) {
         console.error('Erreur envoi message:', error);
@@ -918,18 +938,19 @@ export function handleNewMessageReceived({ message, thread, unreadThreadCount })
 }
 
 function sendTypingEvent() {
-    if (window.socket?.connected && activeThreadId) {
-        if (!typingTimer) window.socket.emit('startTyping', { threadId: activeThreadId });
-        clearTimeout(typingTimer);
-        typingTimer = setTimeout(stopTypingEvent, 1500);
+    if (window.socket && currentRecipient) {
+        window.socket.emit('typing', { recipientId: currentRecipient._id || currentRecipient.id, threadId: activeThreadId });
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+            window.socket.emit('stopTyping', { recipientId: currentRecipient._id || currentRecipient.id, threadId: activeThreadId });
+        }, 2000);
     }
 }
 
 function stopTypingEvent() {
-    if (window.socket?.connected && activeThreadId) {
-        clearTimeout(typingTimer);
-        typingTimer = null;
-        window.socket.emit('stopTyping', { threadId: activeThreadId });
+    if (window.socket && currentRecipient) {
+        clearTimeout(typingTimeout);
+        window.socket.emit('stopTyping', { recipientId: currentRecipient._id || currentRecipient.id, threadId: activeThreadId });
     }
 }
 
@@ -978,6 +999,28 @@ export function setupSocket(socket) {
     socket.on('messageError', function(error) {
         console.error('Failed to send message:', error);
         alert("Erreur: Votre message n'a pas pu être envoyé.");
+    });
+
+    socket.on('userOnline', ({ userId }) => {
+        if (!onlineUsers.includes(userId)) onlineUsers.push(userId);
+        document.querySelectorAll(`.thread-item[data-recipient-id="${userId}"]`).forEach(el => el.classList.add('online'));
+    });
+
+    socket.on('userOffline', ({ userId }) => {
+        onlineUsers = onlineUsers.filter(id => id !== userId);
+        document.querySelectorAll(`.thread-item[data-recipient-id="${userId}"]`).forEach(el => el.classList.remove('online'));
+    });
+
+    socket.on('isTyping', ({ threadId }) => {
+        if (threadId === activeThreadId) {
+            typingIndicator.style.display = 'block';
+        }
+    });
+
+    socket.on('hasStoppedTyping', ({ threadId }) => {
+        if (threadId === activeThreadId) {
+            typingIndicator.style.display = 'none';
+        }
     });
 }
 
