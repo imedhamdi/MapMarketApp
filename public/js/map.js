@@ -556,7 +556,7 @@ export function displayAdsOnMap(ads) {
         if (lat != null && lng != null && adId) {
             const marker = L.marker([lat, lng], { icon: adIconConfig(ad), alt: sanitizeHTML(ad.title) });
             marker.on('click', () => {
-                showAdPreviewCard(ad);
+                handleMarkerClick(ad);
             });
             adMarkersLayer.addLayer(marker);
             adMarkersById[adId] = marker; // Stocker le marqueur par ID
@@ -569,7 +569,13 @@ export function displayAdsOnMap(ads) {
     }
 }
 
+function handleMarkerClick(ad) {
+    console.log('handleMarkerClick -> ad', ad);
+    showAdPreviewCard(ad);
+}
+
 function showAdPreviewCard(ad) {
+    console.log('showAdPreviewCard -> ad', ad);
     const card = document.getElementById('ad-preview-card');
     const image = document.getElementById('preview-card-image');
     const title = document.getElementById('preview-card-title');
@@ -642,6 +648,7 @@ function showAdPreviewCard(ad) {
         document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: ad._id || ad.id } }));
     };
 
+    console.log('showAdPreviewCard -> displaying preview card');
     card.classList.remove('hidden');
 }
 
