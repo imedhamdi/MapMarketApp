@@ -335,3 +335,42 @@ body.dark-mode .map-info-bar {
     background-color: rgba(var(--category-electronique-color), 0.1);
     color: var(--category-electronique-color);
 }
+
+/* Responsive Ad Preview Card */
+#ad-preview-card {
+    position: absolute;
+    left: var(--spacing-md);
+    right: var(--spacing-md);
+    bottom: calc(var(--bottom-nav-height) + var(--spacing-md));
+    background-color: var(--component-bg);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    transform: translateY(100%);
+    transition: transform 0.3s ease-in-out;
+    z-index: 1000;
+    align-items: center;
+}
+
+#ad-preview-card:not(.hidden) {
+    transform: translateY(0);
+}
+
+@media (min-width: 768px) {
+    #ad-preview-card {
+        width: 340px;
+        left: var(--spacing-md);
+        right: auto;
+        border-radius: var(--border-radius-md);
+    }
+}
+
+@media (max-width: 767px) {
+    #ad-preview-card {
+        left: var(--spacing-xs);
+        right: var(--spacing-xs);
+        border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+    }
+}
