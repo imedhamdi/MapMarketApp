@@ -204,9 +204,20 @@ app.all('/api/*', (req, res, next) => {
 app.use(globalErrorHandler);
 
 // --- SOCKET.IO ---
+// --- SOCKET.IO SETUP ---
+// Create the HTTP server for Socket.IO to hook into
 const server = http.createServer(app);
 const { Server } = require('socket.io');
-const io = new Server(server, { cors: corsOptions });
+// Allow connections from the front-end origin
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:3001"
+  }
+});
+
+// Expose the Socket.IO instance so controllers can emit events
+app.set('socketio', io);
+
 const onlineUsers = new Map();
 
 io.use(async (socket, next) => {
@@ -229,7 +240,14 @@ io.use(async (socket, next) => {
 
 
 io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.user.name} (${socket.id})`);
+    // Log connection of a new socket
+    console.log('A user connected with socket id:', socket.id);
+
+    // Allow the client to join a room identified by its user ID
+    socket.on('join-room', (userId) => {
+        socket.join(userId);
+        console.log(`User with ID ${userId} joined their room.`);
+    });
 
     socket.on('goOnline', ({ userId }) => {
         onlineUsers.set(userId, socket.id);
