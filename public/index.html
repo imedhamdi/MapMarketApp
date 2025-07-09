@@ -983,9 +983,9 @@
 
                                         <div class="thread-item__meta thread-meta">
                                             <time class="thread-time"></time>
-                                            <span class="unread-badge hidden" aria-label="Messages non lus">0</span>
                                             <span class="status-dot"></span>
                                         </div>
+                                        <span class="unread-badge" aria-label="Messages non lus"></span>
                                     </li>
                                 </template>
                             </ul>
@@ -1000,10 +1000,12 @@
 
                             <div id="chat-recipient-info-block" class="chat-recipient" role="button" tabindex="0" aria-label="Voir le profil de l'utilisateur">
                                 <img id="chat-recipient-avatar" src="avatar-default.svg" alt="Avatar de l'interlocuteur" class="chat-recipient-avatar" onerror="this.src='https://placehold.co/36x36/e0e0e0/757575?text=User';">
-                                <div class="chat-recipient-details">
+                                <div class="chat-recipient-details" id="message-view-header">
                                     <h2 id="chat-recipient-name" class="modal-title chat-title"></h2>
-                                    <span id="chat-recipient-status" class="chat-recipient-status"></span>
-                                    <span id="chat-recipient-status-dot" class="status-dot"></span>
+                                    <div class="user-status-container">
+                                        <span id="chat-recipient-status-dot" class="status-indicator offline"></span>
+                                        <span id="chat-recipient-status" class="status-text"></span>
+                                    </div>
                                 </div>
                             </div>
 
