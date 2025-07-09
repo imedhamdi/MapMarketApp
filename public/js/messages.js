@@ -318,19 +318,12 @@ async function openChatView(threadId, recipient, threadData = null) {
     chatRecipientAvatar.src = recipient?.avatarUrl || 'avatar-default.svg';
     chatRecipientName.textContent = sanitizeHTML(recipient?.name || 'Nouveau contact');
     if (chatRecipientStatus) {
-        if (recipient?.isOnline) {
-            chatRecipientStatus.textContent = 'en ligne';
-        } else if (recipient?.lastSeen) {
-            const diff = Date.now() - new Date(recipient.lastSeen).getTime();
-            const minutes = Math.floor(diff / 60000);
-            if (minutes < 1) chatRecipientStatus.textContent = 'vu à l\'instant';
-            else if (minutes < 60) chatRecipientStatus.textContent = `vu il y a ${minutes} minute${minutes > 1 ? 's' : ''}`;
-            else {
-                const hours = Math.floor(minutes / 60);
-                chatRecipientStatus.textContent = `vu il y a ${hours}h`;
-            }
-        } else {
-            chatRecipientStatus.textContent = '';
+        const { statusClass, text } = formatUserStatus(recipient.lastSeen, recipient.isOnline);
+        chatRecipientStatus.textContent = text;
+        const dot = document.getElementById('chat-recipient-status-dot');
+        if (dot) {
+            dot.classList.remove('online', 'offline');
+            dot.classList.add(statusClass);
         }
     }
 
@@ -383,6 +376,15 @@ async function openChatView(threadId, recipient, threadData = null) {
         const counts = state.get('messages.unreadCounts') || {};
         counts[threadId] = 0;
         state.set('messages.unreadCounts', counts);
+        const item = document.querySelector(`.thread-item[data-thread-id="${threadId}"]`);
+        if (item) {
+            const badge = item.querySelector('.unread-badge');
+            if (badge) {
+                badge.textContent = '';
+                badge.classList.remove('visible');
+            }
+            item.classList.remove('thread-unread');
+        }
         updateUnreadBadges();
         updatePresenceIndicators();
         setupInfiniteScroll();
@@ -882,7 +884,17 @@ export function handleNewMessageReceived({ message, thread, unreadThreadCount })
         const counts = state.get('messages.unreadCounts') || {};
         counts[message.threadId] = (counts[message.threadId] || 0) + 1;
         state.set('messages.unreadCounts', counts);
-        updateUnreadBadges();
+        const item = document.querySelector(`.thread-item[data-thread-id="${message.threadId}"]`);
+        if (item) {
+            const badge = item.querySelector('.unread-badge');
+            const current = parseInt(badge?.textContent || '0', 10) || 0;
+            if (badge) {
+                badge.textContent = current + 1;
+                badge.classList.add('visible');
+            }
+            item.classList.add('thread-unread');
+        }
+        updateGlobalUnreadCount(Object.values(counts).reduce((a,b)=>a+b,0));
     }
 
     
@@ -956,11 +968,6 @@ function handleTypingEventReceived({ isTyping }) {
 }
 
 
-function handleUserStatusUpdate({ userId, statusText }) {
-    if (currentRecipient && currentRecipient._id === userId && chatRecipientStatus) {
-        chatRecipientStatus.textContent = statusText;
-    }
-}
 
 export function setupSocket(socket) {
     if (!socket) return;
@@ -974,6 +981,21 @@ export function setupSocket(socket) {
                 if (icons) icons.innerHTML = renderMessageStatus({ readAt: true });
             });
         }
+    });
+    socket.on('user-online', (userId) => {
+        const online = state.get('onlineUsers') || {};
+        online[userId] = true;
+        state.set('onlineUsers', online);
+        updatePresenceIndicators();
+    });
+    socket.on('user-offline', ({ userId, lastSeen }) => {
+        const online = state.get('onlineUsers') || {};
+        online[userId] = false;
+        state.set('onlineUsers', online);
+        if (currentRecipient && currentRecipient._id === userId) {
+            currentRecipient.lastSeen = lastSeen;
+        }
+        updatePresenceIndicators();
     });
     socket.on('messageError', function(error) {
         console.error('Failed to send message:', error);
@@ -1037,24 +1059,51 @@ function updateUnreadBadges() {
         const c = counts[tid] || 0;
         if (badge) {
             badge.textContent = c;
-            badge.classList.toggle('hidden', c === 0);
+            badge.classList.toggle('visible', c > 0);
         }
         item.classList.toggle('thread-unread', c > 0);
     });
 }
 
+function formatUserStatus(lastSeenTimestamp, isOnline = false) {
+    const now = Date.now();
+    const last = lastSeenTimestamp ? new Date(lastSeenTimestamp).getTime() : 0;
+
+    if (isOnline || now - last < 2 * 60 * 1000) {
+        return { statusClass: 'online', text: 'En ligne' };
+    }
+    if (!lastSeenTimestamp) {
+        return { statusClass: 'offline', text: '' };
+    }
+    const diffMinutes = Math.floor((now - last) / 60000);
+    if (diffMinutes < 60) {
+        return { statusClass: 'offline', text: 'Hors ligne depuis ' + diffMinutes + ' min' };
+    }
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) {
+        return { statusClass: 'offline', text: 'Hors ligne depuis ' + diffHours + ' h' };
+    }
+    const diffDays = Math.floor(diffHours / 24);
+    return { statusClass: 'offline', text: 'Hors ligne depuis ' + diffDays + ' j' };
+}
+
 export function updatePresenceIndicators() {
     const online = state.get('onlineUsers') || {};
     document.querySelectorAll('.thread-item').forEach(item => {
-        const dot = item.querySelector('.status-dot');
+        const dot = item.querySelector('.status-dot, .status-indicator');
         const uid = item.dataset.recipientId;
         if (dot && uid) {
             dot.classList.toggle('online', online[uid]);
+            dot.classList.toggle('offline', !online[uid]);
         }
     });
     const headerDot = document.getElementById('chat-recipient-status-dot');
     if (headerDot && currentRecipient) {
-        headerDot.classList.toggle('online', online[currentRecipient._id]);
+        const isOn = online[currentRecipient._id];
+        headerDot.classList.toggle('online', isOn);
+        headerDot.classList.toggle('offline', !isOn);
+        const { text } = formatUserStatus(currentRecipient.lastSeen, isOn);
+        if (chatRecipientStatus) chatRecipientStatus.textContent = text;
     }
 }
 function scrollToBottom(container) {

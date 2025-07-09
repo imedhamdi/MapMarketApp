@@ -53,6 +53,7 @@
     opacity: 0;
     transform: translateY(15px);
     animation: thread-item-appear 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    position: relative;
 }
 
 .thread-avatar {
@@ -81,14 +82,32 @@
     flex-shrink: 0;
 }
 
-.thread-meta .unread-badge {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 2px 6px;
-    border-radius: 10px;
-    font-size: 0.7rem;
-    margin-top: 4px;
-    display: inline-block;
+/*
+ * Unread Messages Badge Styles
+ */
+.unread-badge {
+  position: absolute;
+  top: 50%;
+  right: 15px;
+  transform: translateY(-50%);
+  background-color: #e74c3c;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 3px 8px;
+  border-radius: 12px;
+  min-width: 24px;
+  text-align: center;
+  display: none;
+  transition: transform 0.2s ease;
+}
+
+.unread-badge.visible {
+    display: block;
+}
+
+.unread-badge:hover {
+    transform: translateY(-50%) scale(1.1);
 }
 
 /* Chat Header */
@@ -157,6 +176,36 @@ body.dark-mode .chat-recipient:focus {
     display: block;
     font-size: 0.75rem;
     color: var(--gray-500);
+}
+
+/*
+ * User Presence Status Styles
+ */
+.user-status-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transition: background-color 0.3s ease;
+}
+
+.status-indicator.online {
+  background-color: #2ecc71;
+  box-shadow: 0 0 5px #2ecc71;
+}
+
+.status-indicator.offline {
+  background-color: #95a5a6;
+}
+
+.status-text {
+  font-size: 0.8rem;
+  color: #7f8c8d;
 }
 
 #chat-options-menu {
