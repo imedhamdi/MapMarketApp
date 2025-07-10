@@ -2,6 +2,7 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const sharp = require('sharp');
 const { AppError } = require('./errorHandler');
 const { logger } = require('../config/winston');
 
@@ -113,11 +114,39 @@ const cleanupUploadedFilesOnError = (req, res, next) => {
     next();
 };
 
+// Optimisation des images après l'upload
+const optimizeUploadedImages = async (req, res, next) => {
+    const processFile = async (file) => {
+        try {
+            const data = await sharp(file.path)
+                .resize({ width: 800 })
+                .jpeg({ quality: 80 })
+                .toBuffer();
+            await fs.promises.writeFile(file.path, data);
+        } catch (err) {
+            logger.error('Erreur optimisation image:', err);
+        }
+    };
+
+    try {
+        if (req.file) await processFile(req.file);
+        if (Array.isArray(req.files)) {
+            for (const f of req.files) {
+                await processFile(f);
+            }
+        }
+    } catch (e) {
+        logger.error('Erreur lors de la compression des images:', e);
+    }
+    next();
+};
+
 
 module.exports = {
     handleMulterUpload,
     uploadAvatar,
     uploadAdImages,
     uploadMessageImage,
-    cleanupUploadedFilesOnError
+    cleanupUploadedFilesOnError,
+    optimizeUploadedImages
 };

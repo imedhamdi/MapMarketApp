@@ -213,44 +213,29 @@ exports.getUnreadThreadCount = asyncHandler(async (req, res, next) => {
  * Query: limit, before (timestamp du message le plus ancien chargé pour la page précédente)
  */
 exports.getMessagesForThread = asyncHandler(async (req, res, next) => {
-    const { threadId } = req.params;
-    const userId = req.user.id;
+    try {
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 25;
+        const skip = (page - 1) * limit;
 
-    const thread = await Thread.findOne({ _id: threadId, 'participants.user': userId });
-    if (!thread) {
-        return next(new AppError('Thread non trouvé ou accès non autorisé.', 404));
+        const messages = await Message.find({ threadId: req.params.threadId })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .populate('senderId', 'name avatarUrl');
+
+        const mapped = messages.map(msg => mapMessageImageUrls(req, msg));
+
+        res.status(200).json({
+            status: 'success',
+            results: mapped.length,
+            data: {
+                messages: mapped.reverse()
+            }
+        });
+    } catch (error) {
+        next(error);
     }
-
-    const queryOptions = { threadId };
-    // Filtrer les messages "supprimés pour moi"
-    queryOptions.deletedFor = { $ne: userId };
-    queryOptions.isDeletedGlobally = { $ne: true };
-
-
-    if (req.query.before) { // Pour charger les messages plus anciens (scroll vers le haut)
-        queryOptions.createdAt = { $lt: new Date(parseInt(req.query.before, 10)) };
-    }
-
-    const limit = parseInt(req.query.limit, 10) || 20;
-
-    const messages = await Message.find(queryOptions)
-        .populate('senderId', 'name avatarUrl') // Populer l'expéditeur
-        .sort({ createdAt: -1 }) // Les plus récents d'abord pour la pagination inversée
-        .limit(limit);
-
-    // Les messages sont récupérés du plus récent au plus ancien,
-    // le client les affichera généralement dans l'ordre chronologique (donc inverser si besoin côté client ou ici).
-    // Pour le scroll infini vers le haut, cet ordre est bon.
-
-    const messagesWithFullImageUrls = messages.map(msg => mapMessageImageUrls(req, msg));
-
-    res.status(200).json({
-        success: true,
-        results: messagesWithFullImageUrls.length,
-        data: {
-            messages: messagesWithFullImageUrls.reverse(), // Inverser pour l'affichage chronologique
-        }
-    });
 });
 
 /**
