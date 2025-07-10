@@ -215,8 +215,18 @@ const io = new Server(server, {
   }
 });
 
+// ADDED: store connected users for real-time messaging
+const connectedUsers = new Map();
+
 // Expose the Socket.IO instance so controllers can emit events
 app.set('socketio', io);
+
+// ADDED: expose io and connectedUsers on each request
+app.use((req, res, next) => {
+  req.io = io;
+  req.connectedUsers = connectedUsers;
+  next();
+});
 
 const onlineUsers = new Map();
 
@@ -243,6 +253,14 @@ io.on('connection', (socket) => {
     // Log connection of a new socket
     console.log('A user connected with socket id:', socket.id);
 
+    // ADDED: register userId to socket map
+    socket.on('register', (userId) => {
+        if (userId) {
+            connectedUsers.set(userId, socket.id);
+            console.log(`User ${userId} registered with socket ${socket.id}`);
+        }
+    });
+
     // Allow the client to join a room identified by its user ID
     socket.on('join-room', (userId) => {
         socket.join(userId);
@@ -259,6 +277,15 @@ io.on('connection', (socket) => {
 
     socket.on('startTyping', ({ threadId }) => {
         socket.to(threadId).emit('userTyping', { isTyping: true });
+    });
+
+    // ADDED: simple typing relay using connected user registry
+    socket.on('typing', ({ recipientId }) => {
+        if (!recipientId) return;
+        const recipientSocketId = connectedUsers.get(recipientId);
+        if (recipientSocketId) {
+            io.to(recipientSocketId).emit('userIsTyping', { senderId: socket.request.user.id });
+        }
     });
 
     socket.on('stopTyping', ({ threadId }) => {
@@ -321,11 +348,41 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ADDED: mark messages in a thread as read
+    socket.on('markAsRead', async ({ threadId }) => {
+        if (!threadId) return;
+        try {
+            await Message.updateMany(
+                { threadId, senderId: { $ne: socket.request.user.id }, isRead: false },
+                { $set: { isRead: true } }
+            );
+            const thread = await Thread.findById(threadId);
+            if (thread) {
+                const other = thread.participants.find(p => p.user.toString() !== socket.request.user.id);
+                if (other) {
+                    const recipientSocketId = connectedUsers.get(other.user.toString());
+                    if (recipientSocketId) {
+                        io.to(recipientSocketId).emit('messagesRead', { threadId });
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('markAsRead error:', err);
+        }
+    });
+
     socket.on('disconnect', () => {
         const entry = [...onlineUsers.entries()].find(([uid, sid]) => sid === socket.id);
         if (entry) {
             onlineUsers.delete(entry[0]);
             socket.broadcast.emit('userStatusUpdate', { userId: entry[0], isOnline: false });
+        }
+        // ADDED: remove from connected users registry
+        for (const [uid, sid] of connectedUsers.entries()) {
+            if (sid === socket.id) {
+                connectedUsers.delete(uid);
+                break;
+            }
         }
         console.log(`User disconnected: ${socket.request.user?.name} (${socket.id})`);
     });

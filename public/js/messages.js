@@ -931,6 +931,10 @@ export function handleNewMessageReceived({ message, thread, unreadThreadCount })
 
 function sendTypingEvent() {
     if (window.socket?.connected && activeThreadId) {
+        // ADDED: simple typing indication to recipient
+        if (currentRecipient) {
+            window.socket.emit('typing', { recipientId: currentRecipient._id || currentRecipient.id });
+        }
         if (!typingTimer) window.socket.emit('startTyping', { threadId: activeThreadId });
         clearTimeout(typingTimer);
         typingTimer = setTimeout(stopTypingEvent, 1500);
@@ -972,7 +976,23 @@ function handleTypingEventReceived({ isTyping }) {
 export function setupSocket(socket) {
     if (!socket) return;
     socket.on('newMessage', handleNewMessageReceived);
+    // ADDED: global listener example for new messages
+    socket.on('newMessage', (message) => {
+        console.log('Nouveau message reçu en temps réel:', message);
+        // Example placeholder for UI update
+        // updateChatUIWithNewMessage(message);
+    });
     socket.on('userTyping', handleTypingEventReceived);
+    // ADDED: handle simple typing event relay
+    socket.on('userIsTyping', ({ senderId }) => {
+        if (currentRecipient && senderId === currentRecipient._id) {
+            handleTypingEventReceived({ isTyping: true });
+            clearTimeout(typingIndicatorTimer);
+            typingIndicatorTimer = setTimeout(() => {
+                handleTypingEventReceived({ isTyping: false });
+            }, TYPING_TIMEOUT);
+        }
+    });
     socket.on('messagesRead', ({ threadId }) => {
         if (threadId === activeThreadId) {
             const sentMessages = chatMessagesContainer.querySelectorAll('.chat-message[data-sender-id="me"]');

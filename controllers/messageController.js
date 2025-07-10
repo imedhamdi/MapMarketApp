@@ -284,6 +284,16 @@ exports.createMessage = asyncHandler(async (req, res, next) => {
     await newMessage.populate('senderId', 'name avatarUrl');
     const messageObj = mapMessageImageUrls(req, newMessage.toObject());
 
+    // ADDED: simple real-time broadcast to recipient if online
+    const { io, connectedUsers } = req;
+    const recipientId = req.body.recipient;
+    if (io && connectedUsers && recipientId) {
+        const recipientSocketId = connectedUsers.get(recipientId);
+        if (recipientSocketId) {
+            io.to(recipientSocketId).emit('newMessage', messageObj);
+        }
+    }
+
     if (ioInstance) {
         for (const participant of thread.participants) {
             const participantId = participant.user._id;
