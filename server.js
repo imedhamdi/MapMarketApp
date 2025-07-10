@@ -224,17 +224,17 @@ io.use(async (socket, next) => {
     try {
         const token = socket.handshake.auth.token;
         if (!token) {
-            return next(new Error('Authentication error: Token not provided'));
+            return next(new Error('Authentication error: Token not provided.'));
         }
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.id).select('+active');
+        const user = await User.findById(decoded.id);
         if (!user) {
-            return next(new Error('Authentication error: User not found'));
+            return next(new Error('Authentication error: User not found.'));
         }
-        socket.user = user;
+        socket.request.user = user;
         next();
     } catch (err) {
-        next(new Error('Authentication error: Invalid token'));
+        next(new Error('Authentication error: Invalid token.'));
     }
 });
 
@@ -250,10 +250,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('goOnline', ({ userId }) => {
-        onlineUsers.set(userId, socket.id);
-        socket.join(userId);
+        const uid = userId || socket.request.user.id;
+        onlineUsers.set(uid, socket.id);
+        socket.join(uid);
         socket.emit('onlineUsers', Array.from(onlineUsers.keys()));
-        socket.broadcast.emit('userStatusUpdate', { userId, isOnline: true });
+        socket.broadcast.emit('userStatusUpdate', { userId: uid, isOnline: true });
     });
 
     socket.on('startTyping', ({ threadId }) => {
@@ -264,14 +265,15 @@ io.on('connection', (socket) => {
         socket.to(threadId).emit('userTyping', { isTyping: false });
     });
 
-    socket.on('join thread', (threadId) => {
-        socket.join(threadId);
-        console.log(`User ${socket.user.name} joined thread ${threadId}`);
+    socket.on('joinThread', (threadId) => {
+        if (threadId) {
+            socket.join(threadId);
+            // console.log(`User ${socket.id} joined thread ${threadId}`);
+        }
     });
 
     socket.on('sendMessage', async (data) => {
         const { threadId, text, content } = data;
-
         const messageText = text || content;
 
         if (!threadId || !messageText || messageText.trim() === '') {
@@ -279,15 +281,16 @@ io.on('connection', (socket) => {
         }
 
         try {
+            const userId = socket.request.user.id;
             const thread = await Thread.findById(threadId);
-            const isParticipant = thread && thread.participants.some(p => p.user.toString() === socket.user._id.toString());
+            const isParticipant = thread && thread.participants.some(p => p.user.toString() === userId);
             if (!thread || !isParticipant) {
-                return socket.emit('messageError', { message: 'Accès non autorisé à cette conversation.' });
+                return console.error('Unauthorized message attempt.');
             }
 
             let newMessage = new Message({
                 threadId,
-                senderId: socket.user._id,
+                senderId: userId,
                 text: messageText.trim()
             });
             await newMessage.save();
@@ -324,7 +327,7 @@ io.on('connection', (socket) => {
             onlineUsers.delete(entry[0]);
             socket.broadcast.emit('userStatusUpdate', { userId: entry[0], isOnline: false });
         }
-        console.log(`User disconnected: ${socket.user.name} (${socket.id})`);
+        console.log(`User disconnected: ${socket.request.user?.name} (${socket.id})`);
     });
 });
 
