@@ -65,6 +65,11 @@ const messageSchema = new mongoose.Schema({
     readAt: {
         type: Date
     },
+    // ADDED: boolean flag for read status
+    isRead: {
+        type: Boolean,
+        default: false
+    },
     // Pour la suppression "pour moi"
     // Stocke les IDs des utilisateurs pour qui ce message est "supprimé"
     // Si un message est supprimé "pour tous", on pourrait le marquer différemment (ex: texte remplacé, statut 'deleted_for_all')

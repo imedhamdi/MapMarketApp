@@ -52,6 +52,8 @@ function connectSocket() {
     });
     if (currentUser) {
         socket.emit('goOnline', { userId: currentUser._id || currentUser.id });
+        // ADDED: register user on socket connection
+        socket.emit('register', currentUser._id || currentUser.id);
     }
     Messages.setupSocket(socket);
 }

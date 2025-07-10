@@ -678,3 +678,26 @@ body.dark-mode .chat-ad-summary:hover {
         border-radius: 0;
     }
 }
+
+/* ADDED: basic message bubble layout */
+#chat-messages-container {
+    display: flex;
+    flex-direction: column;
+}
+
+.message-bubble {
+    border-radius: 12px;
+    padding: 8px 12px;
+    max-width: 80%;
+    margin-bottom: 4px;
+}
+
+.message-bubble.sent {
+    align-self: flex-end;
+    background-color: #dcf8c6;
+}
+
+.message-bubble.received {
+    align-self: flex-start;
+    background-color: #f1f0f0;
+}
