@@ -199,6 +199,14 @@ async function addFavorite(adId) {
         }
         return false;
     } catch (error) {
+        // Si l'annonce est déjà en favori, considérer l'opération comme réussie
+        if (error.status === 400 && error.message && error.message.includes('déjà')) {
+            showToast("Annonce déjà présente dans vos favoris.", "info");
+            state.addFavorite(adId);
+            loadUserFavorites();
+            return true;
+        }
+
         console.error("Erreur d'ajout aux favoris:", error);
         return false;
     }
