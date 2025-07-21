@@ -74,6 +74,12 @@
     text-overflow: ellipsis;
 }
 
+.thread-item__message-line {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .thread-meta {
     margin-left: auto;
     text-align: right;
