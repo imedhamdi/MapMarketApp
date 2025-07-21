@@ -492,8 +492,11 @@ function renderThreadList(threadsData) {
             ? sanitizeHTML(thread.lastMessage.text)
             : (thread.lastMessage?.imageUrl ? '[Image]' : 'Début de la conversation');
 
+        const truncatedPreview =
+            previewText.length > 60 ? previewText.slice(0, 60) + '...' : previewText;
+
         if (userNameEl) userNameEl.textContent = `${sanitizeHTML(lastMessageSender)}: `;
-        if (messagePreviewEl) messagePreviewEl.textContent = previewText;
+        if (messagePreviewEl) messagePreviewEl.textContent = truncatedPreview;
 
         // La logique pour l'heure et le badge non lu reste la même
         if (timeEl) timeEl.textContent = thread.lastMessage ? formatDate(thread.lastMessage.createdAt, { hour: '2-digit', minute: '2-digit' }) : '';
