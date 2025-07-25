@@ -339,22 +339,107 @@ body.dark-mode .map-info-bar {
 /* Responsive Ad Preview Card */
 #ad-preview-card {
     position: absolute;
-    left: var(--spacing-md);
-    right: var(--spacing-md);
+    left: 50%;
     bottom: calc(var(--bottom-nav-height) + var(--spacing-md));
+    transform: translate(-50%, 100%);
+    max-width: 380px;
+    width: calc(100% - 2 * var(--spacing-md));
     background-color: var(--component-bg);
     border-radius: var(--border-radius-lg);
     box-shadow: var(--shadow-lg);
     display: flex;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md);
-    transform: translateY(100%);
-    transition: transform 0.3s ease-in-out;
+    flex-direction: column;
+    overflow: hidden;
+    transition: all 0.3s ease-in-out;
     z-index: 1000;
-    align-items: center;
 }
 
 #ad-preview-card:not(.hidden) {
-    transform: translateY(0);
+    transform: translate(-50%, 0);
+}
+
+.preview-card-image-container {
+    position: relative;
+    width: 100%;
+    height: 180px;
+    overflow: hidden;
+}
+
+.preview-card-image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease-in-out;
+}
+
+.preview-card-image-container:hover img {
+    transform: scale(1.05);
+}
+
+.favorite-btn {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: var(--border-radius-full);
+    box-shadow: var(--shadow-sm);
+}
+
+.favorite-btn.active i {
+    color: var(--danger-color);
+}
+
+.preview-card-details {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-md);
+}
+
+.preview-card-details h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.preview-card-price {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.preview-card-meta {
+    margin-top: auto;
+    display: flex;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+}
+
+.preview-card-divider {
+    height: 1px;
+    background-color: var(--gray-200);
+    margin: 0 var(--spacing-md);
+}
+
+.preview-card-seller-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+}
+
+.seller-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.seller-name {
+    font-weight: 600;
 }
 

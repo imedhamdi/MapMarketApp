@@ -571,68 +571,81 @@ export function displayAdsOnMap(ads) {
 
 function handleMarkerClick(ad) {
     console.log('handleMarkerClick -> ad', ad);
-    showAdPreviewCard(ad);
+    displayAdPreview(ad);
 }
 
-function showAdPreviewCard(ad) {
-    console.log('showAdPreviewCard -> ad', ad);
+/**
+ * Génère et affiche la carte de prévisualisation d'une annonce.
+ * @param {Object} ad - Données de l'annonce à afficher.
+ */
+function displayAdPreview(ad) {
+    console.log('displayAdPreview -> ad', ad);
     const card = document.getElementById('ad-preview-card');
-    const image = document.getElementById('preview-card-image');
-    const title = document.getElementById('preview-card-title');
-    const price = document.getElementById('preview-card-price');
-    const category = document.getElementById('preview-card-category');
-    const distance = document.getElementById('preview-card-distance');
-    const favoriteBtn = document.getElementById('preview-card-favorite-btn');
     if (!card) return;
 
-    card.dataset.adId = ad._id || ad.id || '';
+    const adId = ad._id || ad.id;
+    card.dataset.adId = adId || '';
 
-    if (image) {
-        image.src = (ad.imageUrls && ad.imageUrls[0]) || 'https://placehold.co/96x96/e0e0e0/757575?text=Ad';
-        image.alt = `Image de ${sanitizeHTML(ad.title)}`;
-    }
-    if (title) title.textContent = sanitizeHTML(ad.title);
-    if (price) price.textContent = ad.price != null ? formatCurrency(ad.price, ad.currency) : 'N/A';
+    const imgSrc = (ad.imageUrls && ad.imageUrls[0]) ||
+        'https://placehold.co/300x200/e0e0e0/757575?text=Ad';
+    const title = sanitizeHTML(ad.title);
+    const priceStr = ad.price != null ? formatCurrency(ad.price, ad.currency) : 'N/A';
 
     const categories = state.getCategories ? state.getCategories() : [];
     const catObj = categories.find(c => c.id === ad.category);
-    const catLabel = ad.categoryLabel || catObj?.name || ad.category || '';
-    if (category) category.textContent = catLabel;
+    const catLabel = sanitizeHTML(ad.categoryLabel || catObj?.name || ad.category || '');
 
-    if (distance) {
-        const userPos = state.getMapState()?.userPosition;
-        const lat = ad.latitude ?? ad.location?.coordinates?.[1];
-        const lng = ad.longitude ?? ad.location?.coordinates?.[0];
-        if (userPos && lat != null && lng != null) {
-            const dist = calculateDistance(userPos.lat, userPos.lng, lat, lng);
-            distance.textContent = `${dist.toFixed(1)} km`;
-        } else {
-            distance.textContent = '';
-        }
+    const userPos = state.getMapState()?.userPosition;
+    const lat = ad.latitude ?? ad.location?.coordinates?.[1];
+    const lng = ad.longitude ?? ad.location?.coordinates?.[0];
+    let distanceLabel = '';
+    if (userPos && lat != null && lng != null) {
+        const dist = calculateDistance(userPos.lat, userPos.lng, lat, lng);
+        distanceLabel = `${dist.toFixed(1)} km`;
     }
 
+    const sellerName = sanitizeHTML(ad.user?.username || ad.userId?.name || '');
+    const avatar = ad.user?.avatar || ad.userId?.avatarUrl || './avatar-default.svg';
+
+    card.innerHTML = `
+        <div class="preview-card-image-container">
+            <img id="preview-card-image" src="${imgSrc}" alt="Image de ${title}" class="preview-card-image">
+            <button id="preview-card-favorite-btn" type="button" class="btn btn-icon favorite-btn" data-favorite-btn aria-label="Ajouter aux favoris">
+                <i class="fa-regular fa-heart"></i>
+            </button>
+        </div>
+        <div id="preview-card-details" class="preview-card-details">
+            <h3 id="preview-card-title" title="${title}">${title}</h3>
+            <p id="preview-card-price">${priceStr}</p>
+            <div id="preview-card-meta" class="preview-card-meta">
+                <span id="preview-card-category" class="meta-badge">${catLabel}</span>
+                <span id="preview-card-distance" class="meta-badge">${distanceLabel ? `<i class='fa-solid fa-location-dot'></i> ${distanceLabel}` : ''}</span>
+            </div>
+        </div>
+        <div class="preview-card-divider"></div>
+        <div class="preview-card-seller-info">
+            <img src="${avatar}" alt="Avatar de ${sellerName}" class="seller-avatar">
+            <span class="seller-name">${sellerName}</span>
+        </div>
+    `;
+
+    const favoriteBtn = card.querySelector('#preview-card-favorite-btn');
     if (favoriteBtn) {
         const currentUser = state.getCurrentUser();
-        const ownerId = ad.userId?._id || ad.userId;
+        const ownerId = ad.user?._id || ad.userId?._id || ad.userId;
         const isOwner = currentUser && ownerId && ownerId === currentUser._id;
         favoriteBtn.classList.toggle('hidden', isOwner);
         if (!isOwner) {
-            const adId = ad._id || ad.id;
-            let isFav = state.isFavorite(adId); // Utiliser la fonction helper de l'état
+            let isFav = state.isFavorite(adId);
 
-            // Définir l'état initial de l'interface
             favoriteBtn.classList.toggle('active', isFav);
-            favoriteBtn.setAttribute('aria-pressed', isFav.toString());
+            favoriteBtn.setAttribute('aria-pressed', String(isFav));
             const icon = favoriteBtn.querySelector('i');
             if (icon) icon.className = isFav ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
 
-            // Mise à jour optimiste au clic
             favoriteBtn.onclick = (e) => {
                 e.stopPropagation();
-
-                // 1. Mettre à jour l'UI immédiatement
-                isFav = !isFav; // Inverser l'état
-                // 2. Envoyer l'événement pour le traitement en arrière-plan
+                isFav = !isFav;
                 document.dispatchEvent(new CustomEvent('mapMarket:toggleFavorite', {
                     detail: { adId: adId, setFavorite: isFav, sourceButton: favoriteBtn }
                 }));
@@ -645,10 +658,10 @@ function showAdPreviewCard(ad) {
     card.onclick = (e) => {
         if (e.target.closest('#preview-card-favorite-btn')) return;
         card.classList.add('hidden');
-        document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: ad._id || ad.id } }));
+        document.dispatchEvent(new CustomEvent('mapMarket:viewAdDetails', { detail: { adId: adId } }));
     };
 
-    console.log('showAdPreviewCard -> displaying preview card');
+    console.log('displayAdPreview -> displaying preview card');
     card.classList.remove('hidden');
 }
 
