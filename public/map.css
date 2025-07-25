@@ -358,36 +358,3 @@ body.dark-mode .map-info-bar {
     transform: translateY(0);
 }
 
-@media (min-width: 768px) {
-    #ad-preview-card {
-        width: 340px;
-        left: var(--spacing-md);
-        right: auto;
-        border-radius: var(--border-radius-md);
-    }
-}
-
-@media (max-width: 767px) {
-    #ad-preview-card {
-        left: var(--spacing-xs);
-        right: var(--spacing-xs);
-        border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
-    }
-}
-
-@media (min-width: 992px) {
-    #ad-preview-card {
-        left: 20px;
-        top: 20px;
-        right: auto;
-        bottom: auto;
-        width: 380px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        transform: translateX(-150%);
-    }
-
-    #ad-preview-card.visible,
-    #ad-preview-card:not(.hidden) {
-        transform: translateX(0);
-    }
-}
